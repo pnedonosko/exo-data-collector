@@ -28,7 +28,7 @@
   </parent>
   
   <artifactId>data-collector-packaging</artifactId>
-  <packaging>war</packaging>
+  <packaging>pom</packaging>
   <name>eXo Data Collector :: Packaging</name>
   <description>eXo Data Collector portal extension packaging</description>
   
