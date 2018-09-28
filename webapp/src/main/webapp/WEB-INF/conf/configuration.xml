@@ -48,7 +48,7 @@
             <field name="state">
               <object type="org.exoplatform.portal.config.model.TransientApplicationState">
                 <field name="contentId">
-                  <string>datacollector/DataCollectorPortet</string>
+                  <string>datacollector/DataCollectorPortlet</string>
                 </field>
               </object>
             </field>
