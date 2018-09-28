@@ -80,7 +80,7 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
-      <!-- Video Calls extension -->
+      <!-- Extension modules -->
       <dependency>
         <groupId>org.exoplatform.addons.data-collector</groupId>
         <artifactId>data-collector-services</artifactId>
