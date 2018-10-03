@@ -58,3 +58,4 @@ dependency-reduced-pom.xml
 .groovy/
 transaction.log
 rebel.xml
+/.metadata/

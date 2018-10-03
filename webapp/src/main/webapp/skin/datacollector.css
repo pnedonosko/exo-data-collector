@@ -1,0 +1,29 @@
+@font-face {
+  font-family: 'icomoon';
+  src:  url('/datacollector/skin/fonts/icomoon.eot?jutru7');
+  src:  url('/datacollector/skin/fonts/icomoon.eot?jutru7#iefix') format('embedded-opentype'),
+    url('/datacollector/skin/fonts/icomoon.ttf?jutru7') format('truetype'),
+    url('/datacollector/skin/fonts/icomoon.woff?jutru7') format('woff'),
+    url('/datacollector/skin/fonts/icomoon.svg?jutru7#icomoon') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.eye {
+  color: black;
+  font-size: 16px;
+  font-family: "icomoon" !important;
+ }
+
+.eye-default:before {
+	color: grey;
+	content: "\e9ce";
+}
+
+.eye-relevant:before {
+	content: "\e9ce";
+}
+
+.eye-irrelevant:before {
+	content: "\e9d1";
+}
