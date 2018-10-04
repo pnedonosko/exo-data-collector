@@ -3,8 +3,10 @@
 	
 	$(document).ready(function() {
 	 
+	 	// Add default eye icons
 		$( ".actionBar" ).find( ".statusAction" ).prepend( "<li class='eye eye-default'></li>");
 
+		// Listener for changing icon state
 		$('.eye').click(function() {
 
 			if($(this).hasClass("eye-default")){
@@ -20,6 +22,17 @@
 				$(this).toggleClass('eye-relevant');
 			}
 		});
+
+		// Observe changes in the stream to add icon to new activities
+		var observer = new MutationObserver(function(mutations) {
+		  mutations.forEach(function(mutation) {
+		    if(mutation.addedNodes.length > 3){
+		    	$(mutation.target).find(".statusAction").prepend("<li class='eye eye-default'></li>");
+		    }
+		  });    
+		});
+		 
+		observer.observe($("#UIActivitiesLoader").get(0), {childList: true, subtree: true });
 
 		});
 		
