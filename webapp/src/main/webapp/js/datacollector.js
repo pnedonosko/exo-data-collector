@@ -27,16 +27,22 @@
 
 	function addEyeOnClickListener() {
 		$(".eye").click(function() {
-
+			var link = $(this).parents(".boxContainer").find('.heading > .actLink > a')[0];
+			var activityId = $(link).attr("href").substring($(link).attr("href").indexOf('=') + 1);
+			
 			if($(this).hasClass("eye-default")){
+				console.log("Action: relevant | ID: " + activityId);
 				$(this).removeClass("eye-default");
 				$(this).toggleClass('eye-relevant');
 			}
 			else if($(this).hasClass("eye-relevant")){
+				
+				console.log("Action: irrelevant | ID: " + activityId);
 				$(this).removeClass("eye-relevant");
 				$(this).toggleClass('eye-irrelevant');
 			}
 			else{
+				console.log("Action: relevant | ID: " + activityId);
 				$(this).removeClass("eye-irrelevant");
 				$(this).toggleClass('eye-relevant');
 			}
