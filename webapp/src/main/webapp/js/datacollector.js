@@ -8,7 +8,25 @@
 
 		
 		// Listener for changing icon state
-		$('.eye').click(function() {
+		addEyeOnClickListener();
+
+		// Observe changes in the stream to add icon to new activities
+		var observer = new MutationObserver(function(mutations) {
+		  mutations.forEach(function(mutation) {
+		  	
+		    if(mutation.addedNodes.length > 3){
+		    	$(mutation.target).find(".statusAction").prepend("<li class='eye eye-default'></li>");
+		    	addEyeOnClickListener();
+		    }
+		  });    
+		});
+		 
+		observer.observe($("#UIUserActivitiesDisplay").get(0), {childList: true, subtree: true});
+
+		});
+
+	function addEyeOnClickListener() {
+		$(".eye").click(function() {
 
 			if($(this).hasClass("eye-default")){
 				$(this).removeClass("eye-default");
@@ -23,19 +41,6 @@
 				$(this).toggleClass('eye-relevant');
 			}
 		});
-
-		// Observe changes in the stream to add icon to new activities
-		var observer = new MutationObserver(function(mutations) {
-		  mutations.forEach(function(mutation) {
-		  	
-		    if(mutation.addedNodes.length > 3){
-		    	$(mutation.target).find(".statusAction").prepend("<li class='eye eye-default'></li>");
-		    }
-		  });    
-		});
-		 
-		observer.observe($("#UIUserActivitiesDisplay").get(0), {childList: true, subtree: true});
-
-		});
+	}
 
 })($);
