@@ -6,6 +6,7 @@
 	 	// Add default eye icons
 		$( ".actionBar" ).find( ".statusAction" ).prepend( "<li class='eye eye-default'></li>");
 
+		
 		// Listener for changing icon state
 		$('.eye').click(function() {
 
@@ -26,14 +27,15 @@
 		// Observe changes in the stream to add icon to new activities
 		var observer = new MutationObserver(function(mutations) {
 		  mutations.forEach(function(mutation) {
+		  	
 		    if(mutation.addedNodes.length > 3){
 		    	$(mutation.target).find(".statusAction").prepend("<li class='eye eye-default'></li>");
 		    }
 		  });    
 		});
 		 
-		observer.observe($("#UIActivitiesLoader").get(0), {childList: true, subtree: true });
+		observer.observe($("#UIUserActivitiesDisplay").get(0), {childList: true, subtree: true});
 
 		});
-		
+
 })($);
