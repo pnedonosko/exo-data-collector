@@ -1,5 +1,6 @@
 package org.exoplatform.datacollector.rest;
 
+import javax.annotation.security.RolesAllowed;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -21,6 +22,7 @@ public class RESTDataCollectorService implements ResourceContainer {
 	
 	
 	@POST
+	@RolesAllowed("users")
 	@Consumes(MediaType.APPLICATION_JSON)
 	@Path("/collector")
 	public void collect(RelevanceEntity relevanceEntity) throws JSONException {
