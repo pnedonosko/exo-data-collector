@@ -18,38 +18,61 @@
  */
 package org.exoplatform.datacollector;
 
-import org.picocontainer.Startable;
-
+import org.exoplatform.datacollector.dao.RelevanceDAO;
+import org.exoplatform.datacollector.domain.RelevanceEntity;
+import org.exoplatform.datacollector.domain.RelevanceId;
+import org.exoplatform.datacollector.rest.RESTDataCollectorService;
 import org.exoplatform.services.jcr.RepositoryService;
 import org.exoplatform.services.jcr.ext.app.SessionProviderService;
 import org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator;
+import org.exoplatform.services.log.ExoLogger;
+import org.exoplatform.services.log.Log;
 import org.exoplatform.services.organization.OrganizationService;
 import org.exoplatform.social.core.manager.IdentityManager;
+import org.picocontainer.Startable;
 
 /**
  * The Class DataCollectorService.
  */
 public class DataCollectorService implements Startable {
 
-  public DataCollectorService(RepositoryService jcrService,
-                              SessionProviderService sessionProviders,
-                              NodeHierarchyCreator hierarchyCreator,
-                              OrganizationService organization,
-                              IdentityManager socialIdentityManager) {
-    super();
-    // TODO Auto-generated constructor stub
-  }
+	protected final RelevanceDAO relevanceStorage;
+	
+	/** The Constant LOG. */
+	protected static final Log LOG = ExoLogger.getLogger(DataCollectorService.class);
 
-  @Override
-  public void start() {
-    // TODO Auto-generated method stub
+	public DataCollectorService(RepositoryService jcrService, SessionProviderService sessionProviders,
+			NodeHierarchyCreator hierarchyCreator, OrganizationService organization,
+			IdentityManager socialIdentityManager, RelevanceDAO relevanceStorage) {
+		super();
+		this.relevanceStorage = relevanceStorage;
+	}
 
-  }
+	@Override
+	public void start() {
+		// TODO Auto-generated method stub
 
-  @Override
-  public void stop() {
-    // TODO Auto-generated method stub
+	}
 
-  }
+	@Override
+	public void stop() {
+		// TODO Auto-generated method stub
+
+	}
+
+	public void saveRelevance(RelevanceEntity relevance) {
+		RelevanceEntity existingRelevance = relevanceStorage.find(new RelevanceId(relevance.getUserId(), relevance.getActivityId()));
+		if (existingRelevance == null) {
+			relevanceStorage.create(relevance);
+			LOG.info("Relevance created: " + relevance);
+		} else {
+			relevanceStorage.update(relevance);
+			LOG.info("Relevance updated: " + relevance);
+		}
+	}
+	
+	public RelevanceEntity findById(RelevanceId relevanceId) {
+		return relevanceStorage.find(relevanceId);
+	}
 
 }

@@ -1,10 +1,30 @@
 package org.exoplatform.datacollector.domain;
 
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.IdClass;
+import javax.persistence.Table;
+
+import org.exoplatform.commons.api.persistence.ExoEntity;
+
+@Entity(name = "DataCollectorRelevance")
+@ExoEntity
+@Table(name = "DTC_RELEVANCES")
+@IdClass(RelevanceId.class)
 public class RelevanceEntity {
 
-	private String userId;
-	private String activityId;
-	private Boolean relevant;
+	@Id
+	@Column(name = "USER_ID")
+	protected String userId;
+	
+	@Id
+	@Column(name = "ACTIVITY_ID")
+	protected String activityId;
+	
+	@Column(name = "IS_RELEVANT")
+	protected Boolean relevant;
 	
 	public String getUserId() {
 		return userId;
