@@ -2,33 +2,31 @@
 	"use strict";
 	
 	$(document).ready(function() {
-	 
-	 	// Add default eye icons
-		$( ".actionBar" ).find( ".statusAction" ).prepend( "<li class='eye eye-default'></li>");
 
-		
-		// Listener for changing icon state
-		addEyeOnClickListener($(".eye"));
+	 	// Set initial state of the icons
+		updateStateOfIcons($( ".actionBar" ));
 
-		// Observe changes in the stream to add icon to new activities
+		// Observe changes in the stream to add icons to new activities
 		var observer = new MutationObserver(function(mutations) {
 		  mutations.forEach(function(mutation) {
 		  	
 		    if(mutation.addedNodes.length > 3){
-		    	$(mutation.target).find(".statusAction").prepend("<li class='eye eye-default'></li>");
-		    	addEyeOnClickListener($(mutation.target).find(".eye"));
+		    	updateStateOfIcons($(mutation.target));
 		    }
 		  });    
 		});
-		 
+		
+		// Start observing 
 		observer.observe($("#UIUserActivitiesDisplay").get(0), {childList: true, subtree: true});
 
 		});
 
-	// Adds on click listener to the elements
+
+	// Adds onClick listener to the elements
 	function addEyeOnClickListener(elements) {
 		$(elements).click(function() {
 			if($(this).attr("onClick") == undefined){
+				// The link contains activityId
 				var link = $(this).parents(".boxContainer").find('.heading > .actLink > a')[0];
 				var activityId = $(link).attr("href").substring($(link).attr("href").indexOf('=') + 1);
 				
@@ -74,13 +72,66 @@
 	// Sends information about relevance of the activity to the server
 	function sendRelevance(activityId, relevant){
 		var prefixUrl = pageBaseUrl(location);
+		// The object of relevance to be sent to the server
 		var relevance = {"userId": eXo.env.portal.userName, "activityId": activityId, "relevant":relevant};
+
 		$.ajax({
                 url: prefixUrl + "/portal/rest/datacollector/collector",
                 type: 'post',
                 contentType: 'application/json',
                 data: JSON.stringify(relevance)
             });
+	}
+
+	// Updates state of the icons. Accepts any parent div of an icon element
+	function updateStateOfIcons(iconsParentDiv){
+
+		var prefixUrl = pageBaseUrl(location);
+
+		// Iterates through each activity block and inserts the eye icon
+		$(iconsParentDiv).find('.statusAction').each(function(){
+			// The link contains activityId
+			var link = $(this).parents(".boxContainer").find('.heading > .actLink > a')[0];
+			var activityId = $(link).attr("href").substring($(link).attr("href").indexOf('=') + 1);
+			var userId = eXo.env.portal.userName
+
+			// To be used in ajax success/error function
+			var current = $(this);
+
+			$.ajax({
+                url: prefixUrl + "/portal/rest/datacollector/collector/" + userId + "/" + activityId,
+                type: 'get',
+
+                success: function (data){
+                	if(data.relevant){
+						$(current).prepend( "<li class='eye eye-relevant'></li>");	
+                	}
+                	else{
+                		$(current).prepend( "<li class='eye eye-irrelevant'></li>");	
+                	}
+
+                	// Add onClick listener to new icon
+                	addEyeOnClickListener($(current).find('.eye'));
+                },
+
+                error: function(XMLHttpRequest){
+                	 // If user hasn't checked relevance for the activity
+                	 if(XMLHttpRequest.status == 404){
+                	 	// Add default icon
+                	 	$(current).prepend( "<li class='eye eye-default'></li>");
+                	 	// Add onClickListener to new icon
+                	 	addEyeOnClickListener($(current).find('.eye'));
+                	 } else{
+                	 	console.log('Data Collector: Error status: ' + XMLHttpRequest.status + ', text: ' + XMLHttpRequest.statusText);
+                	 }
+                }
+
+
+            });
+			
+
+			
+		});	
 	}
 
 })($);

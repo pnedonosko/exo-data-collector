@@ -37,7 +37,6 @@ public class RESTDataCollectorService implements ResourceContainer {
 	@Consumes(MediaType.APPLICATION_JSON)
 	@Path("/collector")
 	public void saveRelevance(RelevanceEntity relevanceEntity) throws JSONException {
-		LOG.info("New Relevance: " + relevanceEntity.toString());
 		dataCollectorService.saveRelevance(relevanceEntity);
 	}
 	
