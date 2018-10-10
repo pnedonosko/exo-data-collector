@@ -9,7 +9,6 @@
 	// Observe changes in the stream to add icons to new activities
 	var observer = new MutationObserver(function(mutations) {
 		mutations.forEach(function(mutation) {
-			console.log(mutation.type);
 			if(mutation.addedNodes.length > 3){
 				updateStateOfIcons($(mutation.target));
 			}
@@ -93,7 +92,7 @@ function sendRelevance(activityId, relevant){
 
 // Updates state of the icons. Accepts any parent div of an icon element
 function updateStateOfIcons(iconsParentDiv){
-	
+
 	var prefixUrl = pageBaseUrl(location);
 
 	// Iterates through each activity block and inserts the eye icon
