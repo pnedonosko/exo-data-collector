@@ -9,7 +9,7 @@
 	// Observe changes in the stream to add icons to new activities
 	var observer = new MutationObserver(function(mutations) {
 		mutations.forEach(function(mutation) {
-			
+			console.log(mutation.type);
 			if(mutation.addedNodes.length > 3){
 				updateStateOfIcons($(mutation.target));
 			}
@@ -18,7 +18,15 @@
 	
 	// Start observing 
 	observer.observe($("#UIUserActivitiesDisplay").get(0), {childList: true, subtree: true});
-
+	
+	// If there is no activities in the stream, creating a new activity causes recreating the target of observer	
+	$("#ShareButton").click(function(){
+		// Wait for creating new structore of stream and start observing
+		setTimeout(function(){
+			observer.observe($("#UIUserActivitiesDisplay").get(0), {childList: true, subtree: true});
+			updateStateOfIcons($( ".boxContainer" ));
+		}, 1000);
+	});
 });
 
 
@@ -85,7 +93,7 @@ function sendRelevance(activityId, relevant){
 
 // Updates state of the icons. Accepts any parent div of an icon element
 function updateStateOfIcons(iconsParentDiv){
-
+	
 	var prefixUrl = pageBaseUrl(location);
 
 	// Iterates through each activity block and inserts the eye icon
@@ -97,6 +105,11 @@ function updateStateOfIcons(iconsParentDiv){
 
 		// To be used in ajax success/error function
 		var current = $(this);
+
+		// If there is already icon move to the next block
+		if($(this).find('li.eye').length !== 0){
+			return;
+		}
 
 		$.ajax({
 			url: prefixUrl + "/portal/rest/datacollector/collector/" + userId + "/" + activityId,
@@ -126,11 +139,7 @@ function updateStateOfIcons(iconsParentDiv){
             	 }
             	}
 
-
-            });
-		
-
-		
+            });	
 	});	
 }
 
