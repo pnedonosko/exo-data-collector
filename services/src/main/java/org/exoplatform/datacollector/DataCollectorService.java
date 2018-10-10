@@ -21,14 +21,9 @@ package org.exoplatform.datacollector;
 import org.exoplatform.datacollector.dao.RelevanceDAO;
 import org.exoplatform.datacollector.domain.RelevanceEntity;
 import org.exoplatform.datacollector.domain.RelevanceId;
-import org.exoplatform.datacollector.rest.RESTDataCollectorService;
-import org.exoplatform.services.jcr.RepositoryService;
-import org.exoplatform.services.jcr.ext.app.SessionProviderService;
-import org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
-import org.exoplatform.services.organization.OrganizationService;
-import org.exoplatform.social.core.manager.IdentityManager;
+
 import org.picocontainer.Startable;
 
 /**
@@ -36,32 +31,48 @@ import org.picocontainer.Startable;
  */
 public class DataCollectorService implements Startable {
 
+	/** The DAO for RelevanceEntity */
 	protected final RelevanceDAO relevanceStorage;
-	
+
 	/** The Constant LOG. */
 	protected static final Log LOG = ExoLogger.getLogger(DataCollectorService.class);
 
-	public DataCollectorService(RepositoryService jcrService, SessionProviderService sessionProviders,
-			NodeHierarchyCreator hierarchyCreator, OrganizationService organization,
-			IdentityManager socialIdentityManager, RelevanceDAO relevanceStorage) {
-		super();
+	/**
+	 * Instantiates a Data collector Service
+	 * 
+	 * @param relevanceStorage is the DAO for RelevanceEntity
+	 */
+	public DataCollectorService(RelevanceDAO relevanceStorage) {
 		this.relevanceStorage = relevanceStorage;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
 	public void start() {
-		// TODO Auto-generated method stub
+		// Nothing
 
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
 	public void stop() {
-		// TODO Auto-generated method stub
+		// Nothing
 
 	}
 
+	/**
+	 * Saves a relevance to the storage. 
+	 * Updates the relevance if it is already exists.
+	 * 
+	 * @param relevance to be saved/updated
+	 */
 	public void saveRelevance(RelevanceEntity relevance) {
-		RelevanceEntity existingRelevance = relevanceStorage.find(new RelevanceId(relevance.getUserId(), relevance.getActivityId()));
+		RelevanceEntity existingRelevance = relevanceStorage
+				.find(new RelevanceId(relevance.getUserId(), relevance.getActivityId()));
 		if (existingRelevance == null) {
 			relevanceStorage.create(relevance);
 			LOG.info("Relevance created: " + relevance);
@@ -70,7 +81,14 @@ public class DataCollectorService implements Startable {
 			LOG.info("Relevance updated: " + relevance);
 		}
 	}
-	
+
+	/**
+	 * Gets RelevanceEntity by given RelevanceId which contains the user id and
+	 * activity id.
+	 *
+	 * @param relevanceId is the searching parameter for retrieving RelevanceEntity
+	 * @return found RelevanceEntity or null if there is no such RelevanceEntity.
+	 */
 	public RelevanceEntity findById(RelevanceId relevanceId) {
 		return relevanceStorage.find(relevanceId);
 	}
