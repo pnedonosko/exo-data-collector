@@ -4,7 +4,7 @@
 	$(document).ready(function() {
 
  	// Set initial state of the icons
- 	updateStateOfIcons($( ".actionBar" ));
+ 	updateStateOfIcons($( ".boxContainer" ));
 
 	// Observe changes in the stream to add icons to new activities
 	var observer = new MutationObserver(function(mutations) {
@@ -89,7 +89,7 @@ function updateStateOfIcons(iconsParentDiv){
 	var prefixUrl = pageBaseUrl(location);
 
 	// Iterates through each activity block and inserts the eye icon
-	$(iconsParentDiv).find('.statusAction').each(function(){
+	$(iconsParentDiv).find('.actionBar > .statusAction').each(function(){
 		// The link contains activityId
 		var link = $(this).parents(".boxContainer").find('.heading > .actLink > a')[0];
 		var activityId = $(link).attr("href").substring($(link).attr("href").indexOf('=') + 1);
