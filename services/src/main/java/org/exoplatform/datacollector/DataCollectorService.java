@@ -66,7 +66,7 @@ public class DataCollectorService implements Startable {
 
 	/**
 	 * Saves a relevance to the storage. 
-	 * Updates the relevance if it is already exists.
+	 * Updates the relevance if it already exists.
 	 * 
 	 * @param relevance to be saved/updated
 	 */
