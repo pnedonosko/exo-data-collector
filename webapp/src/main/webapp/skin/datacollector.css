@@ -9,21 +9,21 @@
   font-style: normal;
 }
 
-.eye {
-  color: black;
+.relevance {
+
   font-size: 16px;
   font-family: "icomoon" !important;
  }
 
-.eye-default:before {
-	color: grey;
+.relevance-default:before {
+	color:gray;
 	content: "\e9ce";
 }
 
-.eye-relevant:before {
+.relevance-relevant:before {
 	content: "\e9ce";
 }
 
-.eye-irrelevant:before {
+.relevance-irrelevant:before {
 	content: "\e9d1";
 }

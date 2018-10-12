@@ -30,31 +30,32 @@
 
 
 // Adds onClick listener to the elements
-function addEyeOnClickListener(elements) {
+function addRelevanceOnClickListener(elements) {
 	$(elements).click(function() {
 		if($(this).attr("onClick") == undefined){
 			// The link contains activityId
 			var link = $(this).parents(".boxContainer").find('.heading > .actLink > a')[0];
 			var activityId = $(link).attr("href").substring($(link).attr("href").indexOf('=') + 1);
 			
-			if($(this).hasClass("eye-default")){
+			if($(this).hasClass("relevance-default")){
 				console.log("Action: relevant | ID: " + activityId);
 				sendRelevance(activityId, true);
-				$(this).removeClass("eye-default");
-				$(this).toggleClass('eye-relevant');
+				$(this).removeClass("relevance-default");
+				$(this).toggleClass('relevance-relevant');
+				$(this).toggleClass('uiIconBlue');
 			}
-			else if($(this).hasClass("eye-relevant")){
+			else if($(this).hasClass("relevance-relevant")){
 				
 				console.log("Action: irrelevant | ID: " + activityId);
 				sendRelevance(activityId, false);
-				$(this).removeClass("eye-relevant");
-				$(this).toggleClass('eye-irrelevant');
+				$(this).removeClass("relevance-relevant");
+				$(this).toggleClass('relevance-irrelevant');
 			}
 			else{
 				console.log("Action: relevant | ID: " + activityId);
 				sendRelevance(activityId, true);
-				$(this).removeClass("eye-irrelevant");
-				$(this).toggleClass('eye-relevant');
+				$(this).removeClass("relevance-irrelevant");
+				$(this).toggleClass('relevance-relevant');
 			}
 		}
 	});
@@ -95,7 +96,7 @@ function updateStateOfIcons(iconsParentDiv){
 
 	var prefixUrl = pageBaseUrl(location);
 
-	// Iterates through each activity block and inserts the eye icon
+	// Iterates through each activity block and inserts the relevance icon
 	$(iconsParentDiv).find('.actionBar > .statusAction').each(function(){
 		// The link contains activityId
 		var link = $(this).parents(".boxContainer").find('.heading > .actLink > a')[0];
@@ -106,7 +107,7 @@ function updateStateOfIcons(iconsParentDiv){
 		var current = $(this);
 
 		// If there is already icon move to the next block
-		if($(this).find('li.eye').length !== 0){
+		if($(this).find('li.relevance').length !== 0){
 			return;
 		}
 
@@ -116,23 +117,23 @@ function updateStateOfIcons(iconsParentDiv){
 
 			success: function (data){
 				if(data.relevant){
-					$(current).prepend( "<li class='eye eye-relevant'></li>");	
+					$(current).prepend( "<li class='relevance relevance-relevant uiIconBlue'></li>");	
 				}
 				else{
-					$(current).prepend( "<li class='eye eye-irrelevant'></li>");	
+					$(current).prepend( "<li class='relevance relevance-irrelevant uiIconBlue'></li>");	
 				}
 
             	// Add onClick listener to new icon
-            	addEyeOnClickListener($(current).find('.eye'));
+            	addRelevanceOnClickListener($(current).find('.relevance'));
             },
 
             error: function(XMLHttpRequest){
             	 // If user hasn't checked relevance for the activity
             	 if(XMLHttpRequest.status == 404){
             	 	// Add default icon
-            	 	$(current).prepend( "<li class='eye eye-default'></li>");
+            	 	$(current).prepend( "<li class='relevance relevance-default'></li>");
             	 	// Add onClickListener to new icon
-            	 	addEyeOnClickListener($(current).find('.eye'));
+            	 	addRelevanceOnClickListener($(current).find('.relevance'));
             	 } else{
             	 	console.log('Data Collector: Error status: ' + XMLHttpRequest.status + ', text: ' + XMLHttpRequest.statusText);
             	 }
