@@ -79,16 +79,9 @@ var pageBaseUrl = function(theLocation) {
 
 // Sends information about relevance of the activity to the server
 function sendRelevance(activityId, relevant){
-	var prefixUrl = pageBaseUrl(location);
 	// The object of relevance to be sent to the server
 	var relevance = {"userId": eXo.env.portal.userName, "activityId": activityId, "relevant":relevant};
-
-	$.ajax({
-		url: prefixUrl + "/portal/rest/datacollector/collector",
-		type: 'post',
-		contentType: 'application/json',
-		data: JSON.stringify(relevance)
-	});
+	postRelevance(relevance);
 }
 
 // Updates state of the icons. Accepts any parent div of an icon element
@@ -111,36 +104,56 @@ function updateStateOfIcons(iconsParentDiv){
 			return;
 		}
 
-		$.ajax({
-			url: prefixUrl + "/portal/rest/datacollector/collector/" + userId + "/" + activityId,
-			type: 'get',
+		var promisedRelevance = getRelevance(userId, activityId);
 
-			success: function (data){
-				if(data.relevant){
-					$(current).prepend( "<li class='relevance relevance-relevant uiIconBlue'></li>");	
-				}
-				else{
-					$(current).prepend( "<li class='relevance relevance-irrelevant uiIconBlue'></li>");	
-				}
-
+		// If server responded with relevance
+		promisedRelevance.done(function(data){
+			if(data.relevant){
+				$(current).prepend( "<li class='relevance relevance-relevant uiIconBlue'></li>");	
+			}
+			else{
+				$(current).prepend( "<li class='relevance relevance-irrelevant uiIconBlue'></li>");	
+			}
             	// Add onClick listener to new icon
             	addRelevanceOnClickListener($(current).find('.relevance'));
-            },
+            });
 
-            error: function(XMLHttpRequest){
-            	 // If user hasn't checked relevance for the activity
-            	 if(XMLHttpRequest.status == 404){
-            	 	// Add default icon
-            	 	$(current).prepend( "<li class='relevance relevance-default'></li>");
-            	 	// Add onClickListener to new icon
-            	 	addRelevanceOnClickListener($(current).find('.relevance'));
-            	 } else{
-            	 	console.log('Data Collector: Error status: ' + XMLHttpRequest.status + ', text: ' + XMLHttpRequest.statusText);
-            	 }
-            	}
+		// If server responded with error
+		promisedRelevance.fail(function(XMLHttpRequest){
+            // If user hasn't checked relevance for the activity
+            if(XMLHttpRequest.status == 404){
+            	// Add default icon
+            	$(current).prepend( "<li class='relevance relevance-default'></li>");
+            	// Add onClickListener to new icon
+            	addRelevanceOnClickListener($(current).find('.relevance'));
+            } else{
+            	console.log('Data Collector: Error status: ' + XMLHttpRequest.status + ', text: ' + XMLHttpRequest.statusText);
+            }
+        });
 
-            });	
 	});	
 }
+
+var postRelevance = function(relevance) {
+	var prefixUrl = pageBaseUrl(location);
+
+	var request = $.ajax({
+		url: prefixUrl + "/portal/rest/datacollector/collector",
+		type: 'post',
+		contentType: 'application/json',
+		data: JSON.stringify(relevance)
+	});
+	return request;
+};
+
+var getRelevance = function(userId, activityId) {
+	var prefixUrl = pageBaseUrl(location);
+
+	var request = $.ajax({
+		url: prefixUrl + "/portal/rest/datacollector/collector/" + userId + "/" + activityId,
+		type: 'get'
+	});
+	return request;
+};
 
 })($);
