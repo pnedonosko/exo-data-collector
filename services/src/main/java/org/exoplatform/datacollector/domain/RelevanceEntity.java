@@ -14,7 +14,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
  */
 @Entity(name = "DataCollectorRelevance")
 @ExoEntity
-@Table(name = "DTC_RELEVANCES")
+@Table(name = "ST_ACTIVITY_RELEVANCY")
 @IdClass(RelevanceId.class)
 public class RelevanceEntity {
 
@@ -37,6 +37,9 @@ public class RelevanceEntity {
 	 */
 	@Column(name = "IS_RELEVANT")
 	protected Boolean relevant;
+	
+	@Column(name = "WEIGHT")
+	protected Double weight;
 
 	/**
 	 * Gets the user id
@@ -45,6 +48,24 @@ public class RelevanceEntity {
 	 */
 	public String getUserId() {
 		return userId;
+	}
+
+	/**
+	 * Gets the weight
+	 * 
+	 * @return weight
+	 */
+	public Double getWeight() {
+		return weight;
+	}
+
+	/**
+	 * Sets the weight
+	 * 
+	 * @param weight
+	 */
+	public void setWeight(Double weight) {
+		this.weight = weight;
 	}
 
 	/**
@@ -97,7 +118,8 @@ public class RelevanceEntity {
 	 */
 	@Override
 	public String toString() {
-		return "RelevanceEntity [userId=" + userId + ", activityId=" + activityId + ", relevant=" + relevant + "]";
+		return "RelevanceEntity [userId=" + userId + ", activityId=" + activityId + ", relevant=" + relevant
+				+ ", weight=" + weight + "]";
 	}
 
 }

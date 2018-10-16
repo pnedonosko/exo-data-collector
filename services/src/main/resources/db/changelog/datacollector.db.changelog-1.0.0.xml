@@ -7,7 +7,7 @@
 
 	<!-- Definition of DTC_RELEVANCES table -->
 	<changeSet author="data-collector" id="1.0.0-1">
-		<createTable tableName="DTC_RELEVANCES">
+		<createTable tableName="ST_ACTIVITY_RELEVANCY">
 			<column name="USER_ID" type="NVARCHAR(255)">
 				<constraints nullable="false" />
 			</column>
@@ -17,6 +17,7 @@
 			<column name="IS_RELEVANT" type="BOOLEAN">
 				<constraints nullable="false" />
 			</column>
+			<column name="WEIGHT" type="NUMERIC"></column>
 		</createTable>
 		<modifySql dbms="mysql">
 			<append
@@ -26,7 +27,7 @@
 
 	<!-- Definition of DTC_RELEVANCES constraints -->
 	<changeSet author="data-collector" id="1.0.0-2">
-		<addPrimaryKey tableName="DTC_RELEVANCES"
+		<addPrimaryKey tableName="ST_ACTIVITY_RELEVANCY"
 			columnNames="USER_ID, ACTIVITY_ID" constraintName="PK_DTC_RELPART" />
 	</changeSet>
 
