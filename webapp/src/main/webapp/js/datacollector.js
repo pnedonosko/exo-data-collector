@@ -43,6 +43,8 @@ function addRelevanceOnClickListener(elements) {
 				$(this).removeClass("relevance-default");
 				$(this).toggleClass('relevance-relevant');
 				$(this).toggleClass('uiIconBlue');
+
+				$(this).closest('a.relevance-tooltip').attr("data-original-title", "Irrelevant");
 			}
 			else if($(this).hasClass("relevance-relevant")){
 				
@@ -50,12 +52,16 @@ function addRelevanceOnClickListener(elements) {
 				sendRelevance(activityId, false);
 				$(this).removeClass("relevance-relevant");
 				$(this).toggleClass('relevance-irrelevant');
+
+				$(this).closest('a.relevance-tooltip').attr("data-original-title", "Relevant");
 			}
 			else{
 				console.log("Action: relevant | ID: " + activityId);
 				sendRelevance(activityId, true);
 				$(this).removeClass("relevance-irrelevant");
 				$(this).toggleClass('relevance-relevant');
+
+				$(this).closest('a.relevance-tooltip').attr("data-original-title", "Irrelevant");
 			}
 		}
 	});
@@ -100,7 +106,7 @@ function updateStateOfIcons(iconsParentDiv){
 		var current = $(this);
 
 		// If there is already icon move to the next block
-		if($(this).find('li.relevance').length !== 0){
+		if($(this).find('.relevance').length !== 0){
 			return;
 		}
 
@@ -109,10 +115,10 @@ function updateStateOfIcons(iconsParentDiv){
 		// If server responded with relevance
 		promisedRelevance.done(function(data){
 			if(data.relevant){
-				$(current).prepend( "<li class='relevance relevance-relevant uiIconBlue'></li>");	
+				$(current).prepend(getRelevantIcon());	
 			}
 			else{
-				$(current).prepend( "<li class='relevance relevance-irrelevant uiIconBlue'></li>");	
+				$(current).prepend(getIrrelevantIcon());	
 			}
             	// Add onClick listener to new icon
             	addRelevanceOnClickListener($(current).find('.relevance'));
@@ -122,8 +128,8 @@ function updateStateOfIcons(iconsParentDiv){
 		promisedRelevance.fail(function(XMLHttpRequest){
             // If user hasn't checked relevance for the activity
             if(XMLHttpRequest.status == 404){
-            	// Add default icon
-            	$(current).prepend( "<li class='relevance relevance-default'></li>");
+            // Add default icon
+            $(current).prepend(getDefaultIcon());
             	// Add onClickListener to new icon
             	addRelevanceOnClickListener($(current).find('.relevance'));
             } else{
@@ -156,4 +162,17 @@ var getRelevance = function(userId, activityId) {
 	return request;
 };
 
+var getRelevantIcon = function(){
+	return '<li><a rel="tooltip" class="relevance-tooltip" data-placement="bottom" data-original-title="Irrelevant"><span class="relevance relevance-relevant uiIconBlue"></span>&nbsp;</a></li>';
+}
+
+var getIrrelevantIcon = function(){
+	return '<li><a rel="tooltip" class="relevance-tooltip"  data-placement="bottom" data-original-title="Relevant"><span class="relevance relevance-irrelevant uiIconBlue"></span>&nbsp;</a></li>';
+}
+
+var getDefaultIcon = function(){
+	return '<li><a rel="tooltip" class="relevance-tooltip" data-placement="bottom" data-original-title="Relevant"><span class="relevance relevance-default"></span>&nbsp;</a></li>';
+}
 })($);
+
+
