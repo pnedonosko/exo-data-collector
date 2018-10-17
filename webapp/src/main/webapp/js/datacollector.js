@@ -63,7 +63,9 @@ function addRelevanceOnClickListener(elements) {
 
 				$(this).closest('a.relevance-tooltip').attr("data-original-title", "Irrelevant");
 			}
+
 		}
+
 	});
 }
 
@@ -122,6 +124,8 @@ function updateStateOfIcons(iconsParentDiv){
 			}
             	// Add onClick listener to new icon
             	addRelevanceOnClickListener($(current).find('.relevance'));
+            	// Call tooltip handler
+            	$(current).find('a.relevance-tooltip').tooltip();
             });
 
 		// If server responded with error
@@ -135,10 +139,17 @@ function updateStateOfIcons(iconsParentDiv){
             } else{
             	console.log('Data Collector: Error status: ' + XMLHttpRequest.status + ', text: ' + XMLHttpRequest.statusText);
             }
+            // Call tooltip handler
+            $(current).find('a.relevance-tooltip').tooltip();
         });
 
+
 	});	
+
 }
+
+
+
 
 var postRelevance = function(relevance) {
 	var prefixUrl = pageBaseUrl(location);
