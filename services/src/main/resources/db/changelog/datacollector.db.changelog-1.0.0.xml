@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+	xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.3.xsd">
+
+	<!-- Definition of DTC_RELEVANCES table -->
+	<changeSet author="data-collector" id="1.0.0-1">
+		<createTable tableName="ST_ACTIVITY_RELEVANCY">
+			<column name="USER_ID" type="NVARCHAR(255)">
+				<constraints nullable="false" />
+			</column>
+			<column name="ACTIVITY_ID" type="NVARCHAR(255)">
+				<constraints nullable="false" />
+			</column>
+			<column name="IS_RELEVANT" type="BOOLEAN">
+				<constraints nullable="false" />
+			</column>
+			<column name="WEIGHT" type="NUMERIC"></column>
+		</createTable>
+		<modifySql dbms="mysql">
+			<append
+				value=" ENGINE=INNODB CHARSET=UTF8 COLLATE utf8_general_ci" />
+		</modifySql>
+	</changeSet>
+
+	<!-- Definition of DTC_RELEVANCES constraints -->
+	<changeSet author="data-collector" id="1.0.0-2">
+		<addPrimaryKey tableName="ST_ACTIVITY_RELEVANCY"
+			columnNames="USER_ID, ACTIVITY_ID" constraintName="PK_DTC_RELPART" />
+	</changeSet>
+
+</databaseChangeLog>
