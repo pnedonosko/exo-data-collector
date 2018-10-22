@@ -2,9 +2,9 @@
   font-family: 'icomoon';
   src:  url('/datacollector/skin/fonts/icomoon.eot?jutru7');
   src:  url('/datacollector/skin/fonts/icomoon.eot?jutru7#iefix') format('embedded-opentype'),
-    url('/datacollector/skin/fonts/icomoon.ttf?jutru7') format('truetype'),
-    url('/datacollector/skin/fonts/icomoon.woff?jutru7') format('woff'),
-    url('/datacollector/skin/fonts/icomoon.svg?jutru7#icomoon') format('svg');
+  url('/datacollector/skin/fonts/icomoon.ttf?jutru7') format('truetype'),
+  url('/datacollector/skin/fonts/icomoon.woff?jutru7') format('woff'),
+  url('/datacollector/skin/fonts/icomoon.svg?jutru7#icomoon') format('svg');
   font-weight: normal;
   font-style: normal;
 }
@@ -13,7 +13,7 @@
 
   font-size: 16px;
   font-family: "icomoon" !important;
- }
+}
 
 .relevance-default:before {
 	color:gray;
@@ -26,4 +26,8 @@
 
 .relevance-irrelevant:before {
 	content: "\e9d1";
+}
+
+a.relevance-tooltip {
+	margin-right: -8px;
 }
