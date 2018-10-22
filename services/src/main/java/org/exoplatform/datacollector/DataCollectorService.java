@@ -21,9 +21,15 @@ package org.exoplatform.datacollector;
 import org.exoplatform.datacollector.dao.RelevanceDAO;
 import org.exoplatform.datacollector.domain.RelevanceEntity;
 import org.exoplatform.datacollector.domain.RelevanceId;
+import org.exoplatform.services.jcr.RepositoryService;
+import org.exoplatform.services.jcr.ext.app.SessionProviderService;
+import org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
-
+import org.exoplatform.services.organization.OrganizationService;
+import org.exoplatform.social.core.manager.ActivityManager;
+import org.exoplatform.social.core.manager.IdentityManager;
+import org.exoplatform.social.core.storage.api.IdentityStorage;
 import org.picocontainer.Startable;
 
 /**
@@ -46,6 +52,29 @@ public class DataCollectorService implements Startable {
 		this.relevanceStorage = relevanceStorage;
 	}
 
+	/**
+	 * Instantiates a Data collector Service
+	 * 
+	 * @param jcrService
+	 * @param sessionProviders
+	 * @param hierarchyCreator
+	 * @param organization
+	 * @param identityManager
+	 * @param identityStorage
+	 * @param activityManager
+	 * @param relevanceStorage
+	 */
+	public DataCollectorService(RepositoryService jcrService,
+            					SessionProviderService sessionProviders,
+            					NodeHierarchyCreator hierarchyCreator,
+            					OrganizationService organization,
+            					IdentityManager identityManager,
+            					IdentityStorage identityStorage,
+            					ActivityManager activityManager,
+            					RelevanceDAO relevanceStorage) {
+		
+		this.relevanceStorage = relevanceStorage;
+	}
 	/**
 	 * {@inheritDoc}
 	 */
