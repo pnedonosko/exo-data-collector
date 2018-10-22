@@ -174,16 +174,14 @@ var getRelevance = function(userId, activityId) {
 };
 
 var getRelevantIcon = function(){
-	return '<li><a rel="tooltip" class="relevance-tooltip" data-placement="bottom" data-original-title="Irrelevant"><span class="relevance relevance-relevant uiIconBlue"></span>&nbsp;</a></li>';
+	return '<li><a rel="tooltip" href="javascript:void(0);" class="relevance-tooltip" data-placement="bottom" data-original-title="Irrelevant"><span class="relevance relevance-relevant uiIconBlue"></span>&nbsp;</a></li>';
 }
 
 var getIrrelevantIcon = function(){
-	return '<li><a rel="tooltip" class="relevance-tooltip"  data-placement="bottom" data-original-title="Relevant"><span class="relevance relevance-irrelevant uiIconBlue"></span>&nbsp;</a></li>';
+	return '<li><a rel="tooltip" href="javascript:void(0);" class="relevance-tooltip"  data-placement="bottom" data-original-title="Relevant"><span class="relevance relevance-irrelevant uiIconBlue"></span>&nbsp;</a></li>';
 }
 
 var getDefaultIcon = function(){
-	return '<li><a rel="tooltip" class="relevance-tooltip" data-placement="bottom" data-original-title="Relevant"><span class="relevance relevance-default"></span>&nbsp;</a></li>';
+	return '<li><a rel="tooltip" href="javascript:void(0);" class="relevance-tooltip" data-placement="bottom" data-original-title="Relevant"><span class="relevance relevance-default"></span>&nbsp;</a></li>';
 }
 })($);
-
-
