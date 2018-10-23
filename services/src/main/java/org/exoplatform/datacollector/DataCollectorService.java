@@ -19,6 +19,7 @@
 package org.exoplatform.datacollector;
 
 import java.util.Collection;
+import java.util.Date;
 import java.util.regex.Pattern;
 
 import org.picocontainer.Startable;
@@ -138,6 +139,9 @@ public class DataCollectorService implements Startable {
    */
   public void saveRelevance(RelevanceEntity relevance) {
     RelevanceEntity existingRelevance = relevanceStorage.find(new RelevanceId(relevance.getUserId(), relevance.getActivityId()));
+
+    relevance.setUpdateDate(new Date());
+
     if (existingRelevance == null) {
       relevanceStorage.create(relevance);
       LOG.info("Relevance created: " + relevance);

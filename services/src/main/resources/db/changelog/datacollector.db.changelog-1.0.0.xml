@@ -24,8 +24,8 @@
 			</column>
 			<column name="WEIGHT" type="NUMERIC"></column>
 			<column name="UPDATE_DATE" type="TIMESTAMP" defaultValue="${now}">
-        		<constraints nullable="false" />
-      		</column>
+    		<constraints nullable="false"/>
+  		</column>
 		</createTable>
 		<modifySql dbms="mysql">
 			<append
