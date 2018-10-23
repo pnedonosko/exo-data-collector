@@ -1,10 +1,14 @@
 package org.exoplatform.datacollector.domain;
 
+import java.util.Date;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.IdClass;
 import javax.persistence.Table;
+import javax.persistence.Temporal;
+import javax.persistence.TemporalType;
 
 import org.exoplatform.commons.api.persistence.ExoEntity;
 
@@ -38,8 +42,33 @@ public class RelevanceEntity {
 	@Column(name = "IS_RELEVANT")
 	protected Boolean relevant;
 	
+	/**
+	 * The weight
+	 */
 	@Column(name = "WEIGHT")
 	protected Double weight;
+	
+	/**
+	 * The update date
+	 */
+	@Column(name = "UPDATE_DATE")
+	protected Date updateDate;
+
+	/**
+	 * Gets the update date
+	 * @return
+	 */
+	public Date getUpdateDate() {
+		return updateDate;
+	}
+
+	/**
+	 * Sets the update date
+	 * @param updateDate
+	 */
+	public void setUpdateDate(Date updateDate) {
+		this.updateDate = updateDate;
+	}
 
 	/**
 	 * Gets the user id
@@ -112,14 +141,16 @@ public class RelevanceEntity {
 	public void setRelevant(Boolean relevant) {
 		this.relevant = relevant;
 	}
-
+	
 	/**
 	 * Converts the RelevanceEntity to the String
 	 */
 	@Override
 	public String toString() {
 		return "RelevanceEntity [userId=" + userId + ", activityId=" + activityId + ", relevant=" + relevant
-				+ ", weight=" + weight + "]";
+				+ ", weight=" + weight + ", updateDate=" + updateDate + "]";
 	}
+
+	
 
 }

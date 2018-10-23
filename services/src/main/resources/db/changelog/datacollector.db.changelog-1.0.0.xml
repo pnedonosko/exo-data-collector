@@ -5,6 +5,11 @@
 	xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.3.xsd">
 
+  <!-- Managing auto generation of timestamp by Database -->
+  <property name="now" value="now()" dbms="mysql,hsqldb,postgresql" />
+  <property name="now" value="sysdate" dbms="oracle" />
+  <property name="now" value="CURRENT_TIMESTAMP" dbms="mssql" />
+  
 	<!-- Definition of DTC_RELEVANCES table -->
 	<changeSet author="data-collector" id="1.0.0-1">
 		<createTable tableName="ST_ACTIVITY_RELEVANCY">
@@ -18,6 +23,9 @@
 				<constraints nullable="false" />
 			</column>
 			<column name="WEIGHT" type="NUMERIC"></column>
+			<column name="UPDATE_DATE" type="TIMESTAMP" defaultValue="${now}">
+        		<constraints nullable="false" />
+      		</column>
 		</createTable>
 		<modifySql dbms="mysql">
 			<append
@@ -28,7 +36,7 @@
 	<!-- Definition of DTC_RELEVANCES constraints -->
 	<changeSet author="data-collector" id="1.0.0-2">
 		<addPrimaryKey tableName="ST_ACTIVITY_RELEVANCY"
-			columnNames="USER_ID, ACTIVITY_ID" constraintName="PK_DTC_RELPART" />
+			columnNames="USER_ID, ACTIVITY_ID" constraintName="PK_ST_RELPART" />
 	</changeSet>
 
 </databaseChangeLog>
