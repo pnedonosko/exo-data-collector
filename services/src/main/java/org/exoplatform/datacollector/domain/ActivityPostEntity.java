@@ -18,11 +18,18 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " WHERE a.activity_id = c.parent_id AND a.poster_id != c.poster_id AND a.owner_id IS NOT NULL"
         + " AND c.poster_id = :posterId", resultClass = ActivityPostEntity.class),
     /* User commented someone's comment in a post */
-    @NamedNativeQuery(name = "ActivityPost.findPartIsCommentedCommenter", query = "SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, "
+    @NamedNativeQuery(name = "ActivityPost.findPartIsCommentedCommenter", query = "SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id,"
         + "  a.type AS post_type, oc.poster_id AS poster_id, a.owner_id AS owner_id, "
         + "  c.posted AS c_posted_date, c.updated_date AS c_updated_date, a.hidden, a.posted AS posted_date, a.updated_date "
         + " FROM soc_activities a, soc_activities oc, soc_activities c"
         + " WHERE a.activity_id = oc.parent_id AND oc.activity_id = c.parent_id AND oc.poster_id != c.poster_id AND a.owner_id IS NOT NULL AND oc.owner_id IS NULL"
+        + " AND c.poster_id = :posterId", resultClass = ActivityPostEntity.class),
+    /* User commented other users in someone's post (conversation poster) */
+    @NamedNativeQuery(name = "ActivityPost.findPartIsCommentedConvoPoster", query = "SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id,"
+        + "  a.type AS post_type, a.poster_id AS poster_id, a.owner_id AS owner_id, "
+        + "  c.posted AS c_posted_date, c.updated_date AS c_updated_date, a.hidden, a.posted AS posted_date, a.updated_date "
+        + " FROM soc_activities a, soc_activities oc, soc_activities c"
+        + " WHERE a.activity_id = oc.parent_id AND oc.activity_id = c.parent_id AND oc.poster_id != c.poster_id AND a.poster_id != c.poster_id AND a.owner_id IS NOT NULL AND oc.owner_id IS NULL"
         + " AND c.poster_id = :posterId", resultClass = ActivityPostEntity.class) })
 public class ActivityPostEntity {
 
