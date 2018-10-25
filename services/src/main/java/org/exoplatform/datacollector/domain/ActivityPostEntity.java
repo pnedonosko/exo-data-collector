@@ -4,6 +4,7 @@ import java.util.Date;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.Id;
 import javax.persistence.NamedNativeQueries;
 import javax.persistence.NamedNativeQuery;
 
@@ -38,6 +39,7 @@ public class ActivityPostEntity {
   /**
    * The post ID (activity ID).
    */
+  @Id
   @Column(name = "post_id")
   protected String  postId;
 
@@ -100,6 +102,204 @@ public class ActivityPostEntity {
    */
   @Column(name = "c_updated_date")
   protected Date    commentUpdatedDate;
+
+  /**
+   * Gets the post ID
+   * 
+   * @return postId
+   */
+  public String getPostId() {
+    return postId;
+  }
+
+  /**
+   * Sets the post ID
+   * 
+   * @param postId
+   */
+  public void setPostId(String postId) {
+    this.postId = postId;
+  }
+
+  /**
+   * Gets the provider ID
+   * 
+   * @return provider ID
+   */
+  public String getProviderId() {
+    return providerId;
+  }
+
+  /**
+   * Sets the provider ID
+   * 
+   * @param providerId
+   */
+  public void setProviderId(String providerId) {
+    this.providerId = providerId;
+  }
+
+  /**
+   * Gets the type
+   * 
+   * @return type
+   */
+  public String getType() {
+    return type;
+  }
+
+  /**
+   * Sets the type
+   * 
+   * @param type
+   */
+  public void setType(String type) {
+    this.type = type;
+  }
+
+  /**
+   * Gets the poster ID
+   * 
+   * @return poster ID
+   */
+  public String getPosterId() {
+    return posterId;
+  }
+
+  /**
+   * Sets the poster ID
+   * 
+   * @param posterId
+   */
+  public void setPosterId(String posterId) {
+    this.posterId = posterId;
+  }
+
+  /**
+   * Gets the owner ID
+   * 
+   * @return
+   */
+  public String getOwnerId() {
+    return ownerId;
+  }
+
+  /**
+   * Sets the owner ID
+   * 
+   * @param ownerId
+   */
+  public void setOwnerId(String ownerId) {
+    this.ownerId = ownerId;
+  }
+
+  /**
+   * Gets the posted date
+   * 
+   * @return posted date
+   */
+  public Date getPostedDate() {
+    return postedDate;
+  }
+
+  /**
+   * Sets the posted date
+   * 
+   * @param postedDate
+   */
+  public void setPostedDate(Date postedDate) {
+    this.postedDate = postedDate;
+  }
+
+  /**
+   * Gets the updated date
+   * 
+   * @return updated date
+   */
+  public Date getUpdatedDate() {
+    return updatedDate;
+  }
+
+  /**
+   * Sets the updated date
+   * 
+   * @param updatedDate
+   */
+  public void setUpdatedDate(Date updatedDate) {
+    this.updatedDate = updatedDate;
+  }
+
+  /**
+   * Gets the hidden
+   * 
+   * @return hidden
+   */
+  public Boolean getHidden() {
+    return hidden;
+  }
+
+  /**
+   * Sets the hidden
+   * 
+   * @param hidden
+   */
+  public void setHidden(Boolean hidden) {
+    this.hidden = hidden;
+  }
+
+  /**
+   * Gets the parent ID
+   * 
+   * @return parent ID
+   */
+  public String getParentId() {
+    return parentId;
+  }
+
+  /**
+   * Sets the parent ID
+   * 
+   * @param parentId
+   */
+  public void setParentId(String parentId) {
+    this.parentId = parentId;
+  }
+
+  /**
+   * Gets the comment posted date
+   * 
+   * @return comment posted date
+   */
+  public Date getCommentPostedDate() {
+    return commentPostedDate;
+  }
+
+  /**
+   * Sets the comment posted date
+   * 
+   * @param commentPostedDate
+   */
+  public void setCommentPostedDate(Date commentPostedDate) {
+    this.commentPostedDate = commentPostedDate;
+  }
+
+  /**
+   * Gets the comment updated date
+   * 
+   * @return comment updated date
+   */
+  public Date getCommentUpdatedDate() {
+    return commentUpdatedDate;
+  }
+
+  /**
+   * Sets the comment updated date
+   * 
+   * @param commentUpdatedDate
+   */
+  public void setCommentUpdatedDate(Date commentUpdatedDate) {
+    this.commentUpdatedDate = commentUpdatedDate;
+  }
 
   /**
    * Converts the RelevanceEntity to the String
