@@ -1,5 +1,7 @@
 package org.exoplatform.datacollector.domain;
 
+import java.util.Date;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.NamedNativeQueries;
@@ -37,31 +39,67 @@ public class ActivityPostEntity {
    * The post ID (activity ID).
    */
   @Column(name = "post_id")
-  protected String postId;
+  protected String  postId;
 
   /**
    * The provider ID.
    */
   @Column(name = "post_provider_id")
-  protected String providerId;
+  protected String  providerId;
 
   /**
    * The post type.
    */
   @Column(name = "post_type")
-  protected String type;
+  protected String  type;
 
   /**
    * The poster ID.
    */
   @Column(name = "poster_id")
-  protected String posterId;
+  protected String  posterId;
 
   /**
    * The owner ID.
    */
   @Column(name = "owner_id")
-  protected String ownerId;
+  protected String  ownerId;
+
+  /**
+   * The posted date
+   */
+  @Column(name = "posted_date")
+  protected Date    postedDate;
+
+  /**
+   * The updated date
+   */
+  @Column(name = "posted_date")
+  protected Date    updatedDate;
+
+  /**
+   * The hidden
+   */
+  @Column(name = "hidden")
+  protected Boolean hidden;
+
+  /**
+   * The parent id
+   */
+  @Column(name = "parent_id")
+  protected String  parentId;
+
+  /**
+   * The comment posted date
+   */
+  @Column(name = "c_posted_date")
+  protected Date    commentPostedDate;
+
+  /**
+   * The comment posted date
+   */
+  @Column(name = "c_updated_date")
+  protected Date    commentUpdatedDate;
 
   /**
    * Converts the RelevanceEntity to the String

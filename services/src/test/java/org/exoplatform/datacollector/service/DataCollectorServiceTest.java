@@ -54,8 +54,9 @@ public class DataCollectorServiceTest extends AbstractTest {
 		System.out.println("relevanceStorage: " + relevanceStorage);
 		*/
 		
-		dataCollectorService = new DataCollectorService(jcrService, sessionProviders, hierarchyCreator, organization, identityManager, identityStorage, activityManager, relevanceStorage);
+		//dataCollectorService = new DataCollectorService(jcrService, sessionProviders, hierarchyCreator, organization, identityManager, identityStorage, activityManager, relevanceStorage);
 		
+		dataCollectorService = new DataCollectorService(relevanceStorage);
 		when(relevanceStorage.find(TestUtils.EXISTING_RELEVANCE_ID)).thenReturn(TestUtils.getExistingRelevance());
 		when(relevanceStorage.find(TestUtils.UNEXISTING_RELEVANCE_ID)).thenReturn(null);
 	}
