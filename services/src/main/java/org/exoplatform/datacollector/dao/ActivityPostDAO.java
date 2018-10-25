@@ -1,6 +1,7 @@
 package org.exoplatform.datacollector.dao;
 
 import javax.persistence.NoResultException;
+import javax.persistence.Query;
 import javax.persistence.TypedQuery;
 
 import org.exoplatform.commons.persistence.impl.GenericDAOJPAImpl;
@@ -19,10 +20,10 @@ public class ActivityPostDAO extends GenericDAOJPAImpl<ActivityPostEntity, Strin
   }
   
   public ActivityPostEntity findPartIsCommentedCommenter(String posterId) {
-    TypedQuery<ActivityPostEntity> query = getEntityManager().createNamedQuery("ActivityPost.findPartIsCommentedCommenter", ActivityPostEntity.class)
-        .setParameter("posterId", posterId);
+    Query query = getEntityManager().createNativeQuery("ActivityPost.findPartIsCommentedCommenter", ActivityPostEntity.class);
+    query.setParameter("posterId", posterId);
     try {
-      return query.getSingleResult();
+      return (ActivityPostEntity) query.getSingleResult();
     } catch (NoResultException e) {
       return null;
     }
