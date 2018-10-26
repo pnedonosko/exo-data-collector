@@ -19,8 +19,8 @@ public class ActivityPostDAOTest extends AbstractTest {
   }
   
   @Test
-  public void testFindPartIsCommentedCommenter() {
-    activityPostDAO.findPartIsCommentedPoster("111");
+  public void findPartIsCommentedPoster() {
+    activityPostDAO.findPartIsCommentedPoster("john");
   }
   
   /*
