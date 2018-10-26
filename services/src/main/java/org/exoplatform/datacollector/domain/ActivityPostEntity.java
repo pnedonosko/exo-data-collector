@@ -1,5 +1,6 @@
 package org.exoplatform.datacollector.domain;
 
+import java.io.Serializable;
 import java.util.Date;
 
 import javax.persistence.Column;
@@ -34,7 +35,12 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " FROM soc_activities a, soc_activities oc, soc_activities c"
         + " WHERE a.activity_id = oc.parent_id AND oc.activity_id = c.parent_id AND oc.poster_id != c.poster_id AND a.poster_id != c.poster_id AND a.owner_id IS NOT NULL AND oc.owner_id IS NULL"
         + " AND c.poster_id = :posterId", resultClass = ActivityPostEntity.class) })
-public class ActivityPostEntity {
+public class ActivityPostEntity  implements Serializable {
+
+  /**
+   * 
+   */
+  private static final long serialVersionUID = 7990009059287150156L;
 
   /**
    * The post ID (activity ID).

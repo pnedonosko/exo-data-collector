@@ -147,5 +147,25 @@
 				</includes>
 			</resource>
 		</resources>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <useFile>false</useFile>
+          <!-- argLine>${env.MAVEN_OPTS} -Djava.security.manager=org.exoplatform.commons.test.TestSecurityManager
+            -Djava.security.policy=${project.build.directory}/test-classes/conf/test.policy</argLine>
+          <systemPropertyVariables>
+            <maven.exoplatform.dir>${project.build.directory}</maven.exoplatform.dir>
+            <exo.conf.dir.name>test-classes/conf</exo.conf.dir.name>
+            <java.security.auth.login.config>${project.build.directory}/test-classes/conf/jaas.conf</java.security.auth.login.config>
+          </systemPropertyVariables -->
+          <includes>
+            <include>**/**/*Test.java</include>
+          </includes>
+          <forkCount>0</forkCount>
+        </configuration>
+      </plugin>
+    </plugins>
 	</build>
 </project>
