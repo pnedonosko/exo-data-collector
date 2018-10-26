@@ -211,10 +211,10 @@
     <type>org.exoplatform.commons.persistence.impl.EntityManagerService</type>
   </component>
 
-  <component>
+  <!-- component>
     <key>org.exoplatform.commons.file.services.FileService</key>
     <type>org.exoplatform.ecms.mock.MockFileService</type>
-  </component>
+  </component -->
 
   <component>
     <key>org.exoplatform.social.core.jpa.storage.dao.StreamItemDAO</key>

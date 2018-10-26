@@ -2165,7 +2165,7 @@
     </component-plugin>
   </external-component-plugins>
   
-    <remove-configuration>org.exoplatform.commons.search.index.IndexingOperationProcessor</remove-configuration>
+  <remove-configuration>org.exoplatform.commons.search.index.IndexingOperationProcessor</remove-configuration>
   <remove-configuration>org.exoplatform.commons.search.rest.IndexingManagementRestServiceV1</remove-configuration>
 
 </configuration>
