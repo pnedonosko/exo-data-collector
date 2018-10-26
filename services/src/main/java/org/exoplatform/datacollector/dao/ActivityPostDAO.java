@@ -1,9 +1,9 @@
 package org.exoplatform.datacollector.dao;
 
+import java.util.Collections;
 import java.util.List;
 
 import javax.persistence.NoResultException;
-import javax.persistence.Query;
 import javax.persistence.TypedQuery;
 
 import org.exoplatform.commons.persistence.impl.GenericDAOJPAImpl;
@@ -14,42 +14,36 @@ public class ActivityPostDAO extends GenericDAOJPAImpl<ActivityPostEntity, Strin
   public List<ActivityPostEntity> findPartIsCommentedPoster(String posterId) {
     try {
       TypedQuery<ActivityPostEntity> query = getEntityManager()
-          .createNamedQuery("ActivityPost.findPartIsCommentedPoster",
-                            ActivityPostEntity.class);
-      try {
-        query.setParameter("posterId", posterId);
-      } catch (Throwable e) {
-        return null;
-      }
-      try {
-        return query.getResultList();
-      } catch (NoResultException e) {
-        return null;
-      }
-    } catch (Throwable e) {
-      return null;
-    }
-  }
-
-  public ActivityPostEntity findPartIsCommentedCommenter(String posterId) {
-    Query query = getEntityManager().createNativeQuery("ActivityPost.findPartIsCommentedCommenter", ActivityPostEntity.class);
-    query.setParameter("posterId", posterId);
-    try {
-      return (ActivityPostEntity) query.getSingleResult();
+                                                               .createNamedQuery("ActivityPost.findPartIsCommentedPoster",
+                                                                                 ActivityPostEntity.class)
+                                                               .setParameter("posterId", posterId);
+      return query.getResultList();
     } catch (NoResultException e) {
-      return null;
+      return Collections.emptyList();
     }
   }
 
-  public ActivityPostEntity findPartIsCommentedConvoPoster(String posterId) {
+  public List<ActivityPostEntity> findPartIsCommentedCommenter(String commenterId) {
+    TypedQuery<ActivityPostEntity> query = getEntityManager()
+                                                             .createNamedQuery("ActivityPost.findPartIsCommentedCommenter",
+                                                                               ActivityPostEntity.class)
+                                                             .setParameter("commenterId", commenterId);
+    try {
+      return query.getResultList();
+    } catch (NoResultException e) {
+      return Collections.emptyList();
+    }
+  }
+
+  public List<ActivityPostEntity> findPartIsCommentedConvoPoster(String posterId) {
     TypedQuery<ActivityPostEntity> query = getEntityManager()
                                                              .createNamedQuery("ActivityPost.findPartIsCommentedConvoPoster",
                                                                                ActivityPostEntity.class)
                                                              .setParameter("posterId", posterId);
     try {
-      return query.getSingleResult();
+      return query.getResultList();
     } catch (NoResultException e) {
-      return null;
+      return Collections.emptyList();
     }
   }
 }
