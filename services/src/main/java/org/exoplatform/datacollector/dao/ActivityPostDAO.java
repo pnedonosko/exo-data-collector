@@ -13,9 +13,8 @@ public class ActivityPostDAO extends GenericDAOJPAImpl<ActivityPostEntity, Strin
 
   public List<ActivityPostEntity> findPartIsCommentedPoster(String posterId) {
     try {
-      TypedQuery<ActivityPostEntity> query = getEntityManager()
-          .createNamedQuery("ActivityPost.findPartIsCommentedPoster",
-                            ActivityPostEntity.class);
+      TypedQuery<ActivityPostEntity> query = getEntityManager().createNamedQuery("ActivityPost.findPartIsCommentedPoster",
+                                                                                 ActivityPostEntity.class);
       try {
         query.setParameter("posterId", posterId);
       } catch (Throwable e) {
@@ -31,24 +30,26 @@ public class ActivityPostDAO extends GenericDAOJPAImpl<ActivityPostEntity, Strin
     }
   }
 
-  public ActivityPostEntity findPartIsCommentedCommenter(String posterId) {
-    Query query = getEntityManager().createNativeQuery("ActivityPost.findPartIsCommentedCommenter", ActivityPostEntity.class);
-    query.setParameter("posterId", posterId);
+  public List<ActivityPostEntity> findPartIsCommentedCommenter(String posterId) {
     try {
-      return (ActivityPostEntity) query.getSingleResult();
-    } catch (NoResultException e) {
+      TypedQuery<ActivityPostEntity> query = getEntityManager().createNamedQuery("ActivityPost.findPartIsCommentedCommenter",
+                                                                                 ActivityPostEntity.class);
+      query.setParameter("posterId", posterId);
+
+      return query.getResultList();
+    } catch (Throwable e) {
       return null;
     }
   }
 
-  public ActivityPostEntity findPartIsCommentedConvoPoster(String posterId) {
-    TypedQuery<ActivityPostEntity> query = getEntityManager()
-                                                             .createNamedQuery("ActivityPost.findPartIsCommentedConvoPoster",
-                                                                               ActivityPostEntity.class)
-                                                             .setParameter("posterId", posterId);
+  public List<ActivityPostEntity> findPartIsCommentedConvoPoster(String posterId) {
     try {
-      return query.getSingleResult();
-    } catch (NoResultException e) {
+      TypedQuery<ActivityPostEntity> query = getEntityManager().createNamedQuery("ActivityPost.findPartIsCommentedConvoPoster",
+                                                                                 ActivityPostEntity.class);
+      query.setParameter("posterId", posterId);
+
+      return query.getResultList();
+    } catch (Throwable e) {
       return null;
     }
   }

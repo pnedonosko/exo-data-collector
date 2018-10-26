@@ -23,16 +23,15 @@ public class ActivityPostDAOTest extends AbstractTest {
     activityPostDAO.findPartIsCommentedPoster("john");
   }
   
-  /*
+  
   @Test
   public void testFindPartIsCommentedPoster() {
     activityPostDAO.findPartIsCommentedPoster("111");
   }
-  */
-  /*
+
   @Test
   public void testFindPartIsCommentedConvoPoster() {
     activityPostDAO.findPartIsCommentedConvoPoster("111");
-  }*/
-
+  }
+  
 }
