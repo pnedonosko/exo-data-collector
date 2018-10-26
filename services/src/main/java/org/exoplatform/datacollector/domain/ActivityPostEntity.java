@@ -82,7 +82,7 @@ public class ActivityPostEntity  implements Serializable {
   /**
    * The updated date
    */
-  @Column(name = "posted_date")
+  @Column(name = "updated_date")
   protected Date    updatedDate;
 
   /**

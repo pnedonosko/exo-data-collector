@@ -7,7 +7,7 @@
     <provider>org.hibernate.ejb.HibernatePersistence</provider>
 
     <class>org.exoplatform.datacollector.domain.RelevanceEntity</class>
-
+	<class>org.exoplatform.datacollector.domain.ActivityPostEntity</class>
 
     <properties>
 

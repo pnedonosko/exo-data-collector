@@ -78,49 +78,49 @@
 		</dependency>
 
 		<!-- TEST -->
-    <dependency>
-      <groupId>org.exoplatform.commons</groupId>
-      <artifactId>commons-testing</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.ws</groupId>
-      <artifactId>exo.ws.testframework</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.gatein.portal</groupId>
-      <artifactId>exo.portal.component.identity</artifactId>
-      <type>test-jar</type>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.gatein.portal</groupId>
-      <artifactId>exo.portal.component.portal</artifactId>
-      <type>test-jar</type>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.gatein.portal</groupId>
-      <artifactId>exo.portal.component.test.core</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.gatein.portal</groupId>
-      <artifactId>exo.portal.component.test.jcr</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.social</groupId>
-      <artifactId>social-component-core-jpa</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.hibernate</groupId>
-      <artifactId>hibernate-validator</artifactId>
-      <scope>test</scope>
-    </dependency>
-    
+		<dependency>
+			<groupId>org.exoplatform.commons</groupId>
+			<artifactId>commons-testing</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.exoplatform.ws</groupId>
+			<artifactId>exo.ws.testframework</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.exoplatform.gatein.portal</groupId>
+			<artifactId>exo.portal.component.identity</artifactId>
+			<type>test-jar</type>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.exoplatform.gatein.portal</groupId>
+			<artifactId>exo.portal.component.portal</artifactId>
+			<type>test-jar</type>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.exoplatform.gatein.portal</groupId>
+			<artifactId>exo.portal.component.test.core</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.exoplatform.gatein.portal</groupId>
+			<artifactId>exo.portal.component.test.jcr</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.exoplatform.social</groupId>
+			<artifactId>social-component-core-jpa</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.hibernate</groupId>
+			<artifactId>hibernate-validator</artifactId>
+			<scope>test</scope>
+		</dependency>
+
 		<dependency>
 			<groupId>org.hibernate</groupId>
 			<artifactId>hibernate-entitymanager</artifactId>
@@ -156,7 +156,16 @@
 			<artifactId>liquibase-core</artifactId>
 			<scope>test</scope>
 		</dependency>
-
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-simple</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>jcl-over-slf4j</artifactId>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 	<build>
 		<resources>
@@ -190,25 +199,23 @@
 				</includes>
 			</resource>
 		</resources>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <configuration>
-          <useFile>false</useFile>
-          <!-- argLine>${env.MAVEN_OPTS} -Djava.security.manager=org.exoplatform.commons.test.TestSecurityManager
-            -Djava.security.policy=${project.build.directory}/test-classes/conf/test.policy</argLine>
-          <systemPropertyVariables>
-            <maven.exoplatform.dir>${project.build.directory}</maven.exoplatform.dir>
-            <exo.conf.dir.name>test-classes/conf</exo.conf.dir.name>
-            <java.security.auth.login.config>${project.build.directory}/test-classes/conf/jaas.conf</java.security.auth.login.config>
-          </systemPropertyVariables -->
-          <includes>
-            <include>**/**/*Test.java</include>
-          </includes>
-          <forkCount>0</forkCount>
-        </configuration>
-      </plugin>
-    </plugins>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<useFile>false</useFile>
+					<!-- argLine>${env.MAVEN_OPTS} -Djava.security.manager=org.exoplatform.commons.test.TestSecurityManager 
+						-Djava.security.policy=${project.build.directory}/test-classes/conf/test.policy</argLine> 
+						<systemPropertyVariables> <maven.exoplatform.dir>${project.build.directory}</maven.exoplatform.dir> 
+						<exo.conf.dir.name>test-classes/conf</exo.conf.dir.name> <java.security.auth.login.config>${project.build.directory}/test-classes/conf/jaas.conf</java.security.auth.login.config> 
+						</systemPropertyVariables -->
+					<includes>
+						<include>**/**/*Test.java</include>
+					</includes>
+					<forkCount>0</forkCount>
+				</configuration>
+			</plugin>
+		</plugins>
 	</build>
 </project>
