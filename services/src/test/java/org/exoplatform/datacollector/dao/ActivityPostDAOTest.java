@@ -1,6 +1,5 @@
 package org.exoplatform.datacollector.dao;
 
-import org.junit.Before;
 import org.junit.Test;
 
 import org.exoplatform.commons.testing.BaseCommonsTestCase;
@@ -17,19 +16,22 @@ import org.exoplatform.container.PortalContainer;
   @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/jcr-configuration.xml"),
   @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-configuration.xml"),
   @ConfigurationUnit(scope = ContainerScope.PORTAL, path =  "conf/standalone/test-portal-configuration.xml"),
+  @ConfigurationUnit(scope = ContainerScope.PORTAL, path =  "conf/standalone/test-datacollector-configuration.xml"),
   @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/test-portal-configuration.xml"
   )
 })
 public class ActivityPostDAOTest extends BaseCommonsTestCase {
 
-  private ActivityPostDAO activityPostDAO;
+  private ActivityPostDAO activityPostDAO; 
 
-  @Before
-  public void initDAO() {
+  @Override
+  protected void beforeClass() {
+    super.beforeClass();
     PortalContainer container = PortalContainer.getInstance();
     ExoContainerContext.setCurrentContainer(container);
     activityPostDAO = (ActivityPostDAO) container.getComponentInstanceOfType(ActivityPostDAO.class);
   }
+
 
   @Test
   public void testFindPartIsCommentedPoster() {
