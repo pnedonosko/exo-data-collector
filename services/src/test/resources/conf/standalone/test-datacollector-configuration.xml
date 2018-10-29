@@ -4,41 +4,8 @@
   xsi:schemaLocation="http://www.exoplatform.org/xml/ns/kernel_1_2.xsd http://www.exoplatform.org/xml/ns/kernel_1_2.xsd"
   xmlns="http://www.exoplatform.org/xml/ns/kernel_1_2.xsd">
 
-   <component>
-    <key>org.exoplatform.commons.chromattic.ChromatticManager</key>
-    <type>org.exoplatform.commons.chromattic.ChromatticManager</type>
+  <component>
+    <type>org.exoplatform.datacollector.dao.ActivityPostDAO</type>
   </component>
-  
-	<component>
-		<type>org.exoplatform.datacollector.dao.ActivityPostDAO</type>
-	</component>
-
-  <external-component-plugins>
-    <target-component>org.exoplatform.commons.chromattic.ChromatticManager</target-component>
-    <component-plugin>
-      <name>chromattic</name>
-      <set-method>addLifeCycle</set-method>
-      <type>org.exoplatform.social.common.lifecycle.SocialChromatticLifeCycle</type>
-      <init-params>
-        <value-param>
-          <name>domain-name</name>
-          <value>st</value>
-        </value-param>
-        <value-param>
-          <name>workspace-name</name>
-          <value>portal-test</value>
-        </value-param>
-        <values-param>
-          <name>entities</name>
-          <value>org.exoplatform.datacollector.domain.ActivityPostEntity</value>
-        </values-param>
-        <properties-param>
-          <name>options</name>
-          <property name="org.chromattic.api.Option.root_node.path" value="/production" />
-          <property name="org.chromattic.api.Option.root_node.create" value="true" />
-        </properties-param>
-      </init-params>
-    </component-plugin>
-  </external-component-plugins>
 
 </configuration>
