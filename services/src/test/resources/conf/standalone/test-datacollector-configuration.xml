@@ -7,5 +7,9 @@
   <component>
     <type>org.exoplatform.datacollector.dao.ActivityPostDAO</type>
   </component>
+  
+  <component>
+    <type>org.exoplatform.datacollector.DataCollectorService</type>
+  </component>
 
 </configuration>

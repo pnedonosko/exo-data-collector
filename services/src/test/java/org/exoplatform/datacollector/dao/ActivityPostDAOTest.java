@@ -32,7 +32,6 @@ public class ActivityPostDAOTest extends BaseCommonsTestCase {
     activityPostDAO = (ActivityPostDAO) container.getComponentInstanceOfType(ActivityPostDAO.class);
   }
 
-
   @Test
   public void testFindPartIsCommentedPoster() {
     assertTrue(activityPostDAO.findPartIsCommentedPoster("john").isEmpty());
