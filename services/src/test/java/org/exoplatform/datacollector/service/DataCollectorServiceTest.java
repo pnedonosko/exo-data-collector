@@ -20,71 +20,68 @@ import org.exoplatform.datacollector.dao.RelevanceDAO;
 import org.exoplatform.datacollector.domain.RelevanceEntity;
 
 @ConfiguredBy({ @ConfigurationUnit(scope = ContainerScope.ROOT, path = "conf/test-root-configuration.xml"),
-	  @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/portal/configuration.xml"),
-	  @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/portal/test-configuration.xml"),
-	  @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/jcr/jcr-configuration.xml"),
-	  @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/jcr-configuration.xml"),
-	  @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-configuration.xml"),
-	  @ConfigurationUnit(scope = ContainerScope.PORTAL, path =  "conf/standalone/test-portal-configuration.xml"),
-	  @ConfigurationUnit(scope = ContainerScope.PORTAL, path =  "conf/standalone/test-datacollector-configuration.xml"),
-	  @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/test-portal-configuration.xml"
-	  )
-	})
+    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/portal/configuration.xml"),
+    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/portal/test-configuration.xml"),
+    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/jcr/jcr-configuration.xml"),
+    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/jcr-configuration.xml"),
+    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-configuration.xml"),
+    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-portal-configuration.xml"),
+    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-datacollector-configuration.xml"),
+    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/test-portal-configuration.xml") })
 public class DataCollectorServiceTest extends BaseCommonsTestCase {
 
-	DataCollectorService dataCollectorService;
+  DataCollectorService dataCollectorService;
 
-	RelevanceDAO relevanceStorage;
+  RelevanceDAO         relevanceStorage;
 
-	@Override
-	public void beforeClass() {
-		super.beforeClass();
-	    PortalContainer container = PortalContainer.getInstance();
-	    ExoContainerContext.setCurrentContainer(container);
-	
-	    /*
-		RepositoryService jcrService = container.getComponentInstanceOfType(RepositoryService.class);
-		SessionProviderService sessionProviders = container.getComponentInstanceOfType(SessionProviderService.class);
-		NodeHierarchyCreator hierarchyCreator = container.getComponentInstanceOfType(NodeHierarchyCreator.class);
-		OrganizationService organization = container.getComponentInstanceOfType(OrganizationService.class);
-		IdentityManager identityManager = container.getComponentInstanceOfType(IdentityManager.class);
-		IdentityStorage identityStorage = container.getComponentInstanceOfType(IdentityStorage.class);
-		ActivityManager activityManager = container.getComponentInstanceOfType(ActivityManager.class);
-		
-		dataCollectorService = new DataCollectorService(jcrService, sessionProviders, hierarchyCreator, organization, identityManager, identityStorage, activityManager, relevanceStorage);
-		*/
-	    
-		relevanceStorage = mock(RelevanceDAO.class);
-		dataCollectorService = new DataCollectorService(relevanceStorage);
-		when(relevanceStorage.find(TestUtils.EXISTING_RELEVANCE_ID)).thenReturn(TestUtils.getExistingRelevance());
-		when(relevanceStorage.find(TestUtils.UNEXISTING_RELEVANCE_ID)).thenReturn(null);
-	}
+  @Override
+  public void beforeClass() {
+    super.beforeClass();
+    PortalContainer container = PortalContainer.getInstance();
+    ExoContainerContext.setCurrentContainer(container);
 
-	@Test
-	public void testSaveRelevanceUpdate() {
-		RelevanceEntity relevance = TestUtils.getExistingRelevance();
-		dataCollectorService.saveRelevance(relevance);
-		
-		verify(relevanceStorage, times(1)).update(relevance);
-	}
+    /*
+    RepositoryService jcrService = container.getComponentInstanceOfType(RepositoryService.class);
+    SessionProviderService sessionProviders = container.getComponentInstanceOfType(SessionProviderService.class);
+    NodeHierarchyCreator hierarchyCreator = container.getComponentInstanceOfType(NodeHierarchyCreator.class);
+    OrganizationService organization = container.getComponentInstanceOfType(OrganizationService.class);
+    IdentityManager identityManager = container.getComponentInstanceOfType(IdentityManager.class);
+    IdentityStorage identityStorage = container.getComponentInstanceOfType(IdentityStorage.class);
+    ActivityManager activityManager = container.getComponentInstanceOfType(ActivityManager.class);
+    
+    dataCollectorService = new DataCollectorService(jcrService, sessionProviders, hierarchyCreator, organization, identityManager, identityStorage, activityManager, relevanceStorage);
+    */
+    relevanceStorage = mock(RelevanceDAO.class);
+    dataCollectorService = new DataCollectorService(relevanceStorage);
+    when(relevanceStorage.find(TestUtils.EXISTING_RELEVANCE_ID)).thenReturn(TestUtils.getExistingRelevance());
+    when(relevanceStorage.find(TestUtils.UNEXISTING_RELEVANCE_ID)).thenReturn(null);
+  }
 
-	@Test
-	public void testSaveRelevance() {
-		RelevanceEntity relevance = TestUtils.getNewRelevance();
-		dataCollectorService.saveRelevance(relevance);
-		
-		verify(relevanceStorage, times(1)).create(relevance);
-	}
-	
-	@Test
-	public void testFindById() {
-		dataCollectorService.findById(TestUtils.EXISTING_RELEVANCE_ID);
-		
-		verify(relevanceStorage, times(1)).find(TestUtils.EXISTING_RELEVANCE_ID);
-	}
-	
-	@After
-	public void tearDown() {
-		dataCollectorService = null;
-	}
+  @Test
+  public void testSaveRelevanceUpdate() {
+    RelevanceEntity relevance = TestUtils.getExistingRelevance();
+    dataCollectorService.saveRelevance(relevance);
+
+    verify(relevanceStorage, times(1)).update(relevance);
+  }
+
+  @Test
+  public void testSaveRelevance() {
+    RelevanceEntity relevance = TestUtils.getNewRelevance();
+    dataCollectorService.saveRelevance(relevance);
+
+    verify(relevanceStorage, times(1)).create(relevance);
+  }
+
+  @Test
+  public void testFindById() {
+    dataCollectorService.findById(TestUtils.EXISTING_RELEVANCE_ID);
+
+    verify(relevanceStorage, times(1)).find(TestUtils.EXISTING_RELEVANCE_ID);
+  }
+
+  @After
+  public void tearDown() {
+    dataCollectorService = null;
+  }
 }

@@ -40,93 +40,93 @@ import org.exoplatform.social.core.storage.api.IdentityStorage;
  */
 public class DataCollectorService implements Startable {
 
-	/** Logger */
-	private static final Log LOG = ExoLogger.getExoLogger(DataCollectorService.class);
+  /** Logger */
+  private static final Log     LOG = ExoLogger.getExoLogger(DataCollectorService.class);
 
-	/** The DAO for RelevanceEntity */
-	protected final RelevanceDAO relevanceStorage;
+  /** The DAO for RelevanceEntity */
+  protected final RelevanceDAO relevanceStorage;
 
-	/**
-	 * Instantiates a new data collector service.
-	 *
-	 * @param relevanceStorage is the DAO for RelevanceEntity
-	 */
-	public DataCollectorService(RelevanceDAO relevanceStorage) {
-		super();
+  /**
+   * Instantiates a new data collector service.
+   *
+   * @param relevanceStorage is the DAO for RelevanceEntity
+   */
+  public DataCollectorService(RelevanceDAO relevanceStorage) {
+    super();
 
-		this.relevanceStorage = relevanceStorage;
-	}
-	
-	
-	/**
-	 * Instantiates a new data collector service.
-	 *
-	 * @param jcrService       the jcr service
-	 * @param sessionProviders the session providers
-	 * @param hierarchyCreator the hierarchy creator
-	 * @param organization     the organization
-	 * @param identityManager  the identity manager
-	 * @param identityStorage  the identity storage
-	 * @param activityManager  the activity manager
-	 * @param relevanceStorage is the DAO for RelevanceEntity
-	 */
-	public DataCollectorService(RepositoryService jcrService, 
-											SessionProviderService sessionProviders,
-											NodeHierarchyCreator hierarchyCreator, 
-											OrganizationService organization, 
-											IdentityManager identityManager,
-											IdentityStorage identityStorage, 
-											ActivityManager activityManager, 
-											RelevanceDAO relevanceStorage) {
+    this.relevanceStorage = relevanceStorage;
+  }
 
-		this.relevanceStorage = relevanceStorage;
-	}
+  /**
+   * Instantiates a new data collector service.
+   *
+   * @param jcrService the jcr service
+   * @param sessionProviders the session providers
+   * @param hierarchyCreator the hierarchy creator
+   * @param organization the organization
+   * @param identityManager the identity manager
+   * @param identityStorage the identity storage
+   * @param activityManager the activity manager
+   * @param relevanceStorage is the DAO for RelevanceEntity
+   */
+  public DataCollectorService(RepositoryService jcrService,
+                              SessionProviderService sessionProviders,
+                              NodeHierarchyCreator hierarchyCreator,
+                              OrganizationService organization,
+                              IdentityManager identityManager,
+                              IdentityStorage identityStorage,
+                              ActivityManager activityManager,
+                              RelevanceDAO relevanceStorage) {
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public void start() {
-		// Nothing
-	}
+    this.relevanceStorage = relevanceStorage;
+  }
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public void stop() {
-		// Nothing
-	}
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void start() {
+    // Nothing
+  }
 
-	/**
-	 * Saves a relevance to the storage. Updates the relevance if it already exists.
-	 * 
-	 * @param relevance to be saved/updated
-	 */
-	public void saveRelevance(RelevanceEntity relevance) {
-		RelevanceEntity existingRelevance = relevanceStorage
-				.find(new RelevanceId(relevance.getUserId(), relevance.getActivityId()));
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void stop() {
+    // Nothing
+  }
 
-		relevance.setUpdateDate(new Date());
+  /**
+   * Saves a relevance to the storage. Updates the relevance if it already
+   * exists.
+   * 
+   * @param relevance to be saved/updated
+   */
+  public void saveRelevance(RelevanceEntity relevance) {
+    RelevanceEntity existingRelevance = relevanceStorage.find(new RelevanceId(relevance.getUserId(), relevance.getActivityId()));
 
-		if (existingRelevance == null) {
-			relevanceStorage.create(relevance);
-			LOG.info("Relevance created: " + relevance);
-		} else {
-			relevanceStorage.update(relevance);
-			LOG.info("Relevance updated: " + relevance);
-		}
-	}
+    relevance.setUpdateDate(new Date());
 
-	/**
-	 * Gets RelevanceEntity by given RelevanceId which contains the user id and
-	 * activity id.
-	 *
-	 * @param relevanceId is the searching parameter for retrieving RelevanceEntity
-	 * @return found RelevanceEntity or null if there is no such RelevanceEntity.
-	 */
-	public RelevanceEntity findById(RelevanceId relevanceId) {
-		return relevanceStorage.find(relevanceId);
-	}
+    if (existingRelevance == null) {
+      relevanceStorage.create(relevance);
+      LOG.info("Relevance created: " + relevance);
+    } else {
+      relevanceStorage.update(relevance);
+      LOG.info("Relevance updated: " + relevance);
+    }
+  }
+
+  /**
+   * Gets RelevanceEntity by given RelevanceId which contains the user id and
+   * activity id.
+   *
+   * @param relevanceId is the searching parameter for retrieving
+   *          RelevanceEntity
+   * @return found RelevanceEntity or null if there is no such RelevanceEntity.
+   */
+  public RelevanceEntity findById(RelevanceId relevanceId) {
+    return relevanceStorage.find(relevanceId);
+  }
 
 }
