@@ -10,10 +10,10 @@
 	<component>
 		<type>org.exoplatform.datacollector.dao.RelevanceDAO</type>
 	</component>
-	<component>
-		<type>org.exoplatform.datacollector.dao.ActivityPostDAO</type>
-	</component>
-
+   <component>
+    <type>org.exoplatform.datacollector.dao.ActivityCommentedDAO</type>
+  </component>
+  
 	<external-component-plugins>
 		<target-component>org.exoplatform.commons.api.persistence.DataInitializer</target-component>
 		<component-plugin>

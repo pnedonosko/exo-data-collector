@@ -18,30 +18,30 @@ import org.exoplatform.container.PortalContainer;
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-portal-configuration.xml"),
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-datacollector-configuration.xml"),
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/test-portal-configuration.xml") })
-public class ActivityPostDAOTest extends BaseCommonsTestCase {
+public class ActivityDAOTest extends BaseCommonsTestCase {
 
-  private ActivityPostDAO activityPostDAO;
+  private ActivityCommentedDAO activityCommentDAO;
 
   @Override
   protected void beforeClass() {
     super.beforeClass();
     PortalContainer container = PortalContainer.getInstance();
     ExoContainerContext.setCurrentContainer(container);
-    activityPostDAO = (ActivityPostDAO) container.getComponentInstanceOfType(ActivityPostDAO.class);
+    activityCommentDAO = (ActivityCommentedDAO) container.getComponentInstanceOfType(ActivityCommentedDAO.class);
   }
 
   @Test
   public void testFindPartIsCommentedPoster() {
-    assertTrue(activityPostDAO.findPartIsCommentedPoster("john").isEmpty());
+    assertTrue(activityCommentDAO.findPartIsCommentedPoster("john").isEmpty());
   }
 
   @Test
   public void testFindPartIsCommentedCommenter() {
-    assertTrue(activityPostDAO.findPartIsCommentedCommenter("john").isEmpty());
+    assertTrue(activityCommentDAO.findPartIsCommentedCommenter("john").isEmpty());
   }
 
   @Test
   public void testFindPartIsCommentedConvoPoster() {
-    assertTrue(activityPostDAO.findPartIsCommentedConvoPoster("john").isEmpty());
+    assertTrue(activityCommentDAO.findPartIsCommentedConvoPoster("john").isEmpty());
   }
 }

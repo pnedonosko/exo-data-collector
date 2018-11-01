@@ -5,10 +5,6 @@
   xmlns="http://www.exoplatform.org/xml/ns/kernel_1_2.xsd">
 
   <component>
-    <type>org.exoplatform.datacollector.dao.ActivityPostDAO</type>
-  </component>
-  
-  <component>
     <type>org.exoplatform.datacollector.DataCollectorService</type>
   </component>
 
