@@ -18,7 +18,7 @@ import org.exoplatform.container.PortalContainer;
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-portal-configuration.xml"),
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-datacollector-configuration.xml"),
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/test-portal-configuration.xml") })
-public class ActivityDAOTest extends BaseCommonsTestCase {
+public class ActivityCommentedDAOTest extends BaseCommonsTestCase {
 
   private ActivityCommentedDAO activityCommentDAO;
 
