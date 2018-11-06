@@ -17,7 +17,8 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
     /* Get user posts */
     @NamedNativeQuery(name = "ActivityPost.findUserPosts", query = "SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id,"
         + "  a.type AS post_type, a.poster_id AS poster_id, a.owner_id AS owner_id, "
-        + "  a.hidden, a.posted AS posted_date, a.updated_date " + " FROM soc_activities a"
+        + "  a.hidden, a.posted AS posted_date, a.updated_date " //
+        + " FROM soc_activities a"
         + " WHERE a.owner_id IS NOT NULL AND a.poster_id = :posterId", resultClass = ActivityPostEntity.class) })
 
 public class ActivityPostEntity extends AbstractActivityEntity implements Serializable {
