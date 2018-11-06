@@ -25,24 +25,6 @@
   </component>
 
   <component>
-    <key>org.exoplatform.portal.mop.page.PageService</key>
-    <type>org.exoplatform.portal.pom.config.PageServiceImpl</type>
-  </component>
-
-  <component>
-    <key>org.exoplatform.portal.pom.config.POMSessionManager</key>
-    <type>org.exoplatform.portal.pom.config.POMSessionManager</type>
-  </component>
-  <component>
-    <key>org.exoplatform.portal.pom.data.ModelDataStorage</key>
-    <type>org.exoplatform.portal.pom.config.POMDataStorage</type>
-  </component>
-  <component>
-    <key>org.exoplatform.portal.config.DataStorage</key>
-    <type>org.exoplatform.portal.config.DataStorageImpl</type>
-  </component>
-
-  <component>
     <key>org.exoplatform.services.scheduler.JobSchedulerService</key>
     <type>org.exoplatform.commons.testing.mock.MockJobSchedulerService</type>
   </component>
@@ -1147,50 +1129,6 @@
                 <value>
                   <object type="org.exoplatform.services.organization.OrganizationConfig$User">
                     <field name="userName">
-                      <string>john</string>
-                    </field>
-                    <field name="password">
-                      <string>gtn</string>
-                    </field>
-                    <field name="firstName">
-                      <string>John</string>
-                    </field>
-                    <field name="lastName">
-                      <string>Anthony</string>
-                    </field>
-                    <field name="email">
-                      <string>john@localhost</string>
-                    </field>
-                    <field name="groups">
-                      <string>member:/platform/administrators,member:/platform/users</string>
-                    </field>
-                  </object>
-                </value>
-                <value>
-                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
-                    <field name="userName">
-                      <string>mary</string>
-                    </field>
-                    <field name="password">
-                      <string>gtn</string>
-                    </field>
-                    <field name="firstName">
-                      <string>Mary</string>
-                    </field>
-                    <field name="lastName">
-                      <string>Kelly</string>
-                    </field>
-                    <field name="email">
-                      <string>mary@localhost</string>
-                    </field>
-                    <field name="groups">
-                      <string>member:/platform/users</string>
-                    </field>
-                  </object>
-                </value>
-                <value>
-                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
-                    <field name="userName">
                       <string>demo</string>
                     </field>
                     <field name="password">
@@ -1292,6 +1230,182 @@
                     </field>
                     <field name="email">
                       <string>jame@localhost</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>alice</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Alice</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Wicked</string>
+                    </field>
+                    <field name="email">
+                      <string>alice@exo.com</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>bob</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Bob</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Martin</string>
+                    </field>
+                    <field name="email">
+                      <string>bob@exo.com</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>jack</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Jack</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Daniels</string>
+                    </field>
+                    <field name="email">
+                      <string>jack@exo.com</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>james</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>James</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Brown</string>
+                    </field>
+                    <field name="email">
+                      <string>james@exo.com</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>john</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>John</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Smith</string>
+                    </field>
+                    <field name="email">
+                      <string>john@exo.com</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>john</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>John</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Smith</string>
+                    </field>
+                    <field name="email">
+                      <string>john@exo.com</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>mary</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Mary</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Williams</string>
+                    </field>
+                    <field name="email">
+                      <string>mary@exo.com</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>jason</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Jason</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Bourne</string>
+                    </field>
+                    <field name="email">
+                      <string>jason@exo.com</string>
                     </field>
                     <field name="groups">
                       <string>member:/platform/users</string>
