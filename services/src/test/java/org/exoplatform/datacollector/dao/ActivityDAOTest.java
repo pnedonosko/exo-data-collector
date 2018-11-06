@@ -25,8 +25,6 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
   private ActivityCommentedDAO activityCommentDAO;
 
-  private SpaceService         spaceService;
-
   @Override
   protected void beforeClass() {
     super.beforeClass();
@@ -35,7 +33,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     RequestLifeCycle.begin(container);
 
     activityCommentDAO = (ActivityCommentedDAO) container.getComponentInstanceOfType(ActivityCommentedDAO.class);
-    spaceService = (SpaceService) container.getComponentInstanceOfType(SpaceService.class);
+    SpaceService spaceService = (SpaceService) container.getComponentInstanceOfType(SpaceService.class);
 
     TestUtils.initSpaces(spaceService);
 
