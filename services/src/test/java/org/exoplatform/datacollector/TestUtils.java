@@ -1,16 +1,10 @@
 package org.exoplatform.datacollector;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.exoplatform.datacollector.domain.RelevanceEntity;
 import org.exoplatform.datacollector.domain.RelevanceId;
-import org.exoplatform.social.core.identity.model.Identity;
-import org.exoplatform.social.core.identity.provider.OrganizationIdentityProvider;
-import org.exoplatform.social.core.manager.IdentityManager;
-import org.exoplatform.social.core.manager.RelationshipManager;
-import org.exoplatform.social.core.space.SpaceException;
-import org.exoplatform.social.core.space.SpaceUtils;
-import org.exoplatform.social.core.space.impl.DefaultSpaceApplicationHandler;
-import org.exoplatform.social.core.space.model.Space;
-import org.exoplatform.social.core.space.spi.SpaceService;
 
 public class TestUtils {
 
@@ -63,5 +57,14 @@ public class TestUtils {
     relevance.setActivityId("3");
     relevance.setRelevant(true);
     return relevance;
+  }
+
+  public static Map<String, String[]> getConnections() {
+    Map<String, String[]> connections = new HashMap<>();
+    connections.put("alice", new String[] { "bob", "james", "john", "mary", "jason" });
+    connections.put("bob", new String[] { "alice", "jack", "james", "john", "mary", "jason" });
+    connections.put("jack", new String[] { "bob", "james", "john", "jason" });
+    // TODO: Add others
+    return connections;
   }
 }

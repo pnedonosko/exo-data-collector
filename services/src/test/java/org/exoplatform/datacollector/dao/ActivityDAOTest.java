@@ -1,5 +1,7 @@
 package org.exoplatform.datacollector.dao;
 
+import java.util.Map;
+
 import org.junit.Test;
 
 import org.exoplatform.commons.testing.BaseCommonsTestCase;
@@ -52,6 +54,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     identityManager = (IdentityManager) container.getComponentInstanceOfType(IdentityManager.class);
 
     initSpaces();
+    initConnections();
 
   }
 
@@ -136,5 +139,24 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     }
   }
 
+  /**
+   * Initialized connections between users
+   */
+  private void initConnections() {
+
+    Map<String, String[]> connections = TestUtils.getConnections();
+
+    connections.forEach((invitingUser, invitedUsers) -> {
+      Identity invitingIdentity = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, invitingUser, true);
+
+      for (String invitedUser : invitedUsers) {
+        Identity invitedIdentity = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, invitedUser, true);
+        relationshipManager.inviteToConnect(invitingIdentity, invitedIdentity);
+        relationshipManager.confirm(invitedIdentity, invitingIdentity);
+      }
+
+    });
+
+  }
 
 }
