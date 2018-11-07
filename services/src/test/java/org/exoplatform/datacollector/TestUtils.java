@@ -59,6 +59,12 @@ public class TestUtils {
     return relevance;
   }
 
+  /**
+   * Gets a map with testing connections between users.
+   * The key is an username who invites to connect
+   * The value is an array with usernames who are invited 
+   * @return map with connections
+   */
   public static Map<String, String[]> getConnections() {
     Map<String, String[]> connections = new HashMap<>();
     connections.put("alice", new String[] { "bob", "james", "john", "mary", "jason" });
