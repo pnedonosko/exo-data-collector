@@ -10,6 +10,14 @@ import org.exoplatform.container.ExoContainerContext;
 import org.exoplatform.container.PortalContainer;
 import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.datacollector.TestUtils;
+import org.exoplatform.social.core.identity.model.Identity;
+import org.exoplatform.social.core.identity.provider.OrganizationIdentityProvider;
+import org.exoplatform.social.core.manager.IdentityManager;
+import org.exoplatform.social.core.manager.RelationshipManager;
+import org.exoplatform.social.core.space.SpaceException;
+import org.exoplatform.social.core.space.SpaceUtils;
+import org.exoplatform.social.core.space.impl.DefaultSpaceApplicationHandler;
+import org.exoplatform.social.core.space.model.Space;
 import org.exoplatform.social.core.space.spi.SpaceService;
 
 @ConfiguredBy({ @ConfigurationUnit(scope = ContainerScope.ROOT, path = "conf/test-root-configuration.xml"),
@@ -25,6 +33,12 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
   private ActivityCommentedDAO activityCommentDAO;
 
+  private SpaceService         spaceService;
+
+  private RelationshipManager  relationshipManager;
+
+  private IdentityManager      identityManager;
+
   @Override
   protected void beforeClass() {
     super.beforeClass();
@@ -33,9 +47,11 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     RequestLifeCycle.begin(container);
 
     activityCommentDAO = (ActivityCommentedDAO) container.getComponentInstanceOfType(ActivityCommentedDAO.class);
-    SpaceService spaceService = (SpaceService) container.getComponentInstanceOfType(SpaceService.class);
+    spaceService = (SpaceService) container.getComponentInstanceOfType(SpaceService.class);
+    relationshipManager = (RelationshipManager) container.getComponentInstanceOfType(RelationshipManager.class);
+    identityManager = (IdentityManager) container.getComponentInstanceOfType(IdentityManager.class);
 
-    TestUtils.initSpaces(spaceService);
+    initSpaces();
 
   }
 
@@ -60,5 +76,65 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
     RequestLifeCycle.end();
   }
+
+  /**
+   * Initializes testing spaces
+   */
+  private void initSpaces() {
+    if (spaceService.getSpaceByDisplayName(TestUtils.ENGINEERING_TEAM) == null) {
+      createSpace(TestUtils.ENGINEERING_TEAM, TestUtils.ENGINERING_MANAGERS, TestUtils.ENGINERING_MEMBERS);
+    }
+    if (spaceService.getSpaceByDisplayName(TestUtils.MARKETING_TEAM) == null) {
+      createSpace(TestUtils.MARKETING_TEAM, TestUtils.MARKETING_MANAGERS, TestUtils.MARKETING_MEMBERS);
+    }
+    if (spaceService.getSpaceByDisplayName(TestUtils.PRODUCT_TEAM) == null) {
+      createSpace(TestUtils.PRODUCT_TEAM, TestUtils.PRODUCT_MANAGERS, TestUtils.PRODUCT_MEMBERS);
+    }
+    if (spaceService.getSpaceByDisplayName(TestUtils.SALES_TEAM) == null) {
+      createSpace(TestUtils.SALES_TEAM, TestUtils.SALES_MANAGERS, TestUtils.SALES_MEMBERS);
+    }
+    if (spaceService.getSpaceByDisplayName(TestUtils.SUPPORT_TEAM) == null) {
+      createSpace(TestUtils.SUPPORT_TEAM, TestUtils.SUPPORT_MANAGERS, TestUtils.SUPPORT_MEMBERS);
+    }
+  }
+
+  /**
+   * Creates space
+   * @param displayName space displayName
+   * @param managers managers of the space
+   * @param members members of the space
+   */
+  private void createSpace(String displayName, String[] managers, String[] members) {
+    Space space = new Space();
+    space.setDisplayName(displayName);
+    space.setPrettyName(displayName);
+    space.setRegistration(Space.OPEN);
+    space.setDescription("add new space" + displayName);
+    space.setType(DefaultSpaceApplicationHandler.NAME);
+    space.setVisibility(Space.PUBLIC);
+    space.setRegistration(Space.VALIDATION);
+    space.setPriority(Space.INTERMEDIATE_PRIORITY);
+    String groupId = null;
+    try {
+      groupId = SpaceUtils.createGroup(space.getDisplayName(), space.getPrettyName(), managers[0]);
+    } catch (SpaceException e) {
+      e.printStackTrace();
+    }
+
+    space.setGroupId(groupId);
+    space.setUrl(space.getPrettyName());
+    String[] invitedUsers = new String[] {};
+    String[] pendingUsers = new String[] {};
+    space.setInvitedUsers(invitedUsers);
+    space.setPendingUsers(pendingUsers);
+    space.setManagers(managers);
+    space.setMembers(members);
+    try {
+      spaceService.saveSpace(space, true);
+    } catch (SpaceException e) {
+      e.printStackTrace();
+    }
+  }
+
 
 }

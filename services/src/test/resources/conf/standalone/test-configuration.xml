@@ -881,16 +881,16 @@
     </component-plugin>
   </external-component-plugins>
 
-  <!--
-    <external-component-plugins>
+
+  <external-component-plugins>
     <target-component>org.exoplatform.social.core.manager.RelationshipManager</target-component>
     <component-plugin>
-    <name>RelationshipPublisher</name>
-    <set-method>addListenerPlugin</set-method>
-    <type>org.exoplatform.social.core.application.RelationshipPublisher</type>
+      <name>RelationshipPublisher</name>
+      <set-method>addListenerPlugin</set-method>
+      <type>org.exoplatform.social.core.application.RelationshipPublisher</type>
     </component-plugin>
-    </external-component-plugins>
-  -->
+  </external-component-plugins>
+
   <external-component-plugins>
     <target-component>org.exoplatform.services.jcr.RepositoryService</target-component>
     <component-plugin>
