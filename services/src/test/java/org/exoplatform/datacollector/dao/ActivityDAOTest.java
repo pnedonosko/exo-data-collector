@@ -140,13 +140,11 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   }
 
   /**
-   * Initialized connections between users
+   * Initializes connections between users
    */
   private void initConnections() {
 
-    Map<String, String[]> connections = TestUtils.getConnections();
-
-    connections.forEach((invitingUser, invitedUsers) -> {
+    TestUtils.getConnections().forEach((invitingUser, invitedUsers) -> {
       Identity invitingIdentity = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, invitingUser, true);
 
       for (String invitedUser : invitedUsers) {

@@ -22,7 +22,7 @@ public class TestUtils {
 
   public static final String   ENGINEERING_TEAM        = "Engineering Team";
 
-  public static final String[] ENGINERING_MANAGERS     = new String[] { "john", "bob" };
+  public static final String[] ENGINERING_MANAGERS     = new String[] { "john", "bob", "jason" };
 
   public static final String[] ENGINERING_MEMBERS      = new String[] { "james", "bob", "john", "jack" };
 
@@ -62,7 +62,7 @@ public class TestUtils {
   /**
    * Gets a map with testing connections between users.
    * The key is an username who invites to connect
-   * The value is an array with usernames who are invited 
+   * The value is an array with usernames which are invited 
    * @return map with connections
    */
   public static Map<String, String[]> getConnections() {
@@ -70,7 +70,10 @@ public class TestUtils {
     connections.put("alice", new String[] { "bob", "james", "john", "mary", "jason" });
     connections.put("bob", new String[] { "alice", "jack", "james", "john", "mary", "jason" });
     connections.put("jack", new String[] { "bob", "james", "john", "jason" });
-    // TODO: Add others
+    connections.put("james", new String[] { "alice", "bob", "jack", "john", "mary", "jason" });
+    connections.put("john", new String[] { "alice", "bob", "jack", "james", "jason" });
+    connections.put("mary", new String[] { "alice", "james", "john", "jason" });
+    connections.put("jason", new String[] { "alice", "bob", "jack", "james", "john", "mary" });
     return connections;
   }
 }
