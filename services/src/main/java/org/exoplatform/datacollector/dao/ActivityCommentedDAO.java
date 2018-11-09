@@ -12,12 +12,12 @@ import org.exoplatform.datacollector.domain.ActivityPostEntity;
 
 public class ActivityCommentedDAO extends GenericDAOJPAImpl<ActivityPostEntity, String> {
 
-  public List<ActivityCommentedEntity> findPartIsCommentedPoster(String posterId) {
+  public List<ActivityCommentedEntity> findPartIsCommentedPoster(String commenterId) {
     try {
       TypedQuery<ActivityCommentedEntity> query =
                                                 getEntityManager().createNamedQuery("ActivityCommented.findPartIsCommentedPoster",
                                                                                     ActivityCommentedEntity.class)
-                                                                  .setParameter("posterId", posterId);
+                                                                  .setParameter("commenterId", commenterId);
       return query.getResultList();
     } catch (NoResultException e) {
       return Collections.emptyList();
@@ -36,11 +36,11 @@ public class ActivityCommentedDAO extends GenericDAOJPAImpl<ActivityPostEntity, 
     }
   }
 
-  public List<ActivityCommentedEntity> findPartIsCommentedConvoPoster(String posterId) {
+  public List<ActivityCommentedEntity> findPartIsCommentedConvoPoster(String commenterId) {
     TypedQuery<ActivityCommentedEntity> query =
                                               getEntityManager().createNamedQuery("ActivityCommented.findPartIsCommentedConvoPoster",
                                                                                   ActivityCommentedEntity.class)
-                                                                .setParameter("posterId", posterId);
+                                                                .setParameter("commenterId", commenterId);
     try {
       return query.getResultList();
     } catch (NoResultException e) {
