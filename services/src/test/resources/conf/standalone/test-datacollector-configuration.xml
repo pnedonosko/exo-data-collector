@@ -7,5 +7,16 @@
   <component>
     <type>org.exoplatform.datacollector.DataCollectorService</type>
   </component>
-
+  <component>
+    <type>org.exoplatform.datacollector.ResourceBundleService</type>
+  </component>
+  <component>
+    <key>org.exoplatform.services.resources.ResourceBundleService</key>
+    <type>org.exoplatform.datacollector.ResourceBundleServiceMock</type>
+  </component>
+  
+    <component>
+    <key>org.exoplatform.calendar.service.CalendarService</key>
+    <type>org.exoplatform.calendar.service.impl.CalendarServiceImpl</type>
+  </component>
 </configuration>

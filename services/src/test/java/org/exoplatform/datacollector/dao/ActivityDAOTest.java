@@ -1,7 +1,5 @@
 package org.exoplatform.datacollector.dao;
 
-import java.util.Map;
-
 import org.junit.Test;
 
 import org.exoplatform.commons.testing.BaseCommonsTestCase;
@@ -11,7 +9,14 @@ import org.exoplatform.component.test.ContainerScope;
 import org.exoplatform.container.ExoContainerContext;
 import org.exoplatform.container.PortalContainer;
 import org.exoplatform.container.component.RequestLifeCycle;
+import org.exoplatform.datacollector.DataPopulator;
 import org.exoplatform.datacollector.TestUtils;
+import org.exoplatform.injection.core.module.ActivityModule;
+import org.exoplatform.injection.core.module.SpaceModule;
+import org.exoplatform.injection.core.module.UserModule;
+import org.exoplatform.injection.services.DataInjector;
+import org.exoplatform.services.log.ExoLogger;
+import org.exoplatform.services.log.Log;
 import org.exoplatform.social.core.identity.model.Identity;
 import org.exoplatform.social.core.identity.provider.OrganizationIdentityProvider;
 import org.exoplatform.social.core.manager.IdentityManager;
@@ -33,6 +38,8 @@ import org.exoplatform.social.core.space.spi.SpaceService;
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/test-portal-configuration.xml") })
 public class ActivityDAOTest extends BaseCommonsTestCase {
 
+  private final Log            LOG = ExoLogger.getLogger(ActivityDAOTest.class);
+
   private ActivityCommentedDAO activityCommentDAO;
 
   private SpaceService         spaceService;
@@ -53,8 +60,21 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     relationshipManager = (RelationshipManager) container.getComponentInstanceOfType(RelationshipManager.class);
     identityManager = (IdentityManager) container.getComponentInstanceOfType(IdentityManager.class);
 
-    initSpaces();
-    initConnections();
+    ActivityModule activityModule = (ActivityModule) container.getComponentInstanceOfType(ActivityModule.class);
+
+    SpaceModule spaceModule = (SpaceModule) container.getComponentInstanceOfType(SpaceModule.class);
+
+    UserModule userModule = (UserModule) container.getComponentInstanceOfType(UserModule.class);
+
+    DataPopulator populator = new DataPopulator(activityModule, spaceModule, userModule);
+    LOG.info("=======================================================================");
+    LOG.info("USER MODULE: " + userModule.toString());
+    LOG.info("SPACE MODULE: " + spaceModule.toString());
+    
+    populator.populate("HR_Knowledge_Management");
+    /*
+     * initSpaces(); initConnections();
+     */
 
   }
 
