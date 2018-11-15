@@ -1,10 +1,26 @@
 package org.exoplatform.datacollector;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import org.exoplatform.container.PortalContainer;
+import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.datacollector.domain.RelevanceEntity;
 import org.exoplatform.datacollector.domain.RelevanceId;
+import org.exoplatform.social.core.activity.model.ExoSocialActivity;
+import org.exoplatform.social.core.activity.model.ExoSocialActivityImpl;
+import org.exoplatform.social.core.identity.model.Identity;
+import org.exoplatform.social.core.identity.provider.OrganizationIdentityProvider;
 
 public class TestUtils {
 
@@ -76,4 +92,43 @@ public class TestUtils {
     connections.put("jason", new String[] { "alice", "bob", "jack", "james", "john", "mary" });
     return connections;
   }
+
+  public static JSONObject getJSON(String fileName) {
+
+    InputStream stream = null;
+    stream = TestUtils.class.getClassLoader().getResourceAsStream("scenarios/" + fileName);
+
+    String fileContent = getData(stream);
+    JSONObject json = null;
+    try {
+      json = new JSONObject(fileContent);
+    } catch (JSONException e) {
+
+      e.printStackTrace();
+    }
+
+    return json;
+  }
+
+  /**
+   * Gets the data.
+   *
+   * @param inputStream the input stream
+   * @return the data
+   */
+  public static String getData(InputStream inputStream) {
+    String out = "";
+    StringWriter writer = new StringWriter();
+    try {
+      IOUtils.copy(inputStream, writer);
+      out = writer.toString();
+
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    return out;
+  }
+
+
 }

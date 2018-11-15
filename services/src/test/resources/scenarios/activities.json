@@ -1,0 +1,40 @@
+{
+	"data": {
+		"activities": [
+			{
+				"from": "mary",
+				"space": "support_team",
+				"body": "Don't forget our Public Webinar next week",
+				"title": "Don't forget our Public Webinar next week",
+				"likes": [
+					"john"
+				],
+				"comments": [
+					{
+						"from": "jason",
+						"body": "in the main room?"
+					},
+					{
+						"from": "mary",
+						"body": "yes and it will be also shared online"
+					}
+				]
+			},
+			{
+				"from": "john",
+				"space": "support_team",
+				"body": "Hi everybody!",
+				"title": "Hi everybody!",
+				"likes": [
+					"mary"
+				],
+				"comments": [
+					{
+						"from": "jason",
+						"body": "hello"
+					}
+				]
+			}
+		]
+	}
+}
