@@ -61,7 +61,18 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " WHERE a.activity_id = c.parent_id AND c.activity_id = oc.parent_id"
         + " AND a.poster_id != c.poster_id AND a.poster_id != oc.poster_id"
         + " AND a.owner_id IS NOT NULL AND oc.owner_id IS NULL"
-        + " AND a.poster_id = :posterId", resultClass = ActivityCommentedEntity.class) })
+        + " AND a.poster_id = :posterId", resultClass = ActivityCommentedEntity.class),
+    /* ===== Others do in the user favorite streams ===== */
+    /* Others often comment in the user favorite streams (find commenters) */
+    @NamedNativeQuery(name = "ActivityCommented.findPartIsFavoriteStreamCommenter", query = "SELECT a.activity_id AS post_id,"
+        + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id AS poster_id, a.owner_id, a.parent_id,"
+        + "  oc.posted AS c_posted_date, oc.updated_date AS c_updated_date, a.hidden, a.posted AS posted_date, a.updated_date"
+        + " FROM soc_activities a, soc_activities oc, soc_identities si"
+        + " WHERE a.owner_id IS NOT NULL AND si.identity_id = a.poster_id AND si.provider_id = \"organization\""
+        + " AND a.activity_id = oc.parent_id AND a.owner_id IN (:favoriteSpaces) AND oc.poster_id != :posterId"
+        + " ORDER BY a.owner_id, c_updated_date", resultClass = ActivityCommentedEntity.class)
+
+})
 
 public class ActivityCommentedEntity extends AbstractActivityEntity implements Serializable {
 
