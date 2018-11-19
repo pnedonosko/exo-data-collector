@@ -139,6 +139,7 @@ public class SocialDataCollectorService implements Startable {
       for (Identity id : identityManager.getIdentitiesByProfileFilter(OrganizationIdentityProvider.NAME, filter, true)
                                         .load(idsIndex, BATCH_SIZE)) {
         // TODO find this user favorite participants (influencers) and spaces
+
         RealtimeListAccess<ExoSocialActivity> spacesActivities = activityManager.getActivitiesOfUserSpacesWithListAccess(id);
         // spacesActivities.loadNewer(sinceTime, limit);
         // spacesActivities.getNumberOfNewer(sinceTime);

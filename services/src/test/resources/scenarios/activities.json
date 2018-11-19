@@ -17,6 +17,10 @@
 					{
 						"from": "mary",
 						"body": "yes and it will be also shared online"
+					},
+					{
+						"from": "john",
+						"body": "Good to know!"
 					}
 				]
 			},
@@ -31,7 +35,7 @@
 				"comments": [
 					{
 						"from": "jason",
-						"body": "hello"
+						"body": "hello @john, welcome :)"
 					}
 				]
 			}
