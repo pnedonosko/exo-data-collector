@@ -27,8 +27,6 @@ import org.exoplatform.social.core.identity.provider.SpaceIdentityProvider;
 import org.exoplatform.social.core.manager.ActivityManager;
 import org.exoplatform.social.core.manager.IdentityManager;
 import org.exoplatform.social.core.manager.RelationshipManager;
-import org.exoplatform.social.core.relationship.model.Relationship;
-import org.exoplatform.social.core.relationship.model.Relationship.Type;
 import org.exoplatform.social.core.service.LinkProvider;
 import org.exoplatform.social.core.space.SpaceException;
 import org.exoplatform.social.core.space.SpaceUtils;
@@ -76,9 +74,9 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     activityManager = (ActivityManager) container.getComponentInstanceOfType(ActivityManager.class);
 
     initSpaces();
-    initConnections();
-
     initActivities();
+    initRelations();
+
     // TODO: Check if the activity is already created - already by
     // "initialized"
     // TODO: Create activity without a space
@@ -112,6 +110,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   @Override
   protected void afterClass() {
     super.afterClass();
+    // cleanSpaces();
     RequestLifeCycle.end();
   }
 
@@ -137,7 +136,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   }
 
   /**
-   * Creates space
+   * Creates a space
    * 
    * @param displayName space displayName
    * @param managers managers of the space
@@ -176,7 +175,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   }
 
   /**
-   * Clean testing spaces
+   * Cleans testing spaces
    */
   private void cleanSpaces() {
     Space space = spaceService.getSpaceByDisplayName(TestUtils.ENGINEERING_TEAM);
@@ -202,24 +201,10 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   }
 
   /**
-   * Initializes connections between users
+   * Initializes testing activities from JSON (TestUtils.TESTING_DATA_FILENAME)
    */
-  private void initConnections() {
-    TestUtils.getConnections().forEach((invitingUser, invitedUsers) -> {
-      Identity invitingIdentity = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, invitingUser, true);
-      for (String invitedUser : invitedUsers) {
-        Identity invitedIdentity = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, invitedUser, true);
-        Relationship r = relationshipManager.get(invitingIdentity, invitedIdentity);
-        if (r == null || !Type.CONFIRMED.equals(r.getStatus())) {
-          relationshipManager.inviteToConnect(invitingIdentity, invitedIdentity);
-          relationshipManager.confirm(invitedIdentity, invitingIdentity);
-        }
-      }
-    });
-  }
-
   private void initActivities() {
-    JSONObject json = TestUtils.getJSON("activities.json");
+    JSONObject json = TestUtils.getJSON(TestUtils.TESTING_DATA_FILENAME);
     try {
       JSONArray activities = json.getJSONObject("data").getJSONArray("activities");
       RequestLifeCycle.begin(PortalContainer.getInstance());
@@ -239,7 +224,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   }
 
   /**
-   * Push activity.
+   * Pushes an activity.
    *
    * @param activityJSON the activity JSON
    * @throws Exception the exception
@@ -289,6 +274,43 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
         comment.setTitle(commentJSON.getString("body"));
         comment.setUserId(identityComment.getId());
         activityManager.saveComment(activity, comment);
+      }
+    }
+  }
+
+  /**
+   * Initializes testing relations between users from JSON (TestUtils.TESTING_DATA_FILENAME)
+   */
+  private void initRelations() {
+    JSONObject json = TestUtils.getJSON(TestUtils.TESTING_DATA_FILENAME);
+    JSONArray relations = null;
+
+    try {
+      relations = json.getJSONObject("data").getJSONArray("relations");
+    } catch (JSONException e1) {
+      LOG.error("Error when reading relations from json");
+      return;
+    }
+
+    for (int i = 0; i < relations.length(); i++) {
+      RequestLifeCycle.begin(PortalContainer.getInstance());
+
+      try {
+        JSONObject relation = relations.getJSONObject(i);
+        Identity idInviting = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME,
+                                                                  relation.getString("inviting"),
+                                                                  false);
+        Identity idInvited = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME,
+                                                                 relation.getString("invited"),
+                                                                 false);
+        relationshipManager.inviteToConnect(idInviting, idInvited);
+        if (relation.has("confirmed") && relation.getBoolean("confirmed")) {
+          relationshipManager.confirm(idInvited, idInviting);
+        }
+      } catch (JSONException e) {
+        LOG.error("Syntax error on relation number " + i, e);
+      } finally {
+        RequestLifeCycle.end();
       }
     }
   }

@@ -1,28 +1,19 @@
 package org.exoplatform.datacollector;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
-import java.util.HashMap;
-import java.util.Map;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import org.exoplatform.container.PortalContainer;
-import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.datacollector.domain.RelevanceEntity;
 import org.exoplatform.datacollector.domain.RelevanceId;
-import org.exoplatform.social.core.activity.model.ExoSocialActivity;
-import org.exoplatform.social.core.activity.model.ExoSocialActivityImpl;
-import org.exoplatform.social.core.identity.model.Identity;
-import org.exoplatform.social.core.identity.provider.OrganizationIdentityProvider;
 
 public class TestUtils {
+
+  public static final String   TESTING_DATA_FILENAME   = "data.json";
 
   public static RelevanceId    EXISTING_RELEVANCE_ID   = new RelevanceId("1", "2");
 
@@ -75,24 +66,6 @@ public class TestUtils {
     return relevance;
   }
 
-  /**
-   * Gets a map with testing connections between users.
-   * The key is an username who invites to connect
-   * The value is an array with usernames which are invited 
-   * @return map with connections
-   */
-  public static Map<String, String[]> getConnections() {
-    Map<String, String[]> connections = new HashMap<>();
-    connections.put("alice", new String[] { "bob", "james", "john", "mary", "jason" });
-    connections.put("bob", new String[] { "alice", "jack", "james", "john", "mary", "jason" });
-    connections.put("jack", new String[] { "bob", "james", "john", "jason" });
-    connections.put("james", new String[] { "alice", "bob", "jack", "john", "mary", "jason" });
-    connections.put("john", new String[] { "alice", "bob", "jack", "james", "jason" });
-    connections.put("mary", new String[] { "alice", "james", "john", "jason" });
-    connections.put("jason", new String[] { "alice", "bob", "jack", "james", "john", "mary" });
-    return connections;
-  }
-
   public static JSONObject getJSON(String fileName) {
 
     InputStream stream = null;
@@ -129,6 +102,5 @@ public class TestUtils {
 
     return out;
   }
-
 
 }

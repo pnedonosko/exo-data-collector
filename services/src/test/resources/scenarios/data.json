@@ -1,0 +1,226 @@
+{
+	"data": {
+		"activities": [
+			{
+				"from": "mary",
+				"space": "support_team",
+				"body": "Don't forget our Public Webinar next week",
+				"title": "Don't forget our Public Webinar next week",
+				"likes": [
+					"john"
+				],
+				"comments": [
+					{
+						"from": "jason",
+						"body": "in the main room?"
+					},
+					{
+						"from": "mary",
+						"body": "yes and it will be also shared online"
+					},
+					{
+						"from": "john",
+						"body": "Good to know!"
+					}
+				]
+			},
+			{
+				"from": "john",
+				"space": "support_team",
+				"body": "Hi everybody!",
+				"title": "Hi everybody!",
+				"likes": [
+					"mary"
+				],
+				"comments": [
+					{
+						"from": "jason",
+						"body": "hello @john, welcome :)"
+					}
+				]
+			}
+		],
+		"relations": [
+			{
+				"inviting": "alice",
+				"invited": "bob",
+				"confirmed": true
+			},
+			{
+				"inviting": "alice",
+				"invited": "james",
+				"confirmed": true
+			},
+			{
+				"inviting": "alice",
+				"invited": "john",
+				"confirmed": true
+			},
+			{
+				"inviting": "alice",
+				"invited": "mary",
+				"confirmed": true
+			},
+			{
+				"inviting": "alice",
+				"invited": "jason",
+				"confirmed": true
+			},
+			{
+				"inviting": "bob",
+				"invited": "alice",
+				"confirmed": true
+			},
+			{
+				"inviting": "bob",
+				"invited": "jack",
+				"confirmed": true
+			},
+			{
+				"inviting": "bob",
+				"invited": "james",
+				"confirmed": true
+			},
+			{
+				"inviting": "bob",
+				"invited": "john",
+				"confirmed": true
+			},
+			{
+				"inviting": "bob",
+				"invited": "mary",
+				"confirmed": true
+			},
+			{
+				"inviting": "bob",
+				"invited": "jason",
+				"confirmed": true
+			},
+			{
+				"inviting": "jack",
+				"invited": "bob",
+				"confirmed": true
+			},
+			{
+				"inviting": "jack",
+				"invited": "james",
+				"confirmed": true
+			},
+			{
+				"inviting": "jack",
+				"invited": "john",
+				"confirmed": true
+			},
+			{
+				"inviting": "jack",
+				"invited": "jason",
+				"confirmed": true
+			},
+			{
+				"inviting": "james",
+				"invited": "alice",
+				"confirmed": true
+			},
+			{
+				"inviting": "james",
+				"invited": "bob",
+				"confirmed": true
+			},
+			{
+				"inviting": "james",
+				"invited": "jack",
+				"confirmed": true
+			},
+			{
+				"inviting": "james",
+				"invited": "john",
+				"confirmed": true
+			},
+			{
+				"inviting": "james",
+				"invited": "mary",
+				"confirmed": true
+			},
+			{
+				"inviting": "james",
+				"invited": "jason",
+				"confirmed": true
+			},
+			{
+				"inviting": "john",
+				"invited": "alice",
+				"confirmed": true
+			},
+			{
+				"inviting": "john",
+				"invited": "bob",
+				"confirmed": true
+			},
+			{
+				"inviting": "john",
+				"invited": "jack",
+				"confirmed": true
+			},
+			{
+				"inviting": "john",
+				"invited": "james",
+				"confirmed": true
+			},
+			{
+				"inviting": "john",
+				"invited": "jason",
+				"confirmed": true
+			},
+			{
+				"inviting": "mary",
+				"invited": "alice",
+				"confirmed": true
+			},
+			{
+				"inviting": "mary",
+				"invited": "james",
+				"confirmed": true
+			},
+			{
+				"inviting": "mary",
+				"invited": "john",
+				"confirmed": true
+			},
+			{
+				"inviting": "mary",
+				"invited": "jason",
+				"confirmed": true
+			},
+			{
+				"inviting": "jason",
+				"invited": "alice",
+				"confirmed": true
+			},
+			{
+				"inviting": "jason",
+				"invited": "bob",
+				"confirmed": true
+			},
+			{
+				"inviting": "jason",
+				"invited": "jack",
+				"confirmed": true
+			},
+			{
+				"inviting": "jason",
+				"invited": "james",
+				"confirmed": true
+			},
+			{
+				"inviting": "jason",
+				"invited": "john",
+				"confirmed": true
+			},
+			{
+				"inviting": "jason",
+				"invited": "mary",
+				"confirmed": true
+			}
+		]
+	}
+}
