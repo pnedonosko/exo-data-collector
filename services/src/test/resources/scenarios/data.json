@@ -43,11 +43,6 @@
 		"relations": [
 			{
 				"inviting": "alice",
-				"invited": "bob",
-				"confirmed": true
-			},
-			{
-				"inviting": "alice",
 				"invited": "james",
 				"confirmed": true
 			},
@@ -64,11 +59,6 @@
 			{
 				"inviting": "alice",
 				"invited": "jason",
-				"confirmed": true
-			},
-			{
-				"inviting": "bob",
-				"invited": "alice",
 				"confirmed": true
 			},
 			{
@@ -178,12 +168,12 @@
 			},
 			{
 				"inviting": "mary",
-				"invited": "james",
+				"invited": "bob",
 				"confirmed": true
 			},
 			{
 				"inviting": "mary",
-				"invited": "john",
+				"invited": "james",
 				"confirmed": true
 			},
 			{
