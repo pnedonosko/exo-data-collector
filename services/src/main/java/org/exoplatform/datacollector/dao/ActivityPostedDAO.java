@@ -24,12 +24,12 @@ public class ActivityPostedDAO extends GenericDAOJPAImpl<ActivityPostedEntity, S
     }
   }
 
-  public List<ActivityCommentedEntity> findPartIsFavoriteStreamPoster(String posterId, String... favoriteSpaces) {
+  public List<ActivityCommentedEntity> findPartIsFavoriteStreamPoster(String posterId, String favoriteSpaces) {
     TypedQuery<ActivityCommentedEntity> query =
                                               getEntityManager().createNamedQuery("ActivityPosted.findPartIsFavoriteStreamPoster",
                                                                                   ActivityCommentedEntity.class)
                                                                 .setParameter("posterId", posterId)
-                                                                .setParameter("favoriteSpaces", String.join(",", favoriteSpaces));
+                                                                .setParameter("favoriteSpaces", favoriteSpaces);
     try {
       return query.getResultList();
     } catch (NoResultException e) {

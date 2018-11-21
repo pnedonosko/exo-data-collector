@@ -23,6 +23,11 @@ import java.util.regex.Pattern;
 
 import org.picocontainer.Startable;
 
+import org.exoplatform.datacollector.dao.ActivityCommentedDAO;
+import org.exoplatform.datacollector.dao.ActivityLikedDAO;
+import org.exoplatform.datacollector.dao.ActivityMentionedDAO;
+import org.exoplatform.datacollector.dao.ActivityPostedDAO;
+import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
 import org.exoplatform.services.jcr.RepositoryService;
 import org.exoplatform.services.jcr.ext.app.SessionProviderService;
 import org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator;
@@ -48,36 +53,44 @@ import org.exoplatform.social.core.storage.api.IdentityStorage;
 public class SocialDataCollectorService implements Startable {
 
   /** Logger */
-  private static final Log            LOG                 = ExoLogger.getExoLogger(SocialDataCollectorService.class);
+  private static final Log             LOG                 = ExoLogger.getExoLogger(SocialDataCollectorService.class);
 
-  public static final int             BATCH_SIZE          = 200;
+  public static final int              BATCH_SIZE          = 200;
 
-  protected static final Pattern      ENGINEERING_PATTERN =
-                                                          Pattern.compile("^.*developer|architect|r&d|mobile|qa|fqa|tqa|test|quality|qualité|expert|integrator|designer|cwi|technical advisor|services delivery|software engineer.*$");
+  protected static final Pattern       ENGINEERING_PATTERN =
+                                                           Pattern.compile("^.*developer|architect|r&d|mobile|qa|fqa|tqa|test|quality|qualité|expert|integrator|designer|cwi|technical advisor|services delivery|software engineer.*$");
 
-  protected static final Pattern      SALES_PATTERN       =
-                                                    Pattern.compile("^.*consultant|sales|client|support|sales engineer|demand generator.*$");
+  protected static final Pattern       SALES_PATTERN       =
+                                                     Pattern.compile("^.*consultant|sales|client|support|sales engineer|demand generator.*$");
 
-  protected static final Pattern      MARKETING_PATTERN   =
-                                                        Pattern.compile("^.*brand|communication|marketing|customer success|user experience|.*$");
+  protected static final Pattern       MARKETING_PATTERN   =
+                                                         Pattern.compile("^.*brand|communication|marketing|customer success|user experience|.*$");
 
-  protected static final Pattern      MANAGEMENT_PATTERN  =
-                                                         Pattern.compile("^.*officer|chief|founder|coo|cto|cio|evp|advisor|product manager|director|general manager.*$");
+  protected static final Pattern       MANAGEMENT_PATTERN  =
+                                                          Pattern.compile("^.*officer|chief|founder|coo|cto|cio|evp|advisor|product manager|director|general manager.*$");
 
-  protected static final Pattern      FINANCIAL_PATTERN   =
-                                                        Pattern.compile("^.*accountant|financial|investment|account manager.*$");
+  protected static final Pattern       FINANCIAL_PATTERN   =
+                                                         Pattern.compile("^.*accountant|financial|investment|account manager.*$");
 
   /** The Constant EMPLOYEE_GROUPID - TODO better make it configurable. */
-  protected static final String       EMPLOYEE_GROUPID    = "/spaces/exo_employees";                                                                                                                                                   // for
-                                                                                                                                                                                                                                       // /Groups/spaces/exo_employees
+  protected static final String        EMPLOYEE_GROUPID    = "/spaces/exo_employees";                                                                                                                                                   // for
+                                                                                                                                                                                                                                        // /Groups/spaces/exo_employees
 
-  protected final IdentityManager     identityManager;
+  protected final IdentityManager      identityManager;
 
-  protected final IdentityStorage     identityStorage;
+  protected final IdentityStorage      identityStorage;
 
-  protected final ActivityManager     activityManager;
+  protected final ActivityManager      activityManager;
 
-  protected final OrganizationService organization;
+  protected final OrganizationService  organization;
+
+  protected final ActivityCommentedDAO commentStorage;
+  
+  protected final ActivityPostedDAO postStorage;
+  
+  protected final ActivityLikedDAO likeStorage;
+  
+  protected final ActivityMentionedDAO mentionStorage;
 
   /**
    * Instantiates a new data collector service.
@@ -89,7 +102,7 @@ public class SocialDataCollectorService implements Startable {
    * @param identityManager the identity manager
    * @param identityStorage the identity storage
    * @param activityManager the activity manager
-   * @param relevanceStorage is the DAO for RelevanceEntity
+   * @param commentStorage the comment storage
    */
   public SocialDataCollectorService(RepositoryService jcrService,
                                     SessionProviderService sessionProviders,
@@ -97,12 +110,21 @@ public class SocialDataCollectorService implements Startable {
                                     OrganizationService organization,
                                     IdentityManager identityManager,
                                     IdentityStorage identityStorage,
-                                    ActivityManager activityManager) {
+                                    ActivityManager activityManager,
+                                    ActivityPostedDAO postStorage,
+                                    ActivityCommentedDAO commentStorage,
+                                    ActivityLikedDAO likeStorage,
+                                    ActivityMentionedDAO mentionStorage) {
     super();
     this.identityManager = identityManager;
     this.identityStorage = identityStorage;
     this.activityManager = activityManager;
     this.organization = organization;
+    this.postStorage = postStorage;
+    this.commentStorage = commentStorage;
+    this.likeStorage = likeStorage;
+    this.mentionStorage = mentionStorage;
+    
   }
 
   /**
@@ -139,6 +161,23 @@ public class SocialDataCollectorService implements Startable {
       for (Identity id : identityManager.getIdentitiesByProfileFilter(OrganizationIdentityProvider.NAME, filter, true)
                                         .load(idsIndex, BATCH_SIZE)) {
         // TODO find this user favorite participants (influencers) and spaces
+        // TODO find this user favorite participants (influencers) and spaces
+        UserInfluencers influencers = new UserInfluencers();
+        influencers.addCommentedPoster(commentStorage.findPartIsCommentedPoster(id.getId()));
+        influencers.addCommentedCommenter(commentStorage.findPartIsCommentedCommenter(id.getId()));
+        influencers.addCommentedConvoPoster(commentStorage.findPartIsCommentedConvoPoster(id.getId()));
+        
+        influencers.addPostCommenter(commentStorage.findPartIsPostCommenter(id.getId()));
+        influencers.addCommentCommenter(commentStorage.findPartIsCommentCommenter(id.getId()));
+        influencers.addConvoCommenter(commentStorage.findPartIsConvoCommenter(id.getId()));
+        
+        influencers.addMentioner(mentionStorage.findPartIsMentioner(id.getId()));
+        influencers.addMentioned(mentionStorage.findPartIsMentioned(id.getId()));
+        
+        influencers.addLikedPoster(likeStorage.findPartIsLikedPoster(id.getId()));
+        // TODO
+        
+        //
         RealtimeListAccess<ExoSocialActivity> spacesActivities = activityManager.getActivitiesOfUserSpacesWithListAccess(id);
         // spacesActivities.loadNewer(sinceTime, limit);
         // spacesActivities.getNumberOfNewer(sinceTime);

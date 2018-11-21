@@ -83,13 +83,14 @@ public class ActivityCommentedDAO extends GenericDAOJPAImpl<ActivityCommentedEnt
     }
   }
 
-  public List<ActivityCommentedEntity> findPartIsFavoriteStreamCommenter(String posterId, String... favoriteSpaces) {
+  public List<ActivityCommentedEntity> findPartIsFavoriteStreamCommenter(String posterId, String favoriteSpaces) {
 
     TypedQuery<ActivityCommentedEntity> query =
                                               getEntityManager().createNamedQuery("ActivityCommented.findPartIsFavoriteStreamCommenter",
                                                                                   ActivityCommentedEntity.class)
                                                                 .setParameter("posterId", posterId)
-                                                                .setParameter("favoriteSpaces", String.join(",", favoriteSpaces));
+                                                                .setParameter("favoriteSpaces", favoriteSpaces); // String.join(",",
+                                                                                                                 // favoriteSpaces)
     try {
       return query.getResultList();
     } catch (NoResultException e) {
