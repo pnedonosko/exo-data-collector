@@ -1,10 +1,12 @@
 package org.exoplatform.datacollector.dao;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.junit.After;
 import org.junit.Test;
 
 import org.exoplatform.commons.testing.BaseCommonsTestCase;
@@ -18,6 +20,7 @@ import org.exoplatform.datacollector.TestUtils;
 import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.social.common.RealtimeListAccess;
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
 import org.exoplatform.social.core.activity.model.ExoSocialActivityImpl;
 import org.exoplatform.social.core.application.SpaceActivityPublisher;
@@ -46,19 +49,19 @@ import org.exoplatform.social.core.space.spi.SpaceService;
 public class ActivityDAOTest extends BaseCommonsTestCase {
 
   /** Logger */
-  private static final Log     LOG = ExoLogger.getExoLogger(ActivityDAOTest.class);
+  private static final Log        LOG        = ExoLogger.getExoLogger(ActivityDAOTest.class);
 
-  private ActivityCommentedDAO activityCommentDAO;
+  private ActivityCommentedDAO    activityCommentDAO;
 
-  private SpaceService         spaceService;
+  private SpaceService            spaceService;
 
-  private RelationshipManager  relationshipManager;
+  private RelationshipManager     relationshipManager;
 
-  private IdentityManager      identityManager;
+  private IdentityManager         identityManager;
 
-  private ActivityManager      activityManager;
+  private ActivityManager         activityManager;
 
-  private Identity             johnId, maryId, jamesId, jasonId;
+  private Identity                johnId, maryId, jamesId, jasonId;
 
   @Override
   protected void beforeClass() {
@@ -85,6 +88,11 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     jamesId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "james", true);
     jasonId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "jason", true);
     maryId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "mary", true);
+    RealtimeListAccess<ExoSocialActivity> list = activityManager.getAllActivitiesWithListAccess();
+    ExoSocialActivity[] arr = list.load(0, 10);
+    for (int i = 0; i < arr.length; i++) {
+      LOG.info(arr[i]);
+    }
 
     // TODO this will not work for multi-threading execution (see forkCount in
     // pom.xml)
@@ -231,19 +239,26 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
    */
   private void pushActivity(JSONObject activityJSON) throws Exception {
     String from = activityJSON.getString("from");
-    String space = activityJSON.getString("space");
+    String space = activityJSON.has("space") ? activityJSON.getString("space") : null;
     String body = activityJSON.getString("body");
     String title = activityJSON.getString("title");
     Identity userIdentity = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, from, true);
+    if (activityManager.getActivitiesByPoster(userIdentity, SpaceActivityPublisher.SPACE_APP_ID).loadAsList(0, 10).isEmpty()
+        && activityManager.getActivitiesByPoster(userIdentity, TestUtils.DEFAULT_ACTIVITY).loadAsList(0, 10).isEmpty()) {
+      ExoSocialActivity activity = new ExoSocialActivityImpl();
+      activity.setTitle(title);
+      activity.setBody(body);
+      activity.setUserId(userIdentity.getId());
+      if (space != null) {
+        Identity spaceIdentity = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, space, true);
+        activity.setType(SpaceActivityPublisher.SPACE_APP_ID);
 
-    if (activityManager.getActivitiesByPoster(userIdentity, SpaceActivityPublisher.SPACE_APP_ID).loadAsList(0, 10).isEmpty()) {
-      Identity spaceIdentity = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, space, true);
-      ExoSocialActivity activity = new ExoSocialActivityImpl(userIdentity.getId(),
-                                                             SpaceActivityPublisher.SPACE_APP_ID,
-                                                             title,
-                                                             body);
+        activityManager.saveActivityNoReturn(spaceIdentity, activity);
+      } else {
+        activity.setType(TestUtils.DEFAULT_ACTIVITY);
+        activityManager.saveActivityNoReturn(userIdentity, activity);
+      }
 
-      activityManager.saveActivityNoReturn(spaceIdentity, activity);
       activity.setPermanLink(LinkProvider.getSingleActivityUrl(activity.getId()));
 
       Thread.sleep(500);
