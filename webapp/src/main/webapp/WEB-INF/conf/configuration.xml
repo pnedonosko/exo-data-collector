@@ -19,6 +19,10 @@
 	<component>
 		<type>org.exoplatform.datacollector.DataCollectorService</type>
 	</component>
+  
+  <component>
+    <type>org.exoplatform.datacollector.SocialDataCollectorService</type>
+  </component>
 
 	<component>
 		<type>org.exoplatform.datacollector.rest.RESTDataCollectorService</type>
@@ -30,7 +34,18 @@
 	<component>
 		<type>org.exoplatform.datacollector.dao.RelevanceDAO</type>
 	</component>
-
+  <component>
+    <type>org.exoplatform.datacollector.dao.ActivityPostedDAO</type>
+  </component>
+  <component>
+    <type>org.exoplatform.datacollector.dao.ActivityCommentedDAO</type>
+  </component>
+  <component>
+    <type>org.exoplatform.datacollector.dao.ActivityLikedDAO</type>
+  </component>
+  <component>
+    <type>org.exoplatform.datacollector.dao.ActivityMentionedDAO</type>
+  </component>
 
 	<external-component-plugins>
 		<target-component>org.exoplatform.commons.api.persistence.DataInitializer</target-component>
