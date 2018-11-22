@@ -9,6 +9,7 @@ import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Test;
 
+import org.exoplatform.commons.api.persistence.ExoEntity;
 import org.exoplatform.commons.testing.BaseCommonsTestCase;
 import org.exoplatform.component.test.ConfigurationUnit;
 import org.exoplatform.component.test.ConfiguredBy;
@@ -62,6 +63,8 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   private ActivityManager         activityManager;
 
   private Identity                johnId, maryId, jamesId, jasonId;
+  
+  private List<String> activitiesIds = new ArrayList<String>();
 
   @Override
   protected void beforeClass() {
@@ -79,10 +82,6 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     initSpaces();
     initActivities();
     initRelations();
-
-    // TODO: Check if the activity is already created - already by
-    // "initialized"
-    // TODO: Create activity without a space
 
     johnId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "john", true);
     jamesId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "james", true);
@@ -243,8 +242,8 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     String body = activityJSON.getString("body");
     String title = activityJSON.getString("title");
     Identity userIdentity = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, from, true);
-    if (activityManager.getActivitiesByPoster(userIdentity, SpaceActivityPublisher.SPACE_APP_ID).loadAsList(0, 10).isEmpty()
-        && activityManager.getActivitiesByPoster(userIdentity, TestUtils.DEFAULT_ACTIVITY).loadAsList(0, 10).isEmpty()) {
+  //  if (activityManager.getActivitiesByPoster(userIdentity, SpaceActivityPublisher.SPACE_APP_ID).loadAsList(0, 10).isEmpty()
+  //      && activityManager.getActivitiesByPoster(userIdentity, TestUtils.DEFAULT_ACTIVITY).loadAsList(0, 10).isEmpty()) {
       ExoSocialActivity activity = new ExoSocialActivityImpl();
       activity.setTitle(title);
       activity.setBody(body);
@@ -252,16 +251,18 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
       if (space != null) {
         Identity spaceIdentity = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, space, true);
         activity.setType(SpaceActivityPublisher.SPACE_APP_ID);
-
         activityManager.saveActivityNoReturn(spaceIdentity, activity);
+        
       } else {
         activity.setType(TestUtils.DEFAULT_ACTIVITY);
         activityManager.saveActivityNoReturn(userIdentity, activity);
       }
+      
+      activitiesIds.add(activity.getId());
 
       activity.setPermanLink(LinkProvider.getSingleActivityUrl(activity.getId()));
 
-      Thread.sleep(500);
+      Thread.sleep(300);
 
       // Likes
       JSONArray likes = activityJSON.getJSONArray("likes");
@@ -281,7 +282,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
       for (int i = 0; i < comments.length(); i++) {
         JSONObject commentJSON = comments.getJSONObject(i);
 
-        Thread.sleep(1000);
+        Thread.sleep(300);
         Identity identityComment = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME,
                                                                        commentJSON.getString("from"),
                                                                        false);
@@ -290,7 +291,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
         comment.setUserId(identityComment.getId());
         activityManager.saveComment(activity, comment);
       }
-    }
+ //   }
   }
 
   /**
@@ -330,4 +331,18 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     }
   }
 
+  @Override
+  protected void tearDown() throws Exception {
+    super.tearDown();
+    cleanActivities();
+  }
+  
+  /**
+   * Deletes testing activities
+   */
+  private void cleanActivities() {
+    activitiesIds.forEach(activityManager::deleteActivity);
+    activitiesIds.clear();
+  }
+  
 }
