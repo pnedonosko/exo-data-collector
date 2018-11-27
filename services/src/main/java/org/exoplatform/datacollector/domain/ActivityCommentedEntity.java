@@ -69,7 +69,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + "  oc.posted AS c_posted_date, oc.updated_date AS c_updated_date, a.hidden, a.posted AS posted_date, a.updated_date"
         + " FROM soc_activities a, soc_activities oc, soc_identities si"
         + " WHERE a.owner_id IS NOT NULL AND si.identity_id = a.poster_id AND si.provider_id = \"organization\""
-        + " AND a.activity_id = oc.parent_id AND a.owner_id IN (:favoriteSpaces) AND oc.poster_id != :posterId"
+        + " AND a.activity_id = oc.parent_id AND a.owner_id IN (:favoriteStreams) AND oc.poster_id != :posterId"
         + " ORDER BY a.owner_id, c_updated_date", resultClass = ActivityCommentedEntity.class)
 
 })

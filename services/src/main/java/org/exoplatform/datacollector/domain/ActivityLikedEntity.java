@@ -95,7 +95,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + "  a.hidden, a.posted AS posted_date, a.updated_date, ol.liker_id, ol.created_date AS liked_date"
         + " FROM soc_activities a, soc_activity_likers ol, soc_identities si"
         + " WHERE si.identity_id = ol.liker_id AND si.provider_id = \"organization\" AND a.activity_id = ol.activity_id"
-        + " AND a.owner_id IS NOT NULL AND a.owner_id IN (:favoriteSpaces) AND ol.liker_id != :likerId"
+        + " AND a.owner_id IS NOT NULL AND a.owner_id IN (:favoriteStreams) AND ol.liker_id != :likerId"
         + " ORDER BY a.owner_id, liked_date", resultClass = ActivityCommentedEntity.class),
     /* Others often like comments in the user favorite streams (find likers) */
     @NamedNativeQuery(name = "ActivityLiked.findPartIsFavoriteStreamCommentLiker", query = "SELECT a.activity_id AS post_id,"
@@ -103,7 +103,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + "  oc.hidden, oc.posted AS posted_date, oc.updated_date, ol.liker_id, ol.created_date AS liked_date"
         + " FROM soc_activities a, soc_activities oc, soc_activity_likers ol"
         + " WHERE a.activity_id = oc.parent_id AND oc.activity_id = ol.activity_id AND a.owner_id IS NOT NULL"
-        + " AND a.owner_id IN (:favoriteSpaces) AND ol.liker_id != :likerId" //
+        + " AND a.owner_id IN (:favoriteStreams) AND ol.liker_id != :likerId" //
         + " UNION ALL" //
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  oc.poster_id AS poster_id, a.owner_id AS owner_id, pa.parent_id,"
@@ -111,7 +111,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " FROM soc_activities a, soc_activities pa, soc_activities oc, soc_activity_likers ol"
         + " WHERE a.activity_id = pa.parent_id AND pa.activity_id = oc.parent_id"
         + " AND oc.activity_id = ol.activity_id AND a.owner_id IS NOT NULL"
-        + " AND a.owner_id IN (:favoriteSpaces) AND ol.liker_id != :likerId"
+        + " AND a.owner_id IN (:favoriteStreams) AND ol.liker_id != :likerId"
         + " ORDER BY a.owner_id, liked_date", resultClass = ActivityCommentedEntity.class)
 
 })

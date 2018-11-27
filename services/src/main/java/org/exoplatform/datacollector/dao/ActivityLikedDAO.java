@@ -132,13 +132,13 @@ public class ActivityLikedDAO extends GenericDAOJPAImpl<ActivityLikedEntity, Str
     }
   }
 
-  public List<ActivityLikedEntity> findPartIsFavoriteStreamCommentLiker(String likerId, String favoriteSpaces) {
+  public List<ActivityLikedEntity> findPartIsFavoriteStreamCommentLiker(String likerId, String favoriteStreams) {
     try {
       TypedQuery<ActivityLikedEntity> query =
                                             getEntityManager().createNamedQuery("ActivityLiked.findPartIsFavoriteStreamCommentLiker",
                                                                                 ActivityLikedEntity.class)
                                                               .setParameter("likerId", likerId)
-                                                              .setParameter("favoriteSpaces", favoriteSpaces);
+                                                              .setParameter("favoriteStreams", favoriteStreams);
       return query.getResultList();
     } catch (NoResultException e) {
       return Collections.emptyList();
