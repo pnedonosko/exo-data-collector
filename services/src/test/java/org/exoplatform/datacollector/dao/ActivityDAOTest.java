@@ -1,12 +1,15 @@
 package org.exoplatform.datacollector.dao;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.junit.After;
 import org.junit.Test;
 
+import org.exoplatform.commons.api.persistence.ExoEntity;
 import org.exoplatform.commons.testing.BaseCommonsTestCase;
 import org.exoplatform.component.test.ConfigurationUnit;
 import org.exoplatform.component.test.ConfiguredBy;
@@ -18,6 +21,7 @@ import org.exoplatform.datacollector.TestUtils;
 import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.social.common.RealtimeListAccess;
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
 import org.exoplatform.social.core.activity.model.ExoSocialActivityImpl;
 import org.exoplatform.social.core.application.SpaceActivityPublisher;
@@ -46,7 +50,7 @@ import org.exoplatform.social.core.space.spi.SpaceService;
 public class ActivityDAOTest extends BaseCommonsTestCase {
 
   /** Logger */
-  private static final Log     LOG = ExoLogger.getExoLogger(ActivityDAOTest.class);
+  private static final Log     LOG           = ExoLogger.getExoLogger(ActivityDAOTest.class);
 
   private ActivityCommentedDAO activityCommentDAO;
 
@@ -59,6 +63,8 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   private ActivityManager      activityManager;
 
   private Identity             johnId, maryId, jamesId, jasonId;
+
+  private List<String>         activitiesIds = new ArrayList<String>();
 
   @Override
   protected void beforeClass() {
@@ -77,15 +83,10 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     initActivities();
     initRelations();
 
-    // TODO: Check if the activity is already created - already by
-    // "initialized"
-    // TODO: Create activity without a space
-
     johnId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "john", true);
     jamesId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "james", true);
     jasonId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "jason", true);
     maryId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "mary", true);
-
     // TODO this will not work for multi-threading execution (see forkCount in
     // pom.xml)
   }
@@ -231,51 +232,58 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
    */
   private void pushActivity(JSONObject activityJSON) throws Exception {
     String from = activityJSON.getString("from");
-    String space = activityJSON.getString("space");
+    String space = activityJSON.has("space") ? activityJSON.getString("space") : null;
     String body = activityJSON.getString("body");
     String title = activityJSON.getString("title");
     Identity userIdentity = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, from, true);
-
-    if (activityManager.getActivitiesByPoster(userIdentity, SpaceActivityPublisher.SPACE_APP_ID).loadAsList(0, 10).isEmpty()) {
+    
+    ExoSocialActivity activity = new ExoSocialActivityImpl();
+    activity.setTitle(title);
+    activity.setBody(body);
+    activity.setUserId(userIdentity.getId());
+    if (space != null) {
       Identity spaceIdentity = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, space, true);
-      ExoSocialActivity activity = new ExoSocialActivityImpl(userIdentity.getId(),
-                                                             SpaceActivityPublisher.SPACE_APP_ID,
-                                                             title,
-                                                             body);
-
+      activity.setType(SpaceActivityPublisher.SPACE_APP_ID);
       activityManager.saveActivityNoReturn(spaceIdentity, activity);
-      activity.setPermanLink(LinkProvider.getSingleActivityUrl(activity.getId()));
 
-      Thread.sleep(500);
+    } else {
+      activity.setType(TestUtils.DEFAULT_ACTIVITY);
+      activityManager.saveActivityNoReturn(userIdentity, activity);
+    }
 
-      // Likes
-      JSONArray likes = activityJSON.getJSONArray("likes");
+    activitiesIds.add(activity.getId());
+    activity.setPermanLink(LinkProvider.getSingleActivityUrl(activity.getId()));
 
-      for (int i = 0; i < likes.length(); i++) {
-        String like = likes.getString(i);
-        Identity identityLike = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, like, false);
-        try {
-          activityManager.saveLike(activity, identityLike);
-        } catch (Exception e) {
-          LOG.error("Error when liking an activity with " + like, e);
-        }
-      }
+    Thread.sleep(300);
 
-      // Comments
-      JSONArray comments = activityJSON.getJSONArray("comments");
-      for (int i = 0; i < comments.length(); i++) {
-        JSONObject commentJSON = comments.getJSONObject(i);
+    // Likes
+    JSONArray likes = activityJSON.getJSONArray("likes");
 
-        Thread.sleep(1000);
-        Identity identityComment = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME,
-                                                                       commentJSON.getString("from"),
-                                                                       false);
-        ExoSocialActivity comment = new ExoSocialActivityImpl();
-        comment.setTitle(commentJSON.getString("body"));
-        comment.setUserId(identityComment.getId());
-        activityManager.saveComment(activity, comment);
+    for (int i = 0; i < likes.length(); i++) {
+      String like = likes.getString(i);
+      Identity identityLike = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, like, false);
+      try {
+        activityManager.saveLike(activity, identityLike);
+      } catch (Exception e) {
+        LOG.error("Error when liking an activity with " + like, e);
       }
     }
+
+    // Comments
+    JSONArray comments = activityJSON.getJSONArray("comments");
+    for (int i = 0; i < comments.length(); i++) {
+      JSONObject commentJSON = comments.getJSONObject(i);
+
+      Thread.sleep(300);
+      Identity identityComment = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME,
+                                                                     commentJSON.getString("from"),
+                                                                     false);
+      ExoSocialActivity comment = new ExoSocialActivityImpl();
+      comment.setTitle(commentJSON.getString("body"));
+      comment.setUserId(identityComment.getId());
+      activityManager.saveComment(activity, comment);
+    }
+    // }
   }
 
   /**
@@ -313,6 +321,20 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
         RequestLifeCycle.end();
       }
     }
+  }
+
+  @Override
+  protected void tearDown() throws Exception {
+    super.tearDown();
+    cleanActivities();
+  }
+
+  /**
+   * Deletes testing activities
+   */
+  private void cleanActivities() {
+    activitiesIds.forEach(activityManager::deleteActivity);
+    activitiesIds.clear();
   }
 
 }

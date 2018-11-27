@@ -14,6 +14,8 @@ import org.exoplatform.datacollector.domain.RelevanceId;
 public class TestUtils {
 
   public static final String   TESTING_DATA_FILENAME   = "data.json";
+  
+  public static final String DEFAULT_ACTIVITY = "DEFAULT_ACTIVITY";
 
   public static RelevanceId    EXISTING_RELEVANCE_ID   = new RelevanceId("1", "2");
 
