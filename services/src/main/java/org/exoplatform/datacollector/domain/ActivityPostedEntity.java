@@ -24,7 +24,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
     /* ===== Others do in the user favorite streams ===== */
     /* Others often post in the user favorite streams (find posters) */
     @NamedNativeQuery(name = "ActivityPosted.findPartIsFavoriteStreamPoster", query = "SELECT a.activity_id AS post_id,"
-        + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id AS poster_id, a.owner_id, a.parent_id,"
+        + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id AS poster_id, a.owner_id, a.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date" //
         + " FROM soc_activities a, soc_identities si"
         + " WHERE a.owner_id IS NOT NULL AND si.identity_id = a.poster_id AND si.provider_id = \"organization\""

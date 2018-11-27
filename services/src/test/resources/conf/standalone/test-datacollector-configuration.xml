@@ -7,12 +7,14 @@
   <component>
     <type>org.exoplatform.datacollector.DataCollectorService</type>
   </component>
-  
+
   <component>
     <type>org.exoplatform.datacollector.dao.RelevanceDAO</type>
   </component>
   <component>
     <type>org.exoplatform.datacollector.dao.ActivityCommentedDAO</type>
   </component>
-
+  <component>
+    <type>org.exoplatform.datacollector.dao.ActivityPostedDAO</type>
+  </component>
 </configuration>

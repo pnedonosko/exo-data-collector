@@ -6,10 +6,9 @@ import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.junit.After;
+
 import org.junit.Test;
 
-import org.exoplatform.commons.api.persistence.ExoEntity;
 import org.exoplatform.commons.testing.BaseCommonsTestCase;
 import org.exoplatform.component.test.ConfigurationUnit;
 import org.exoplatform.component.test.ConfiguredBy;
@@ -19,9 +18,10 @@ import org.exoplatform.container.PortalContainer;
 import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.datacollector.TestUtils;
 import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
+import org.exoplatform.datacollector.domain.ActivityPostedEntity;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
-import org.exoplatform.social.common.RealtimeListAccess;
+
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
 import org.exoplatform.social.core.activity.model.ExoSocialActivityImpl;
 import org.exoplatform.social.core.application.SpaceActivityPublisher;
@@ -54,6 +54,8 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
   private ActivityCommentedDAO activityCommentDAO;
 
+  private ActivityPostedDAO    activityPostedDAO;
+
   private SpaceService         spaceService;
 
   private RelationshipManager  relationshipManager;
@@ -74,6 +76,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     RequestLifeCycle.begin(container);
 
     activityCommentDAO = (ActivityCommentedDAO) container.getComponentInstanceOfType(ActivityCommentedDAO.class);
+    activityPostedDAO = (ActivityPostedDAO) container.getComponentInstance(ActivityPostedDAO.class);
     spaceService = (SpaceService) container.getComponentInstanceOfType(SpaceService.class);
     relationshipManager = (RelationshipManager) container.getComponentInstanceOfType(RelationshipManager.class);
     identityManager = (IdentityManager) container.getComponentInstanceOfType(IdentityManager.class);
@@ -108,10 +111,17 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertTrue(activityCommentDAO.findPartIsCommentedConvoPoster(johnId.getId()).isEmpty());
   }
 
+  @Test
+  public void testFindUserPosts() {
+    List<ActivityPostedEntity> res = activityPostedDAO.findUserPosts(maryId.getId());
+    assertEquals(1, res.size());
+    assertEquals(maryId.getId(), res.get(0).getPosterId());
+  }
+
   @Override
   protected void afterClass() {
     super.afterClass();
-    // cleanSpaces();
+    //cleanSpaces();
     RequestLifeCycle.end();
   }
 
@@ -236,7 +246,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     String body = activityJSON.getString("body");
     String title = activityJSON.getString("title");
     Identity userIdentity = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, from, true);
-    
+
     ExoSocialActivity activity = new ExoSocialActivityImpl();
     activity.setTitle(title);
     activity.setBody(body);
