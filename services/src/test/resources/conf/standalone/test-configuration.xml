@@ -680,10 +680,10 @@
           <property name="username" value="sa" />
           <property name="password" value="" />
           <!-- MySQL local -->
-          <!-- property name="driverClassName" value="com.mysql.jdbc.Driver" />
+          <!-- <property name="driverClassName" value="com.mysql.jdbc.Driver" />
           <property name="url" value="jdbc:mysql://localhost:3306/test52?autoReconnect=true&amp;useSSL=false" />
           <property name="username" value="exo" />
-          <property name="password" value="exo" / -->
+          <property name="password" value="exo" />  -->
         </properties-param>
       </init-params>
     </component-plugin>

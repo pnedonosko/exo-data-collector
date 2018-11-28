@@ -27,6 +27,7 @@ import java.util.NoSuchElementException;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import org.apache.ecs.html.Col;
 import org.picocontainer.Startable;
 
 import org.exoplatform.commons.utils.ListAccess;
@@ -355,11 +356,8 @@ public class SocialDataCollectorService implements Startable {
         // connections
       }
       if (userStreams.size() > 0) {
-        String favStreams = influencers.getFavoriteStreamsTop(10)
-                                       .stream()
-                                       .map(sid -> new StringBuilder().append("\"").append(sid).append("\""))
-                                       .collect(Collectors.joining(","));
-
+        Collection<String> favStreams = influencers.getFavoriteStreamsTop(10);
+                                      
         influencers.addStreamPoster(postStorage.findPartIsFavoriteStreamPoster(id.getId(), favStreams));
         influencers.addStreamCommenter(commentStorage.findPartIsFavoriteStreamCommenter(id.getId(), favStreams));
         influencers.addStreamPostLiker(likeStorage.findPartIsFavoriteStreamPostLiker(id.getId(), favStreams));

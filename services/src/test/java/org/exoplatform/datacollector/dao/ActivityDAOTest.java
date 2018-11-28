@@ -1,12 +1,12 @@
 package org.exoplatform.datacollector.dao;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
 import org.junit.Test;
 
 import org.exoplatform.commons.testing.BaseCommonsTestCase;
@@ -21,7 +21,7 @@ import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
 import org.exoplatform.datacollector.domain.ActivityPostedEntity;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
-
+import org.exoplatform.social.core.activity.model.ActivityStream.Type;
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
 import org.exoplatform.social.core.activity.model.ExoSocialActivityImpl;
 import org.exoplatform.social.core.application.SpaceActivityPublisher;
@@ -64,7 +64,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
   private ActivityManager      activityManager;
 
-  private Identity             johnId, maryId, jamesId, jasonId;
+  private Identity             johnId, maryId, jamesId, jasonId, marketingId, supportId;
 
   private List<String>         activitiesIds = new ArrayList<String>();
 
@@ -81,7 +81,6 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     relationshipManager = (RelationshipManager) container.getComponentInstanceOfType(RelationshipManager.class);
     identityManager = (IdentityManager) container.getComponentInstanceOfType(IdentityManager.class);
     activityManager = (ActivityManager) container.getComponentInstanceOfType(ActivityManager.class);
-
     initSpaces();
     initActivities();
     initRelations();
@@ -90,6 +89,9 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     jamesId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "james", true);
     jasonId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "jason", true);
     maryId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "mary", true);
+    marketingId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "marketing_team", true);
+    supportId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "support_team", true);
+    
     // TODO this will not work for multi-threading execution (see forkCount in
     // pom.xml)
   }
@@ -114,14 +116,23 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   @Test
   public void testFindUserPosts() {
     List<ActivityPostedEntity> res = activityPostedDAO.findUserPosts(maryId.getId());
-    assertEquals(1, res.size());
-    assertEquals(maryId.getId(), res.get(0).getPosterId());
+    assertEquals(4, res.size());
+    assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.SPACE.toString())).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
+  }
+
+  @Test
+  public void testFindPartIsFavoriteStreamPoster() {
+    List<ActivityPostedEntity> res = activityPostedDAO.findPartIsFavoriteStreamPoster(johnId.getId(), Arrays.asList(supportId.getId(), marketingId.getId()));
+    assertEquals(2, res.size());
+    assertTrue(res.stream().allMatch(entity -> !entity.getPosterId().equals(johnId.getId())));
+    
   }
 
   @Override
   protected void afterClass() {
     super.afterClass();
-    //cleanSpaces();
+    // cleanSpaces();
     RequestLifeCycle.end();
   }
 
@@ -293,7 +304,6 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
       comment.setUserId(identityComment.getId());
       activityManager.saveComment(activity, comment);
     }
-    // }
   }
 
   /**
