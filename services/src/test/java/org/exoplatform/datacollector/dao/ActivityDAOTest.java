@@ -6,7 +6,6 @@ import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
 import org.junit.Test;
 
 import org.exoplatform.commons.testing.BaseCommonsTestCase;
@@ -21,7 +20,7 @@ import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
 import org.exoplatform.datacollector.domain.ActivityPostedEntity;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
-
+import org.exoplatform.social.core.activity.model.ActivityStream.Type;
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
 import org.exoplatform.social.core.activity.model.ExoSocialActivityImpl;
 import org.exoplatform.social.core.application.SpaceActivityPublisher;
@@ -37,6 +36,7 @@ import org.exoplatform.social.core.space.SpaceUtils;
 import org.exoplatform.social.core.space.impl.DefaultSpaceApplicationHandler;
 import org.exoplatform.social.core.space.model.Space;
 import org.exoplatform.social.core.space.spi.SpaceService;
+
 
 @ConfiguredBy({ @ConfigurationUnit(scope = ContainerScope.ROOT, path = "conf/test-root-configuration.xml"),
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/portal/configuration.xml"),
@@ -114,8 +114,9 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   @Test
   public void testFindUserPosts() {
     List<ActivityPostedEntity> res = activityPostedDAO.findUserPosts(maryId.getId());
-    assertEquals(1, res.size());
-    assertEquals(maryId.getId(), res.get(0).getPosterId());
+    assertEquals(4, res.size());
+    assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.SPACE.toString())).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
 
   @Override
