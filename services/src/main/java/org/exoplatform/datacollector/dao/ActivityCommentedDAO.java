@@ -1,5 +1,6 @@
 package org.exoplatform.datacollector.dao;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -83,7 +84,7 @@ public class ActivityCommentedDAO extends GenericDAOJPAImpl<ActivityCommentedEnt
     }
   }
 
-  public List<ActivityCommentedEntity> findPartIsFavoriteStreamCommenter(String posterId, String favoriteStreams) {
+  public List<ActivityCommentedEntity> findPartIsFavoriteStreamCommenter(String posterId, Collection<String> favoriteStreams) {
 
     TypedQuery<ActivityCommentedEntity> query =
                                               getEntityManager().createNamedQuery("ActivityCommented.findPartIsFavoriteStreamCommenter",

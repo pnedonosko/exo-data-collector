@@ -1,6 +1,7 @@
 package org.exoplatform.datacollector.dao;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.json.JSONArray;
@@ -37,7 +38,6 @@ import org.exoplatform.social.core.space.impl.DefaultSpaceApplicationHandler;
 import org.exoplatform.social.core.space.model.Space;
 import org.exoplatform.social.core.space.spi.SpaceService;
 
-
 @ConfiguredBy({ @ConfigurationUnit(scope = ContainerScope.ROOT, path = "conf/test-root-configuration.xml"),
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/portal/configuration.xml"),
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/portal/test-configuration.xml"),
@@ -64,7 +64,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
   private ActivityManager      activityManager;
 
-  private Identity             johnId, maryId, jamesId, jasonId;
+  private Identity             johnId, maryId, jamesId, jasonId, marketingId, supportId;
 
   private List<String>         activitiesIds = new ArrayList<String>();
 
@@ -81,7 +81,6 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     relationshipManager = (RelationshipManager) container.getComponentInstanceOfType(RelationshipManager.class);
     identityManager = (IdentityManager) container.getComponentInstanceOfType(IdentityManager.class);
     activityManager = (ActivityManager) container.getComponentInstanceOfType(ActivityManager.class);
-
     initSpaces();
     initActivities();
     initRelations();
@@ -90,6 +89,9 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     jamesId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "james", true);
     jasonId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "jason", true);
     maryId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "mary", true);
+    marketingId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "marketing_team", true);
+    supportId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "support_team", true);
+    
     // TODO this will not work for multi-threading execution (see forkCount in
     // pom.xml)
   }
@@ -119,10 +121,18 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
 
+  @Test
+  public void testFindPartIsFavoriteStreamPoster() {
+    List<ActivityPostedEntity> res = activityPostedDAO.findPartIsFavoriteStreamPoster(johnId.getId(), Arrays.asList(supportId.getId(), marketingId.getId()));
+    assertEquals(2, res.size());
+    assertTrue(res.stream().allMatch(entity -> !entity.getPosterId().equals(johnId.getId())));
+    
+  }
+
   @Override
   protected void afterClass() {
     super.afterClass();
-    //cleanSpaces();
+    // cleanSpaces();
     RequestLifeCycle.end();
   }
 
@@ -294,7 +304,6 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
       comment.setUserId(identityComment.getId());
       activityManager.saveComment(activity, comment);
     }
-    // }
   }
 
   /**

@@ -1,5 +1,6 @@
 package org.exoplatform.datacollector.dao;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -23,12 +24,12 @@ public class ActivityPostedDAO extends GenericDAOJPAImpl<ActivityPostedEntity, S
     }
   }
 
-  public List<ActivityPostedEntity> findPartIsFavoriteStreamPoster(String posterId, String favoriteSpaces) {
+  public List<ActivityPostedEntity> findPartIsFavoriteStreamPoster(String posterId, Collection<String> favoriteStreams) {
     TypedQuery<ActivityPostedEntity> query = getEntityManager()
                                                                .createNamedQuery("ActivityPosted.findPartIsFavoriteStreamPoster",
                                                                                  ActivityPostedEntity.class)
                                                                .setParameter("posterId", posterId)
-                                                               .setParameter("favoriteSpaces", favoriteSpaces);
+                                                               .setParameter("favoriteStreams", favoriteStreams);
     try {
       return query.getResultList();
     } catch (NoResultException e) {
