@@ -378,17 +378,12 @@ public class SocialDataCollectorService implements Startable {
       // activityManager.getActivitiesWithListAccess(ownerIdentity,
       // viewerIdentity)
 
+      out.println(activityHeader());
       // load identity's activities and collect its data
       Iterator<ExoSocialActivity> feedIter = loadListIterator(activityManager.getActivityFeedWithListAccess(id));
       while (feedIter.hasNext()) {
         ExoSocialActivity activity = feedIter.next();
-        //
-        out.print(activityHeader());
-
-        out.print(activityLine(influencers, activity));
-
-        // activity.getCommentedIds();
-        // activity.getLikeIdentityIds();
+        out.println(activityLine(influencers, activity));
       }
     }
   }
