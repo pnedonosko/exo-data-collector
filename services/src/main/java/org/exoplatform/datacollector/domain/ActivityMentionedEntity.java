@@ -49,10 +49,6 @@ public class ActivityMentionedEntity extends AbstractActivityEntity implements S
     return mentionedId;
   }
 
-  public void setMentionedId(String mentionedId) {
-    this.mentionedId = mentionedId;
-  }
-
   /**
    * Converts the ActivityMentionedEntity to the String
    */

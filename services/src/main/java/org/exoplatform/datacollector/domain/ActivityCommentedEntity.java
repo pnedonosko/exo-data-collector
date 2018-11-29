@@ -85,34 +85,52 @@ public class ActivityCommentedEntity extends AbstractActivityEntity implements S
    * The comment posted date.
    */
   @Column(name = "c_posted_date")
-  protected Long            commentPostedDate;
+  protected Long            commentPosted;
 
   /**
    * The comment posted date.
    */
   @Column(name = "c_updated_date")
-  protected Long            commentUpdatedDate;
+  protected Long            commentUpdated;
 
   /**
-   * Gets the comment posted date
+   * Gets the comment posted time in milliseconds.
+   *
+   * @return the comment posted
+   */
+  public Long getCommentPosted() {
+    return commentPosted;
+  }
+
+  /**
+   * Gets the comment updated time in milliseconds.
+   *
+   * @return the comment updated
+   */
+  public Long getCommentUpdated() {
+    return commentUpdated;
+  }
+
+  /**
+   * Gets the comment posted date.
    * 
    * @return comment posted date
    */
   public Date getCommentPostedDate() {
-    return commentPostedDate != null && commentPostedDate > 0 ? new Date(commentPostedDate) : null;
+    return commentPosted != null && commentPosted > 0 ? new Date(commentPosted) : null;
   }
 
   /**
-   * Gets the comment updated date
+   * Gets the comment updated date.
    * 
    * @return comment updated date
    */
   public Date getCommentUpdatedDate() {
-    return commentUpdatedDate != null && commentUpdatedDate > 0 ? new Date(commentUpdatedDate) : null;
+    return commentUpdated != null && commentUpdated > 0 ? new Date(commentUpdated) : null;
   }
 
   /**
-   * Converts the ActivityCommentedEntity to the String
+   * Converts the ActivityCommentedEntity to the String.
    */
   @Override
   public String toString() {

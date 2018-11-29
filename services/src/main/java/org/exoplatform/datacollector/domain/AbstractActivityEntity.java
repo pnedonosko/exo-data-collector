@@ -45,11 +45,11 @@ public abstract class AbstractActivityEntity {
 
   /** The posted date. */
   @Column(name = "posted_date")
-  protected Long    postedDate;
+  protected Long    posted;
 
   /** The updated date. */
   @Column(name = "updated_date")
-  protected Long    updatedDate;
+  protected Long    updated;
 
   /** The hidden. */
   @Column(name = "hidden")
@@ -64,7 +64,7 @@ public abstract class AbstractActivityEntity {
    *
    * @return the post id
    */
-  public String getPostId() {
+  public String getId() {
     return postId;
   }
 
@@ -105,12 +105,21 @@ public abstract class AbstractActivityEntity {
   }
 
   /**
+   * Gets the posted time in milliseconds.
+   *
+   * @return the posted
+   */
+  public Long getPosted() {
+    return posted;
+  }
+
+  /**
    * Gets the posted date.
    *
    * @return the posted date
    */
   public Date getPostedDate() {
-    return postedDate != null && postedDate > 0 ? new Date(postedDate) : null;
+    return posted != null && posted > 0 ? new Date(posted) : null;
   }
 
   /**
@@ -119,7 +128,16 @@ public abstract class AbstractActivityEntity {
    * @return the updated date
    */
   public Date getUpdatedDate() {
-    return updatedDate != null && updatedDate > 0 ? new Date(updatedDate) : null;
+    return updated != null && updated > 0 ? new Date(updated) : null;
+  }
+
+  /**
+   * Gets the updated time in milliseconds.
+   *
+   * @return the updated
+   */
+  public Long getUpdated() {
+    return updated;
   }
 
   /**

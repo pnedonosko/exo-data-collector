@@ -404,7 +404,7 @@ public class SocialDataCollectorService implements Startable {
          .append("owner_influence,")
          .append("number_of_likes,")
          .append("number_of_comments,")
-         .append("age,")
+         .append("reactivity,")
          .append("is_mentions_me,")
          .append("is_mentions_connections,")
          .append("is_liked_by_connections,")
@@ -505,20 +505,47 @@ public class SocialDataCollectorService implements Startable {
   protected String activityLine(UserInfluencers influencers, ExoSocialActivity activity) {
     // Activity identification & type
     StringBuilder aline = new StringBuilder();
-    aline.append(activity.getId()).append(','); // activity ID
-    aline.append(activity.getTitle()).append(','); // activity title
-    encActivityType(aline, activity.getType()); // activity type: encoded
-    //
-    // aline.append(activity.getAppId()).append(','); // activity app ID (what
-    // is it?):
-    aline.append(activity.getStreamOwner()).append(','); // owner ID in org
+    // ID
+    aline.append(activity.getId()).append(',');
+    // title
+    aline.append(activity.getTitle()).append(',');
+    // type: encoded
+    encActivityType(aline, activity.getType());
+    // app ID: TODO need it?
+    // aline.append(activity.getAppId()).append(','); 
+    Identity ownerId;
     ActivityStream stream = activity.getActivityStream();
-    encStreamType(aline, stream.getType().toString()); // owner type
-    // TODO encoded stream focus?
+    boolean isSpace = Type.SPACE.equals(stream.getType());
+    if (isSpace) {
+      ownerId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, activity.getStreamOwner(), false);
+    } else {
+      ownerId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, activity.getStreamOwner(), false);
+    }
+    // owner ID
+    aline.append(ownerId.getId()).append(',');
+    // owner type
+    if (isSpace) {
+      aline.append("0,1,");
+    } else {
+      aline.append("1,0,");
+    }
+    // TODO do we need owner/stream focus?
     // aline.append(findStreamFocus(stream.getPrettyId())).append(',');
+    // owner influence
+    aline.append(influencers.getStreamWeight(ownerId.getId())).append(',');
+    // number_of_likes
+    aline.append(activity.getLikeIdentityIds().length).append(',');
+    // number_of_comments
+    aline.append(activity.getCommentedIds().length).append(',');
+    // TODO reactivity (calc from user login history and his actions against this activity)
+    //activity.get
     
-    double ownerWeight = influencers.getParticipantWeight(activity.getPosterId(), activity.getStreamOwner());
-    
+    // TODO is_mentions_me
+    // TODO is_mentions_connections
+    // TODO is_liked_by_connections
+    // TODO is_commented_by_connetions
+    // TODO is_liked_by_me
+    // TODO is_commented_by_me
 
     // Poster (creator)
     String posterId = activity.getPosterId();
@@ -581,28 +608,6 @@ public class SocialDataCollectorService implements Startable {
     } else {
       aline.append("1,0");
     }
-  }
-
-  /**
-   * Encode stream type.
-   *
-   * @param aline the aline
-   * @param streamType the stream type
-   * @return <code>true</code> if it's space stream, <code>false</code> otherwise
-   */
-  protected boolean encStreamType(StringBuilder aline, String streamType) {
-    // Columns order: user, space
-    if (streamType != null) {
-      if (Type.SPACE.toString().equals(streamType)) {
-        aline.append("0,1");
-        return true;
-      } else {
-        aline.append("1,0");
-      }
-    } else {
-      aline.append("1,0");
-    }
-    return false;
   }
 
   protected void encActivityType(StringBuilder aline, String activityType) {

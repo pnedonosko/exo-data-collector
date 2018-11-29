@@ -74,7 +74,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
     /* Others like same comments the user liked (find likers) */
     @NamedNativeQuery(name = "ActivityLiked.findPartIsSameCommentLiker", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, a.parent_id,"
-        + "  c.hidden, c.posted AS posted_date, c.updated_date, ol.liker_id, ol.created_date AS liked_date"
+        + "  a.hidden, a.posted AS posted_date, a.updated_date, ol.liker_id, ol.created_date AS liked_date"
         + " FROM soc_activities a, soc_activities c, soc_activity_likers ol, soc_activity_likers l"
         + " WHERE a.activity_id = c.parent_id AND c.activity_id = ol.activity_id AND c.activity_id = l.activity_id"
         + " AND c.poster_id != ol.liker_id AND c.poster_id != l.liker_id AND ol.liker_id != l.liker_id"
@@ -82,7 +82,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
     /* Others like in posts where the user liked other comments (find likers) */
     @NamedNativeQuery(name = "ActivityLiked.findPartIsSameConvoLiker", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id as poster_id, a.owner_id, a.parent_id,"
-        + "  oc.hidden, oc.posted AS posted_date, oc.updated_date, ol.liker_id, ol.created_date AS liked_date"
+        + "  a.hidden, a.posted AS posted_date, a.updated_date, ol.liker_id, ol.created_date AS liked_date"
         + " FROM soc_activities a, soc_activities oc, soc_activities c, soc_activity_likers ol, soc_activity_likers l"
         + " WHERE a.activity_id = c.parent_id AND a.activity_id = oc.parent_id AND oc.activity_id = ol.activity_id"
         + " AND c.activity_id = l.activity_id AND oc.poster_id != ol.liker_id AND oc.poster_id != l.liker_id"
@@ -100,14 +100,14 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
     /* Others often like comments in the user favorite streams (find likers) */
     @NamedNativeQuery(name = "ActivityLiked.findPartIsFavoriteStreamCommentLiker", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id as poster_id, a.owner_id, a.parent_id,"
-        + "  oc.hidden, oc.posted AS posted_date, oc.updated_date, ol.liker_id, ol.created_date AS liked_date"
+        + "  a.hidden, a.posted AS posted_date, a.updated_date, ol.liker_id, ol.created_date AS liked_date"
         + " FROM soc_activities a, soc_activities oc, soc_activity_likers ol"
         + " WHERE a.activity_id = oc.parent_id AND oc.activity_id = ol.activity_id AND a.owner_id IS NOT NULL"
         + " AND a.owner_id IN (:favoriteStreams) AND ol.liker_id != :likerId" //
         + " UNION ALL" //
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  oc.poster_id AS poster_id, a.owner_id AS owner_id, pa.parent_id,"
-        + "  oc.hidden, oc.posted AS posted_date, oc.updated_date, ol.liker_id, ol.created_date AS liked_date"
+        + "  a.hidden, a.posted AS posted_date, a.updated_date, ol.liker_id, ol.created_date AS liked_date"
         + " FROM soc_activities a, soc_activities pa, soc_activities oc, soc_activity_likers ol"
         + " WHERE a.activity_id = pa.parent_id AND pa.activity_id = oc.parent_id"
         + " AND oc.activity_id = ol.activity_id AND a.owner_id IS NOT NULL"
@@ -142,6 +142,15 @@ public class ActivityLikedEntity extends AbstractActivityEntity implements Seria
    */
   public Date getLikedDate() {
     return likedDate;
+  }
+  
+  /**
+   * Gets the liked time in milliseconds.
+   *
+   * @return the liked
+   */
+  public Long getLiked() {
+    return likedDate != null ? likedDate.getTime() : null;
   }
 
   /**
