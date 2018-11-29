@@ -12,15 +12,18 @@
 				"comments": [
 					{
 						"from": "jason",
-						"body": "in the main room?"
+						"body": "in the main room?",
+						"likes": ["john", "mary"]
 					},
 					{
 						"from": "mary",
-						"body": "yes and it will be also shared online"
+						"body": "yes and it will be also shared online",
+						"likes": ["john"]
 					},
 					{
 						"from": "john",
-						"body": "Good to know!"
+						"body": "Good to know!",
+						"likes": ["jason", "mary"]
 					}
 				]
 			},
@@ -29,7 +32,7 @@
 				"space": "marketing_team",
 				"body": "Hi, what about our goals for next month?",
 				"title": "Hi, what about our goals for next month?",
-				"likes": [],
+				"likes": ["jason"],
 				"comments": []
 			},
 			{
@@ -59,7 +62,8 @@
 				"comments": [
 					{
 						"from": "jason",
-						"body": "hello @john, welcome :)"
+						"body": "Nice to see you, @james",
+						"likes": ["mary", "james"]
 					}
 				]
 			},
@@ -73,7 +77,7 @@
 				"comments": [
 					{
 						"from": "jason",
-						"body": "hello @john, welcome :)"
+						"body": "hello @james, welcome :)"
 					}
 				]
 			}

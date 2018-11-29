@@ -17,7 +17,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, a.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date, m.mentioner_id AS mentioned_id"
         + " FROM soc_activities a, soc_mentions m"
-        + " WHERE WHERE a.activity_id = m.activity_id AND m.mentioner_id != a.poster_id AND a.poster_id = :posterId"
+        + " WHERE a.activity_id = m.activity_id AND m.mentioner_id != a.poster_id AND a.poster_id = :posterId"
         + " ORDER BY owner_id DESC, parent_id, updated_date", resultClass = ActivityMentionedEntity.class),
     /* Others often mention the user (find mentioners) */
     @NamedNativeQuery(name = "ActivityMentioned.findPartIsMentioner", query = "SELECT a.activity_id AS post_id,"

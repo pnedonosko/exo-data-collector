@@ -18,6 +18,8 @@ import org.exoplatform.container.PortalContainer;
 import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.datacollector.TestUtils;
 import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
+import org.exoplatform.datacollector.domain.ActivityLikedEntity;
+import org.exoplatform.datacollector.domain.ActivityMentionedEntity;
 import org.exoplatform.datacollector.domain.ActivityPostedEntity;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
@@ -56,6 +58,10 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
   private ActivityPostedDAO    activityPostedDAO;
 
+  private ActivityMentionedDAO activityMentionedDAO;
+  
+  private ActivityLikedDAO activityLikedDAO;
+
   private SpaceService         spaceService;
 
   private RelationshipManager  relationshipManager;
@@ -77,6 +83,8 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
     activityCommentDAO = (ActivityCommentedDAO) container.getComponentInstanceOfType(ActivityCommentedDAO.class);
     activityPostedDAO = (ActivityPostedDAO) container.getComponentInstance(ActivityPostedDAO.class);
+    activityMentionedDAO = (ActivityMentionedDAO) container.getComponentInstance(ActivityMentionedDAO.class);
+    activityLikedDAO = (ActivityLikedDAO) container.getComponentInstanceOfType(ActivityLikedDAO.class);
     spaceService = (SpaceService) container.getComponentInstanceOfType(SpaceService.class);
     relationshipManager = (RelationshipManager) container.getComponentInstanceOfType(RelationshipManager.class);
     identityManager = (IdentityManager) container.getComponentInstanceOfType(IdentityManager.class);
@@ -91,7 +99,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     maryId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "mary", true);
     marketingId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "marketing_team", true);
     supportId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "support_team", true);
-    
+
     // TODO this will not work for multi-threading execution (see forkCount in
     // pom.xml)
   }
@@ -123,12 +131,43 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
   @Test
   public void testFindPartIsFavoriteStreamPoster() {
-    List<ActivityPostedEntity> res = activityPostedDAO.findPartIsFavoriteStreamPoster(johnId.getId(), Arrays.asList(supportId.getId(), marketingId.getId()));
+    List<ActivityPostedEntity> res = activityPostedDAO.findPartIsFavoriteStreamPoster(johnId.getId(),
+                                                                                      Arrays.asList(supportId.getId(),
+                                                                                                    marketingId.getId()));
     assertEquals(2, res.size());
     assertTrue(res.stream().allMatch(entity -> !entity.getPosterId().equals(johnId.getId())));
-    
   }
 
+  /*
+  @Test
+  public void testfindPartIsMentioned() {
+    List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioned(jasonId.getId());
+    assertEquals(2, res.size());
+    assertTrue(res.stream().allMatch(entity -> entity.getPosterId().equals(jasonId.getId())));
+  }
+  */
+  
+  @Test
+  public void testFindPartIsMentioner() {
+    List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioner(jamesId.getId());
+    assertEquals(2, res.size());
+    assertTrue(res.stream().allMatch(entity -> entity.getMentionedId().equals(jamesId.getId())));
+  }
+
+  @Test
+  public void testFindPartIsLikedPoster() {
+    List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedPoster(johnId.getId());
+    assertEquals(3, res.size());
+    assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(johnId.getId())));
+  }
+  
+  @Test
+  public void testFindPartIsLikedCommenter() {
+    List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedCommenter(johnId.getId());
+    assertEquals(2, res.size());
+    assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(johnId.getId())));
+  }
+  
   @Override
   protected void afterClass() {
     super.afterClass();
@@ -278,18 +317,11 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     Thread.sleep(300);
 
     // Likes
-    JSONArray likes = activityJSON.getJSONArray("likes");
-
-    for (int i = 0; i < likes.length(); i++) {
-      String like = likes.getString(i);
-      Identity identityLike = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, like, false);
-      try {
-        activityManager.saveLike(activity, identityLike);
-      } catch (Exception e) {
-        LOG.error("Error when liking an activity with " + like, e);
-      }
+    
+    if(activityJSON.optJSONArray("likes") != null) {
+      initLikes(activityJSON.getJSONArray("likes"), activity);
     }
-
+    
     // Comments
     JSONArray comments = activityJSON.getJSONArray("comments");
     for (int i = 0; i < comments.length(); i++) {
@@ -303,6 +335,31 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
       comment.setTitle(commentJSON.getString("body"));
       comment.setUserId(identityComment.getId());
       activityManager.saveComment(activity, comment);
+      
+      if(commentJSON.optJSONArray("likes") != null) {
+        initLikes(commentJSON.getJSONArray("likes"), comment);
+      }
+
+    }
+  }
+
+  /**
+   * Initializes likes inside an activity or comment
+   * @param likes JSONArray with names of likers
+   * @param activity that is liked
+   * @throws JSONException 
+   */
+  private void initLikes(JSONArray likes, ExoSocialActivity activity) {
+
+    for (int j = 0; j < likes.length(); j++) {
+      String like = null;
+      try {
+        like = likes.getString(j);
+        Identity identityLike = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, like, false);
+        activityManager.saveLike(activity, identityLike);
+      } catch (Exception e) {
+        LOG.error("Error when liking an comment with " + like, e);
+      }
     }
   }
 
