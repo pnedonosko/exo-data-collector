@@ -227,7 +227,10 @@
             <java.security.auth.login.config>${project.build.directory}/test-classes/conf/jaas.conf</java.security.auth.login.config>
           </systemPropertyVariables>
           <includes>
-            <include>**/**/ActivityDAOTest.java</include>
+            <include>**/**/ActivityCommentedDAOTest.java</include>
+            <include>**/**/ActivityLikedDAOTest.java</include>
+            <include>**/**/ActivityMentionedDAOTest.java</include>
+            <include>**/**/ActivityPostedDAOTest.java</include>
           </includes>
           <forkCount>0</forkCount>
         </configuration>

@@ -1,13 +1,11 @@
 package org.exoplatform.datacollector.dao;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.junit.Test;
 
 import org.exoplatform.commons.testing.BaseCommonsTestCase;
 import org.exoplatform.component.test.ConfigurationUnit;
@@ -17,13 +15,8 @@ import org.exoplatform.container.ExoContainerContext;
 import org.exoplatform.container.PortalContainer;
 import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.datacollector.TestUtils;
-import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
-import org.exoplatform.datacollector.domain.ActivityLikedEntity;
-import org.exoplatform.datacollector.domain.ActivityMentionedEntity;
-import org.exoplatform.datacollector.domain.ActivityPostedEntity;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
-import org.exoplatform.social.core.activity.model.ActivityStream.Type;
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
 import org.exoplatform.social.core.activity.model.ExoSocialActivityImpl;
 import org.exoplatform.social.core.application.SpaceActivityPublisher;
@@ -49,46 +42,38 @@ import org.exoplatform.social.core.space.spi.SpaceService;
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-portal-configuration.xml"),
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-datacollector-configuration.xml"),
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/test-portal-configuration.xml") })
-public class ActivityDAOTest extends BaseCommonsTestCase {
+public abstract class AbstractActivityDAOTest extends BaseCommonsTestCase {
 
   /** Logger */
-  private static final Log     LOG           = ExoLogger.getExoLogger(ActivityDAOTest.class);
+  protected static final Log     LOG           = ExoLogger.getExoLogger(AbstractActivityDAOTest.class);
 
-  private ActivityCommentedDAO activityCommentDAO;
+  protected SpaceService         spaceService;
 
-  private ActivityPostedDAO    activityPostedDAO;
+  protected RelationshipManager  relationshipManager;
 
-  private ActivityMentionedDAO activityMentionedDAO;
+  protected IdentityManager      identityManager;
+
+  protected ActivityManager      activityManager;
+
+  protected Identity             johnId, maryId, jamesId, jasonId, marketingId, supportId;
+
+  protected List<String>         activitiesIds = new ArrayList<String>();
   
-  private ActivityLikedDAO activityLikedDAO;
-
-  private SpaceService         spaceService;
-
-  private RelationshipManager  relationshipManager;
-
-  private IdentityManager      identityManager;
-
-  private ActivityManager      activityManager;
-
-  private Identity             johnId, maryId, jamesId, jasonId, marketingId, supportId;
-
-  private List<String>         activitiesIds = new ArrayList<String>();
+  protected PortalContainer container;
 
   @Override
   protected void beforeClass() {
     super.beforeClass();
-    PortalContainer container = PortalContainer.getInstance();
+    container = PortalContainer.getInstance();
     ExoContainerContext.setCurrentContainer(container);
     RequestLifeCycle.begin(container);
 
-    activityCommentDAO = (ActivityCommentedDAO) container.getComponentInstanceOfType(ActivityCommentedDAO.class);
-    activityPostedDAO = (ActivityPostedDAO) container.getComponentInstance(ActivityPostedDAO.class);
-    activityMentionedDAO = (ActivityMentionedDAO) container.getComponentInstance(ActivityMentionedDAO.class);
-    activityLikedDAO = (ActivityLikedDAO) container.getComponentInstanceOfType(ActivityLikedDAO.class);
     spaceService = (SpaceService) container.getComponentInstanceOfType(SpaceService.class);
     relationshipManager = (RelationshipManager) container.getComponentInstanceOfType(RelationshipManager.class);
     identityManager = (IdentityManager) container.getComponentInstanceOfType(IdentityManager.class);
     activityManager = (ActivityManager) container.getComponentInstanceOfType(ActivityManager.class);
+    
+    
     initSpaces();
     initActivities();
     initRelations();
@@ -104,69 +89,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     // pom.xml)
   }
 
-  @Test
-  public void testFindPartIsCommentedPoster() {
-    List<ActivityCommentedEntity> res = activityCommentDAO.findPartIsCommentedPoster(johnId.getId());
-    assertEquals(1, res.size());
-    assertEquals(maryId.getId(), res.get(0).getPosterId());
-  }
 
-  @Test
-  public void testFindPartIsCommentedCommenter() {
-    assertTrue(activityCommentDAO.findPartIsCommentedCommenter(johnId.getId()).isEmpty());
-  }
-
-  @Test
-  public void testFindPartIsCommentedConvoPoster() {
-    assertTrue(activityCommentDAO.findPartIsCommentedConvoPoster(johnId.getId()).isEmpty());
-  }
-
-  @Test
-  public void testFindUserPosts() {
-    List<ActivityPostedEntity> res = activityPostedDAO.findUserPosts(maryId.getId());
-    assertEquals(4, res.size());
-    assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.SPACE.toString())).count());
-    assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
-  }
-
-  @Test
-  public void testFindPartIsFavoriteStreamPoster() {
-    List<ActivityPostedEntity> res = activityPostedDAO.findPartIsFavoriteStreamPoster(johnId.getId(),
-                                                                                      Arrays.asList(supportId.getId(),
-                                                                                                    marketingId.getId()));
-    assertEquals(2, res.size());
-    assertTrue(res.stream().allMatch(entity -> !entity.getPosterId().equals(johnId.getId())));
-  }
-
-  /*
-  @Test
-  public void testfindPartIsMentioned() {
-    List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioned(jasonId.getId());
-    assertEquals(2, res.size());
-    assertTrue(res.stream().allMatch(entity -> entity.getPosterId().equals(jasonId.getId())));
-  }
-  */
-  
-  @Test
-  public void testFindPartIsMentioner() {
-    List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioner(jamesId.getId());
-    assertEquals(2, res.size());
-    assertTrue(res.stream().allMatch(entity -> entity.getMentionedId().equals(jamesId.getId())));
-  }
-
-  @Test
-  public void testFindPartIsLikedPoster() {
-    List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedPoster(johnId.getId());
-    assertEquals(3, res.size());
-    assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(johnId.getId())));
-  }
-  
-  @Test
-  public void testFindPartIsLikedCommenter() {
-    List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedCommenter(johnId.getId());
-    assertEquals(2, res.size());
-    assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(johnId.getId())));
-  }
   
   @Override
   protected void afterClass() {
@@ -178,7 +101,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   /**
    * Initializes testing spaces
    */
-  private void initSpaces() {
+  protected void initSpaces() {
     if (spaceService.getSpaceByDisplayName(TestUtils.ENGINEERING_TEAM) == null) {
       createSpace(TestUtils.ENGINEERING_TEAM, TestUtils.ENGINERING_MANAGERS, TestUtils.ENGINERING_MEMBERS);
     }
@@ -203,7 +126,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
    * @param managers managers of the space
    * @param members members of the space
    */
-  private void createSpace(String displayName, String[] managers, String[] members) {
+  protected void createSpace(String displayName, String[] managers, String[] members) {
     Space space = new Space();
     space.setDisplayName(displayName);
     space.setPrettyName(displayName);
@@ -238,7 +161,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   /**
    * Cleans testing spaces
    */
-  private void cleanSpaces() {
+  protected void cleanSpaces() {
     Space space = spaceService.getSpaceByDisplayName(TestUtils.ENGINEERING_TEAM);
     if (space != null) {
       spaceService.deleteSpace(space);
@@ -264,7 +187,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   /**
    * Initializes testing activities from JSON (TestUtils.TESTING_DATA_FILENAME)
    */
-  private void initActivities() {
+  protected void initActivities() {
     JSONObject json = TestUtils.getJSON(TestUtils.TESTING_DATA_FILENAME);
     try {
       JSONArray activities = json.getJSONObject("data").getJSONArray("activities");
@@ -290,7 +213,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
    * @param activityJSON the activity JSON
    * @throws Exception the exception
    */
-  private void pushActivity(JSONObject activityJSON) throws Exception {
+  protected void pushActivity(JSONObject activityJSON) throws Exception {
     String from = activityJSON.getString("from");
     String space = activityJSON.has("space") ? activityJSON.getString("space") : null;
     String body = activityJSON.getString("body");
@@ -349,7 +272,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
    * @param activity that is liked
    * @throws JSONException 
    */
-  private void initLikes(JSONArray likes, ExoSocialActivity activity) {
+  protected void initLikes(JSONArray likes, ExoSocialActivity activity) {
 
     for (int j = 0; j < likes.length(); j++) {
       String like = null;
@@ -366,7 +289,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   /**
    * Initializes testing relations between users from JSON (TestUtils.TESTING_DATA_FILENAME)
    */
-  private void initRelations() {
+  protected void initRelations() {
     JSONObject json = TestUtils.getJSON(TestUtils.TESTING_DATA_FILENAME);
     JSONArray relations = null;
 
@@ -409,7 +332,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   /**
    * Deletes testing activities
    */
-  private void cleanActivities() {
+  protected void cleanActivities() {
     activitiesIds.forEach(activityManager::deleteActivity);
     activitiesIds.clear();
   }
