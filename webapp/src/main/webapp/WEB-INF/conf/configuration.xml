@@ -44,7 +44,7 @@
     <type>org.exoplatform.datacollector.dao.ActivityLikedDAO</type>
   </component>
   <component>
-    <type>org.exoplatform.datacollector.dao.ActivityMentionedDAOTest</type>
+    <type>org.exoplatform.datacollector.dao.ActivityMentionedDAO</type>
   </component>
 
 	<external-component-plugins>
