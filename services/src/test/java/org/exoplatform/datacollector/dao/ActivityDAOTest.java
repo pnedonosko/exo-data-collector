@@ -291,11 +291,11 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
    * @throws Exception the exception
    */
   private void pushActivity(JSONObject activityJSON) throws Exception {
-    String from = activityJSON.getString("from");
+    String poster = activityJSON.getString("poster");
     String space = activityJSON.has("space") ? activityJSON.getString("space") : null;
     String body = activityJSON.getString("body");
     String title = activityJSON.getString("title");
-    Identity userIdentity = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, from, true);
+    Identity userIdentity = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, poster, true);
 
     ExoSocialActivity activity = new ExoSocialActivityImpl();
     activity.setTitle(title);
@@ -329,7 +329,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
       Thread.sleep(300);
       Identity identityComment = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME,
-                                                                     commentJSON.getString("from"),
+                                                                     commentJSON.getString("poster"),
                                                                      false);
       ExoSocialActivity comment = new ExoSocialActivityImpl();
       comment.setTitle(commentJSON.getString("body"));

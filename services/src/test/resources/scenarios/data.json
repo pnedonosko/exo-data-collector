@@ -2,7 +2,7 @@
 	"data": {
 		"activities": [
 			{
-				"from": "mary",
+				"poster": "mary",
 				"space": "support_team",
 				"body": "Don't forget our Public Webinar next week",
 				"title": "Don't forget our Public Webinar next week",
@@ -11,24 +11,24 @@
 				],
 				"comments": [
 					{
-						"from": "jason",
+						"poster": "jason",
 						"body": "in the main room?",
 						"likes": ["john", "mary"]
 					},
 					{
-						"from": "mary",
+						"poster": "mary",
 						"body": "yes and it will be also shared online",
 						"likes": ["john"]
 					},
 					{
-						"from": "john",
+						"poster": "john",
 						"body": "Good to know!",
 						"likes": ["jason", "mary"]
 					}
 				]
 			},
 			{
-				"from": "mary",
+				"poster": "mary",
 				"space": "marketing_team",
 				"body": "Hi, what about our goals for next month?",
 				"title": "Hi, what about our goals for next month?",
@@ -36,14 +36,14 @@
 				"comments": []
 			},
 			{
-				"from": "mary",
+				"poster": "mary",
 				"body": "I'm going to have a meeting with a customer. So exited!!",
 				"title": "I'm going to have a meeting with a customer. So exited!!",
 				"likes": ["john"],
 				"comments": []
 			},
 			{
-				"from": "mary",
+				"poster": "mary",
 				"body": "Who wants to join me to create a new addon?",
 				"title": "Who wants to join me to create a new addon?",
 				"likes": ["john"],
@@ -52,7 +52,7 @@
 				]
 			},
 			{
-				"from": "john",
+				"poster": "john",
 				"space": "support_team",
 				"body": "Hi everybody!",
 				"title": "Hi everybody!",
@@ -61,14 +61,14 @@
 				],
 				"comments": [
 					{
-						"from": "jason",
+						"poster": "jason",
 						"body": "Nice to see you, @james",
 						"likes": ["mary", "james"]
 					}
 				]
 			},
 			{
-				"from": "john",
+				"poster": "john",
 				"body": "Its my activity",
 				"title": "Its my activity",
 				"likes": [
@@ -76,7 +76,7 @@
 				],
 				"comments": [
 					{
-						"from": "jason",
+						"poster": "jason",
 						"body": "hello @james, welcome :)"
 					}
 				]
