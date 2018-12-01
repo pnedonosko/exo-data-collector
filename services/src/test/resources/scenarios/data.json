@@ -4,8 +4,8 @@
 			{
 				"poster": "mary",
 				"space": "support_team",
-				"body": "Don't forget our Public Webinar next week",
-				"title": "Don't forget our Public Webinar next week",
+				"body": "Don't forget our Public Webinar next week. @james you must be there",
+				"title": "Don't forget our Public Webinar next week. @james you must be there",
 				"likes": [
 					"john"
 				],
@@ -17,12 +17,12 @@
 					},
 					{
 						"poster": "mary",
-						"body": "yes and it will be also shared online",
+						"body": "yes and @james it will be also shared online",
 						"likes": ["john"]
 					},
 					{
 						"poster": "john",
-						"body": "Good to know!",
+						"body": "Good to know! @james ",
 						"likes": ["jason", "mary"]
 					}
 				]
@@ -62,8 +62,8 @@
 				"comments": [
 					{
 						"poster": "jason",
-						"body": "Nice to see you, @james",
-						"likes": ["mary", "james"]
+						"body": "Nice to see @james here",
+						"likes": ["mary", "james", "john"]
 					}
 				]
 			},
@@ -77,7 +77,7 @@
 				"comments": [
 					{
 						"poster": "jason",
-						"body": "hello @james, welcome :)"
+						"body": "hello, @james welcome :)"
 					}
 				]
 			}
