@@ -349,19 +349,17 @@ public class SocialDataCollectorService implements Startable {
       influencers.addSameCommentLiker(likeStorage.findPartIsSameCommentLiker(id.getId()));
       influencers.addSameConvoLiker(likeStorage.findPartIsSameConvoLiker(id.getId()));
 
-      // Here the influencers object knows favorite spaces of the user
+      // Here the influencers object knows favorite streams of the user
       Collection<String> userStreams = influencers.getFavoriteStreamsTop(10);
       if (userStreams.size() < 10) {
         // TODO add required (to 10) streams where user has most of its
         // connections
       }
       if (userStreams.size() > 0) {
-        Collection<String> favStreams = influencers.getFavoriteStreamsTop(10);
-                                      
-        influencers.addStreamPoster(postStorage.findPartIsFavoriteStreamPoster(id.getId(), favStreams));
-        influencers.addStreamCommenter(commentStorage.findPartIsFavoriteStreamCommenter(id.getId(), favStreams));
-        influencers.addStreamPostLiker(likeStorage.findPartIsFavoriteStreamPostLiker(id.getId(), favStreams));
-        influencers.addStreamCommentLiker(likeStorage.findPartIsFavoriteStreamCommentLiker(id.getId(), favStreams));
+        influencers.addStreamPoster(postStorage.findPartIsFavoriteStreamPoster(id.getId(), userStreams));
+        influencers.addStreamCommenter(commentStorage.findPartIsFavoriteStreamCommenter(id.getId(), userStreams));
+        influencers.addStreamPostLiker(likeStorage.findPartIsFavoriteStreamPostLiker(id.getId(), userStreams));
+        influencers.addStreamCommentLiker(likeStorage.findPartIsFavoriteStreamCommentLiker(id.getId(), userStreams));
       }
 
       //
@@ -512,7 +510,7 @@ public class SocialDataCollectorService implements Startable {
     // type: encoded
     encActivityType(aline, activity.getType());
     // app ID: TODO need it?
-    // aline.append(activity.getAppId()).append(','); 
+    // aline.append(activity.getAppId()).append(',');
     Identity ownerId;
     ActivityStream stream = activity.getActivityStream();
     boolean isSpace = Type.SPACE.equals(stream.getType());
@@ -537,9 +535,12 @@ public class SocialDataCollectorService implements Startable {
     aline.append(activity.getLikeIdentityIds().length).append(',');
     // number_of_comments
     aline.append(activity.getCommentedIds().length).append(',');
-    // TODO reactivity (calc from user login history and his actions against this activity)
-    //activity.get
-    
+    // reactivity: difference in days between a day of posted and a day when
+    // user commented/liked: 0..1, where 1 is same day, 0 is 30+ days old
+    // TODO Should take in account user login history: time between nearest
+    // login and the reaction - indeed this may be not accurate.
+    aline.append(influencers.getPostReactivity(activity.getId())).append(',');
+
     // TODO is_mentions_me
     // TODO is_mentions_connections
     // TODO is_liked_by_connections

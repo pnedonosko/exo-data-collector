@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -31,7 +30,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.exoplatform.datacollector.UserInfluencers.ActivityInfo;
 import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
 import org.exoplatform.datacollector.domain.ActivityLikedEntity;
 import org.exoplatform.datacollector.domain.ActivityMentionedEntity;
@@ -48,26 +46,39 @@ import org.exoplatform.social.core.space.model.Space;
 public class UserInfluencers {
 
   /** Default or uncertain weight constant. */
-  public static final double    DEFAULT_WEIGHT    = 0.1;
+  public static final double    DEFAULT_WEIGHT             = 0.1;
 
-  private static final int      WEIGHT_PRECISION  = 100000;
+  private static final int      WEIGHT_PRECISION           = 100000;
 
-  private static final int      MAX_DAYS_RANGE    = 90;
+  private static final int      REACTIVITY_DAYS_RANGE      = 30;
 
-  private static final double   DAY_WEIGHT_GROW   = 0.2;
+  private static final int      INFLUENCE_DAYS_RANGE       = 90;
 
-  private static final double[] DAY_WEIGHTS       = new double[MAX_DAYS_RANGE];
+  private static final double   REACTIVITY_DAY_WEIGHT_GROW = 0.7;
 
-  private static final int      DAY_LENGTH_MILLIS = 86400000;
+  private static final double   INFLUENCE_DAY_WEIGHT_GROW  = 0.2;
+
+  private static final double[] REACTIVITY_WEIGHTS         = new double[REACTIVITY_DAYS_RANGE];
+
+  private static final double[] INFLUENCE_WEIGHTS          = new double[INFLUENCE_DAYS_RANGE];
+
+  private static final int      DAY_LENGTH_MILLIS          = 86400000;
 
   static {
     // Index 0 is for first day and so on
     // Each day has weight smaller of the previous on a square of part of the
     // previous one
-    DAY_WEIGHTS[0] = 1;
-    for (int i = 1; i < DAY_WEIGHTS.length; i++) {
-      double prev = DAY_WEIGHTS[i - 1];
-      DAY_WEIGHTS[i] = prev - Math.pow(2, prev * DAY_WEIGHT_GROW);
+    // Influence table:
+    INFLUENCE_WEIGHTS[0] = 1;
+    for (int i = 1; i < INFLUENCE_WEIGHTS.length; i++) {
+      double prev = INFLUENCE_WEIGHTS[i - 1];
+      INFLUENCE_WEIGHTS[i] = prev - Math.pow(2, prev * INFLUENCE_DAY_WEIGHT_GROW);
+    }
+    // Reactivity table (same formula as for influence for beginning):
+    REACTIVITY_WEIGHTS[0] = 1;
+    for (int i = 1; i < REACTIVITY_WEIGHTS.length; i++) {
+      double prev = REACTIVITY_WEIGHTS[i - 1];
+      REACTIVITY_WEIGHTS[i] = prev - Math.pow(2, prev * REACTIVITY_DAY_WEIGHT_GROW);
     }
   }
 
@@ -92,9 +103,9 @@ public class UserInfluencers {
     // final String ownerId;
     // final String posterId;
 
-    final Long         created;
+    final Long   created;
 
-    //Long         updated;
+    // Long updated;
 
     Long         lastLiked;
 
@@ -103,6 +114,21 @@ public class UserInfluencers {
     ActivityInfo(String id, Long created) {
       this.id = id;
       this.created = created;
+    }
+
+    /**
+     * Reactivity encoded as difference in days between a day of posted and a
+     * day when user commented/liked falling logarithmically: 0..1, where 1 is
+     * same day, 0 is 30+ days old.
+     *
+     * @return the double
+     */
+    double reactivity() {
+      Long lastActive = lastCommented != null ? lastCommented : (lastLiked != null ? lastLiked : null);
+      if (lastActive != null) {
+        return getDateReactivityWeight(lastActive, created);
+      }
+      return 0;
     }
 
     void liked(Long likedTime) {
@@ -158,17 +184,25 @@ public class UserInfluencers {
     this.userSpaces = userSpaces.stream().collect(Collectors.toMap(s -> s.getId(), s -> new SpaceInfo(s)));
   }
 
-  public static double getDateWeight(Date date) {
-    long diff = System.currentTimeMillis() - date.getTime();
+  private static double dayWeight(double[] table, long from, long to, boolean olderIsZero) {
+    long diff = from - to;
     Long d = Math.round(Math.floor(diff / DAY_LENGTH_MILLIS));
-    int days = d.intValue();
-    if (days == 0) {
+    int day = d.intValue();
+    if (day == 0) {
       return 1;
-    } else if (days >= MAX_DAYS_RANGE) {
-      return DAY_WEIGHTS[MAX_DAYS_RANGE - 1];
+    } else if (day >= table.length) {
+      return olderIsZero ? 0 : table[table.length - 1];
     } else {
-      return DAY_WEIGHTS[days];
+      return table[day];
     }
+  }
+
+  public static double getDateInfluenceWeight(long date) {
+    return dayWeight(INFLUENCE_WEIGHTS, date, System.currentTimeMillis(), false);
+  }
+
+  public static double getDateReactivityWeight(long from, long to) {
+    return dayWeight(REACTIVITY_WEIGHTS, from, to, true);
   }
 
   /**
@@ -176,11 +210,11 @@ public class UserInfluencers {
    * date).
    *
    * @param weight the weight
-   * @param date the date
+   * @param date the date in ms
    * @return the double - the adjusted weight
    */
-  public static double adjustWeightByDate(double weight, Date date) {
-    double dweight = getDateWeight(date);
+  public static double adjustWeightByDate(double weight, long date) {
+    double dweight = getDateInfluenceWeight(date);
     return weight * dweight;
   }
 
@@ -288,7 +322,7 @@ public class UserInfluencers {
     // comment or like on the post on its comments
     activities.computeIfAbsent(p.getId(), id -> new ActivityInfo(p.getId(), p.getPosted()));
   }
-  
+
   protected void addComment(ActivityCommentedEntity c) {
     // Note: AbstractActivityEntity has only a post ID, even if it tells about a
     // comment or like on the post on its comments
@@ -300,12 +334,12 @@ public class UserInfluencers {
       return p;
     });
   }
-  
+
   protected void addMention(ActivityMentionedEntity m) {
     // here it has no difference with posted
     activities.computeIfAbsent(m.getId(), id -> new ActivityInfo(m.getId(), m.getPosted()));
   }
-  
+
   protected void addLike(ActivityLikedEntity l) {
     // Note: AbstractActivityEntity has only a post ID, even if it tells about a
     // comment or like on the post on its comments
@@ -316,6 +350,11 @@ public class UserInfluencers {
       p.liked(l.getLiked());
       return p;
     });
+  }
+
+  public double getPostReactivity(String postId) {
+    ActivityInfo a = activities.get(postId);
+    return a != null ? a.reactivity() : 0;
   }
 
   // *********************************
@@ -331,6 +370,7 @@ public class UserInfluencers {
       double w = 1;
       addParticipant(c.getPosterId(), w);
       addStream(c.getOwnerId(), w);
+      addComment(c);
     }
   }
 
@@ -340,6 +380,7 @@ public class UserInfluencers {
       double w = 0.9;
       addParticipant(c.getPosterId(), w);
       addStream(c.getOwnerId(), w);
+      addComment(c);
     }
   }
 
@@ -348,6 +389,7 @@ public class UserInfluencers {
       double w = 0.8;
       addParticipant(c.getPosterId(), w);
       addStream(c.getOwnerId(), w);
+      addComment(c);
     }
   }
 
@@ -356,6 +398,7 @@ public class UserInfluencers {
       double w = 1;
       addParticipant(c.getPosterId(), w);
       addStream(c.getOwnerId(), w);
+      addComment(c);
     }
   }
 
@@ -386,6 +429,7 @@ public class UserInfluencers {
       double w = 0.8;
       addParticipant(m.getPosterId(), w);
       addStream(m.getOwnerId(), w);
+      addMention(m);
     }
   }
 
@@ -396,6 +440,7 @@ public class UserInfluencers {
       double w = 0.8;
       addParticipant(m.getMentionedId(), w);
       addStream(m.getOwnerId(), w);
+      addMention(m);
     }
   }
 
@@ -406,6 +451,7 @@ public class UserInfluencers {
       double w = 0.8;
       addParticipant(l.getPosterId(), w);
       addStream(l.getOwnerId(), w);
+      addLike(l);
     }
   }
 
@@ -416,6 +462,7 @@ public class UserInfluencers {
       double w = 0.7;
       addParticipant(l.getPosterId(), w);
       addStream(l.getOwnerId(), w);
+      addLike(l);
     }
   }
 
@@ -426,6 +473,7 @@ public class UserInfluencers {
       double w = 0.5;
       addParticipant(l.getPosterId(), w);
       addStream(l.getOwnerId(), w);
+      addLike(l);
     }
   }
 
@@ -436,6 +484,7 @@ public class UserInfluencers {
       double w = 0.4;
       addParticipant(l.getLikerId(), w);
       addStream(l.getOwnerId(), w);
+      addLike(l);
     }
   }
 
@@ -446,6 +495,7 @@ public class UserInfluencers {
       double w = 0.4;
       addParticipant(l.getLikerId(), w);
       addStream(l.getOwnerId(), w);
+      addLike(l);
     }
   }
 
@@ -456,6 +506,7 @@ public class UserInfluencers {
       double w = 0.3;
       addParticipant(l.getLikerId(), w);
       addStream(l.getOwnerId(), w);
+      addLike(l);
     }
   }
 
@@ -466,6 +517,7 @@ public class UserInfluencers {
       double w = 0.7;
       addParticipant(l.getPosterId(), w);
       addStream(l.getOwnerId(), w);
+      addLike(l);
     }
   }
 
@@ -474,6 +526,7 @@ public class UserInfluencers {
       double w = 0.7;
       addParticipant(l.getPosterId(), w);
       addStream(l.getOwnerId(), w);
+      addLike(l);
     }
   }
 
@@ -482,6 +535,7 @@ public class UserInfluencers {
       double w = 0.3;
       addParticipant(l.getPosterId(), w);
       addStream(l.getOwnerId(), w);
+      addLike(l);
     }
   }
 
@@ -490,6 +544,7 @@ public class UserInfluencers {
       double w = 0.6;
       addParticipant(p.getPosterId(), w);
       addStream(p.getOwnerId(), w);
+      addPost(p);
     }
   }
 
@@ -498,6 +553,7 @@ public class UserInfluencers {
       double w = 0.5;
       addParticipant(c.getPosterId(), w);
       addStream(c.getOwnerId(), w);
+      addComment(c);
     }
   }
 
@@ -506,6 +562,7 @@ public class UserInfluencers {
       double w = 0.4;
       addParticipant(l.getLikerId(), w);
       addStream(l.getOwnerId(), w);
+      addLike(l);
     }
   }
 
@@ -514,6 +571,7 @@ public class UserInfluencers {
       double w = 0.3;
       addParticipant(l.getLikerId(), w);
       addStream(l.getOwnerId(), w);
+      addLike(l);
     }
   }
 
