@@ -17,4 +17,10 @@
   <component>
     <type>org.exoplatform.datacollector.dao.ActivityPostedDAO</type>
   </component>
+  <component>
+    <type>org.exoplatform.datacollector.dao.ActivityMentionedDAO</type>
+  </component>
+  <component>
+    <type>org.exoplatform.datacollector.dao.ActivityLikedDAO</type>
+  </component>
 </configuration>
