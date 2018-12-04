@@ -367,25 +367,57 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     if(activityJSON.optJSONArray("likes") != null) {
       initLikes(activityJSON.getJSONArray("likes"), activity);
     }
+   
+    initComments(activity, activityJSON);
+  }
+  
+  
+  private void initComments(ExoSocialActivity activity, JSONObject activityJSON) throws Exception {
     
-    // Comments
     JSONArray comments = activityJSON.getJSONArray("comments");
+    
     for (int i = 0; i < comments.length(); i++) {
       JSONObject commentJSON = comments.getJSONObject(i);
 
-      Thread.sleep(300);
+      Thread.sleep(100);
       Identity identityComment = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME,
                                                                      commentJSON.getString("poster"),
                                                                      false);
       ExoSocialActivity comment = new ExoSocialActivityImpl();
       comment.setTitle(commentJSON.getString("body"));
       comment.setUserId(identityComment.getId());
-      activityManager.saveComment(activity, comment);
       
+      activityManager.saveComment(activity, comment);
+ 
       if(commentJSON.optJSONArray("likes") != null) {
         initLikes(commentJSON.getJSONArray("likes"), comment);
       }
-
+      
+      // replies
+      
+      if(commentJSON.optJSONArray("replies") != null) {
+        JSONArray replies = commentJSON.getJSONArray("replies");
+        for(int j = 0; j < replies.length(); j++) {
+          JSONObject replyJSON = replies.getJSONObject(j);
+          
+          
+          
+          Identity identityReply = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME,
+                                                                         replyJSON.getString("poster"),
+                                                                         false);
+          ExoSocialActivity reply = new ExoSocialActivityImpl();
+          reply.setTitle(replyJSON.getString("body"));
+          reply.setUserId(identityReply.getId());
+          reply.setParentCommentId(comment.getId());
+          
+          activityManager.saveComment(activity, reply);
+     
+          if(replyJSON.optJSONArray("likes") != null) {
+            initLikes(replyJSON.getJSONArray("likes"), reply);
+          }
+          
+        }
+      }
     }
   }
 
