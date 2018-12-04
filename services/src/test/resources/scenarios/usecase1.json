@@ -11,7 +11,18 @@
 					{
 						"poster": "jason",
 						"body": "Nice to see @james here",
-						"likes": ["james", "john"]
+						"likes": ["james", "john"],
+						"replies": [
+							{
+							"poster": "jack",
+							"body": "Yeah!",
+							"likes": ["james", "mary"]
+							},
+							{
+							"poster": "mary",
+							"body": "Yep"
+							}
+						]
 					},
 					{
 						"poster": "john",

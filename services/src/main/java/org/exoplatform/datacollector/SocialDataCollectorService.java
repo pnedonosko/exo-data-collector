@@ -25,9 +25,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
-import org.apache.ecs.html.Col;
 import org.picocontainer.Startable;
 
 import org.exoplatform.commons.utils.ListAccess;
