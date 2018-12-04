@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+  Copyright (C) 2003-2018 eXo Platform SAS.
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU Affero General Public License for more details.
+
+  You should have received a copy of the GNU Affero General Public License
+  along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+-->
+<configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.exoplatform.org/xml/ns/kernel_1_2.xsd http://www.exoplatform.org/xml/ns/kernel_1_2.xsd"
+  xmlns="http://www.exoplatform.org/xml/ns/kernel_1_2.xsd">
+
+  <!-- Root container configuration -->
+
+  <component>
+    <key>org.exoplatform.container.PropertyConfigurator</key>
+    <type>org.exoplatform.container.PropertyConfigurator</type>
+    <init-params>
+      <value-param>
+        <name>properties.url</name>
+        <!-- Override portal's defaults -->
+        <value>jar:/conf/exo.properties</value>
+      </value-param>
+    </init-params>
+  </component>
+
+  <component>
+    <key>org.exoplatform.container.configuration.ConfigurationManager</key>
+    <type>org.exoplatform.container.configuration.ConfigurationManagerImpl</type>
+  </component>
+
+  <component>
+    <key>org.exoplatform.services.naming.InitialContextInitializer</key>
+    <type>org.exoplatform.services.naming.InitialContextInitializer</type>
+    <init-params>
+      <properties-param>
+        <name>default-properties</name>
+        <description>Default initial context properties</description>
+        <property name="java.naming.factory.initial" value="org.exoplatform.services.naming.SimpleContextFactory" />
+      </properties-param>
+    </init-params>
+  </component>
+
+  <component><!-- Overrides 'commons-component-common-x.x.x.jar!/conf/configuration.xml' -->
+    <key>org.exoplatform.commons.api.persistence.DataInitializer</key>
+    <type>org.exoplatform.datacollector.test.StandaloneLiquibaseDataInitializer</type>
+    <init-params>
+      <value-param>
+        <name>liquibase.datasource</name>
+        <value>java:/comp/env/exo-jpa_portal</value>
+      </value-param>
+      <value-param>
+        <name>liquibase.contexts</name>
+        <value>production</value>
+      </value-param>
+    </init-params>
+  </component>
+
+  <!-- Bind datasource -->
+  <external-component-plugins>
+    <target-component>org.exoplatform.services.naming.InitialContextInitializer</target-component>
+    <component-plugin>
+      <name>bind.datasource</name>
+      <set-method>addPlugin</set-method>
+      <type>org.exoplatform.services.naming.BindReferencePlugin</type>
+      <init-params>
+        <value-param>
+          <name>bind-name</name>
+          <value>java:/comp/env/exo-jpa_portal</value>
+        </value-param>
+        <value-param>
+          <name>class-name</name>
+          <value>javax.sql.DataSource</value>
+        </value-param>
+        <value-param>
+          <name>factory</name>
+          <value>org.apache.commons.dbcp.BasicDataSourceFactory</value>
+        </value-param>
+        <properties-param profiles="hsqldb">
+          <name>ref-addresses</name>
+          <description>ref-addresses</description>
+          <!-- HSQL in memory -->
+          <property name="driverClassName" value="org.hsqldb.jdbcDriver" />
+          <property name="url" value="jdbc:hsqldb:mem:db1" />
+          <property name="username" value="sa" />
+          <property name="password" value="" />
+        </properties-param>
+        <properties-param profiles="mysql">
+          <!-- MySQL local -->
+          <name>ref-addresses</name>
+          <description>ref-addresses</description>
+          <property name="driverClassName" value="com.mysql.jdbc.Driver" />
+          <property name="url"
+            value="jdbc:mysql://localhost:3306/test52?createDatabaseIfNotExist=true&amp;autoReconnect=true&amp;useSSL=false&amp;characterEncoding=utf8" />
+          <property name="username" value="exo" />
+          <property name="password" value="exo" />
+        </properties-param>
+      </init-params>
+    </component-plugin>
+  </external-component-plugins>
+
+</configuration>

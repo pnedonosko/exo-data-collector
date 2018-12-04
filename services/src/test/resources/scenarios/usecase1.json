@@ -1,0 +1,286 @@
+{
+	"data": {
+		"activities": [
+			{
+				"poster": "jason",
+				"space": "product_team",
+				"body": "Hi everybody in Product team!",
+				"title": "Hi everybody in Product team!",
+				"likes": [ "james", "mary", "john", "jack" ],
+				"comments": [
+					{
+						"poster": "jason",
+						"body": "Nice to see @james here",
+						"likes": ["james", "john"]
+					},
+					{
+						"poster": "john",
+						"body": "We'll discuss strategy here and tactics in Engineering space",
+						"likes": ["jason"]
+					},
+					{
+						"poster": "james",
+						"body": "Thank you @jason",
+						"likes": ["jason"]
+					}
+				]
+			},
+			{
+				"poster": "john",
+				"space": "engineering_team",
+				"body": "We plan migration to Java 11 next year, let's collect all objectives we need to cover.",
+				"title": "We plan migration to Java 11 next year, let's collect all objectives we need to cover.",
+				"likes": [ "james", "jason" ],
+				"comments": [
+					{
+						"poster": "jason",
+						"body": "@john don't forget connect this with JEE stack upgrade.",
+						"likes": ["jack", "john"]
+					}
+				]
+			},
+			{
+				"poster": "john",
+				"space": "engineering_team",
+				"body": "Java 11 Migration Plan",
+				"title": "Java 11 Migration Plan",
+				"likes": ["jason"],
+				"comments": []
+			},
+			{
+				"poster": "mary",
+				"space": "marketing_team",
+				"body": "Hi, what about our goals for next month?",
+				"title": "Hi, what about our goals for next month?",
+				"likes": ["jason", "bob"],
+				"comments": []
+			},
+			{
+				"poster": "jason",
+				"space": "marketing_team",
+				"body": "Please align plans with a strategy schedule @mary",
+				"title": "Please align plans with a strategy schedule @mary",
+				"likes": ["james", "mary"],
+				"comments": []
+			},
+			{
+				"poster": "jack",
+				"space": "support_team",
+				"body": "We start work on ACME Swiss tickets this week. @jason can you introduce us to their CEO?",
+				"title": "We start work on ACME Swiss tickets this week. @jason can you introduce us to their CEO?",
+				"likes": ["jason", "bob", "alice", "james"],
+				"comments": [
+					{
+						"poster": "jason",
+						"body": "@mary ok",
+						"likes": ["mary"]
+					}
+				]
+			},
+			{
+				"poster": "mary",
+				"body": "I'm going to have a meeting with a customer. So exited!!",
+				"title": "I'm going to have a meeting with a customer. So exited!!",
+				"likes": ["alice", "jason", "james"],
+				"comments": []
+			},
+			{
+				"poster": "bob",
+				"body": "Who wants to join me to create a new addon?",
+				"title": "Who wants to join me to create a new addon?",
+				"likes": ["john", "jack"],
+				"comments": [
+					{
+						"poster": "jason",
+						"body": "@bob I can be your PM :)",
+						"likes": ["john", "jack"]
+					}
+				]
+			},
+			{
+				"poster": "john",
+				"body": "It's my first activity in eXo",
+				"title": "It's my first activity in eXo",
+				"likes": [ "mary", "jason", "alice" ],
+				"comments": [
+					{
+						"poster": "jason",
+						"body": "Hello, @james welcome :)"
+					}
+				]
+			}
+		],
+		"relations": [
+			{
+				"inviting": "alice",
+				"invited": "james",
+				"confirmed": true
+			},
+			{
+				"inviting": "alice",
+				"invited": "john",
+				"confirmed": true
+			},
+			{
+				"inviting": "alice",
+				"invited": "mary",
+				"confirmed": true
+			},
+			{
+				"inviting": "alice",
+				"invited": "jason",
+				"confirmed": true
+			},
+			{
+				"inviting": "bob",
+				"invited": "jack",
+				"confirmed": true
+			},
+			{
+				"inviting": "bob",
+				"invited": "james",
+				"confirmed": true
+			},
+			{
+				"inviting": "bob",
+				"invited": "john",
+				"confirmed": true
+			},
+			{
+				"inviting": "bob",
+				"invited": "mary",
+				"confirmed": true
+			},
+			{
+				"inviting": "bob",
+				"invited": "jason",
+				"confirmed": true
+			},
+			{
+				"inviting": "jack",
+				"invited": "bob",
+				"confirmed": true
+			},
+			{
+				"inviting": "jack",
+				"invited": "james",
+				"confirmed": true
+			},
+			{
+				"inviting": "jack",
+				"invited": "john",
+				"confirmed": true
+			},
+			{
+				"inviting": "jack",
+				"invited": "jason",
+				"confirmed": true
+			},
+			{
+				"inviting": "james",
+				"invited": "alice",
+				"confirmed": true
+			},
+			{
+				"inviting": "james",
+				"invited": "bob",
+				"confirmed": true
+			},
+			{
+				"inviting": "james",
+				"invited": "jack",
+				"confirmed": true
+			},
+			{
+				"inviting": "james",
+				"invited": "john",
+				"confirmed": true
+			},
+			{
+				"inviting": "james",
+				"invited": "mary",
+				"confirmed": true
+			},
+			{
+				"inviting": "james",
+				"invited": "jason",
+				"confirmed": true
+			},
+			{
+				"inviting": "john",
+				"invited": "alice",
+				"confirmed": true
+			},
+			{
+				"inviting": "john",
+				"invited": "bob",
+				"confirmed": true
+			},
+			{
+				"inviting": "john",
+				"invited": "jack",
+				"confirmed": true
+			},
+			{
+				"inviting": "john",
+				"invited": "james",
+				"confirmed": true
+			},
+			{
+				"inviting": "john",
+				"invited": "jason",
+				"confirmed": true
+			},
+			{
+				"inviting": "mary",
+				"invited": "alice",
+				"confirmed": true
+			},
+			{
+				"inviting": "mary",
+				"invited": "bob",
+				"confirmed": true
+			},
+			{
+				"inviting": "mary",
+				"invited": "james",
+				"confirmed": true
+			},
+			{
+				"inviting": "mary",
+				"invited": "jason",
+				"confirmed": true
+			},
+			{
+				"inviting": "jason",
+				"invited": "alice",
+				"confirmed": true
+			},
+			{
+				"inviting": "jason",
+				"invited": "bob",
+				"confirmed": true
+			},
+			{
+				"inviting": "jason",
+				"invited": "jack",
+				"confirmed": true
+			},
+			{
+				"inviting": "jason",
+				"invited": "james",
+				"confirmed": true
+			},
+			{
+				"inviting": "jason",
+				"invited": "john",
+				"confirmed": true
+			},
+			{
+				"inviting": "jason",
+				"invited": "mary",
+				"confirmed": true
+			}
+		]
+	}
+}

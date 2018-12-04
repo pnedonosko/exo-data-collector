@@ -1,0 +1,533 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.exoplatform.org/xml/ns/kernel_1_3.xsd http://www.exoplatform.org/xml/ns/kernel_1_3.xsd"
+               xmlns="http://www.exoplatform.org/xml/ns/kernel_1_3.xsd">
+
+  <component>
+    <type>org.exoplatform.services.organization.cache.OrganizationCacheHandler</type>
+  </component>
+
+  <component>
+    <key>org.exoplatform.services.organization.idm.PicketLinkIDMCacheService</key>
+    <type>org.exoplatform.services.organization.idm.PicketLinkIDMCacheService</type>
+  </component>
+
+  <component>
+    <key>org.gatein.common.transaction.JTAUserTransactionLifecycleService</key>
+    <type>org.gatein.common.transaction.JTAUserTransactionLifecycleServiceImpl</type>
+  </component>
+
+  <component>
+    <key>org.infinispan.transaction.lookup.TransactionManagerLookup</key>
+    <type>org.exoplatform.services.transaction.infinispan.JBossStandaloneJTAManagerLookup</type>
+  </component>
+
+  <component>
+    <key>org.exoplatform.services.transaction.TransactionService</key>
+    <type>org.exoplatform.services.transaction.infinispan.JBossTransactionsService</type>
+    <init-params>
+      <value-param>
+        <name>timeout</name>
+        <value>300</value>
+      </value-param>
+    </init-params>
+  </component>
+
+  <component>
+    <key>org.exoplatform.services.organization.idm.PicketLinkIDMService</key>
+    <type>org.exoplatform.services.organization.idm.PicketLinkIDMServiceImpl</type>
+    <init-params>
+      <value-param>
+        <name>config</name>
+        <value>jar:/conf/exo.portal.component.identity-picketlink-idm-config.xml</value>
+      </value-param>
+    </init-params>
+  </component>
+
+  <component>
+    <key>org.exoplatform.services.organization.OrganizationService</key>
+    <type>org.exoplatform.services.organization.idm.PicketLinkIDMOrganizationServiceImpl</type>
+    <init-params>
+      <object-param>
+        <name>configuration</name>
+        <object type="org.exoplatform.services.organization.idm.Config">
+          <field name="useParentIdAsGroupType">
+            <boolean>true</boolean>
+          </field>
+        </object>
+      </object-param>
+    </init-params>
+  </component>
+
+  <component>
+    <key>org.exoplatform.services.database.HibernateService</key>
+    <jmx-name>database:type=HibernateService</jmx-name>
+    <type>org.exoplatform.services.organization.idm.CustomHibernateServiceImpl</type>
+    <init-params>
+      <properties-param>
+        <name>hibernate.properties</name>
+        <description>Default Hibernate Service</description>
+        <property name="hibernate.hbm2ddl.auto" value="create-drop"/>
+        <property name="hibernate.show_sql" value="false"/>
+        <property name="hibernate.current_session_context_class" value="thread"/>
+        <property name="hibernate.cache.use_second_level_cache" value="false"/>
+        <property name="hibernate.cache.use_query_cache" value="false"/>
+        <property name="hibernate.connection.datasource" value="jdbcidm"/>
+        <property name="hibernate.c3p0.min_size" value="5"/>
+        <property name="hibernate.c3p0.max_size" value="20"/>
+        <property name="hibernate.c3p0.timeout" value="1800"/>
+        <property name="hibernate.c3p0.max_statements" value="50"/>
+      </properties-param>
+    </init-params>
+  </component>
+
+  <!-- Init mappings -->
+  <external-component-plugins>
+    <target-component>org.exoplatform.services.database.HibernateService</target-component>
+    <component-plugin>
+      <name>add.hibernate.mapping</name>
+      <set-method>addPlugin</set-method>
+      <type>org.exoplatform.services.database.impl.AddHibernateMappingPlugin</type>
+      <init-params>
+        <values-param>
+          <name>hibernate.mapping</name>
+          <value>conf/mappings/HibernateRealm.hbm.xml</value>
+          <value>conf/mappings/HibernateIdentityObjectCredentialBinaryValue.hbm.xml</value>
+          <value>conf/mappings/HibernateIdentityObjectAttributeBinaryValue.hbm.xml</value>
+          <value>conf/mappings/HibernateIdentityObject.hbm.xml</value>
+          <value>conf/mappings/HibernateIdentityObjectCredential.hbm.xml</value>
+          <value>conf/mappings/HibernateIdentityObjectCredentialType.hbm.xml</value>
+          <value>conf/mappings/HibernateIdentityObjectAttribute.hbm.xml</value>
+          <value>conf/mappings/HibernateIdentityObjectType.hbm.xml</value>
+          <value>conf/mappings/HibernateIdentityObjectRelationship.hbm.xml</value>
+          <value>conf/mappings/HibernateIdentityObjectRelationshipType.hbm.xml</value>
+          <value>conf/mappings/HibernateIdentityObjectRelationshipName.hbm.xml</value>
+        </values-param>
+      </init-params>
+    </component-plugin>
+  </external-component-plugins>
+  
+  <!-- Init organization -->
+  <external-component-plugins>
+    <target-component>org.exoplatform.services.organization.OrganizationService</target-component>
+    <component-plugin>
+      <name>init.service.listener</name>
+      <set-method>addListenerPlugin</set-method>
+      <type>org.exoplatform.services.organization.OrganizationDatabaseInitializer</type>
+      <init-params>
+        <value-param>
+          <name>checkDatabaseAlgorithm</name>
+          <value>entry</value>
+        </value-param>
+        <value-param>
+          <name>printInformation</name>
+          <value>true</value>
+        </value-param>
+        <object-param>
+          <name>configuration</name>
+          <object type="org.exoplatform.services.organization.OrganizationConfig">
+            <field name="membershipType">
+              <collection type="java.util.ArrayList">
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$MembershipType">
+                    <field name="type">
+                      <string>manager</string>
+                    </field>
+                    <field name="description">
+                      <string>manager membership type</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$MembershipType">
+                    <field name="type">
+                      <string>member</string>
+                    </field>
+                    <field name="description">
+                      <string>member membership type</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$MembershipType">
+                    <field name="type">
+                      <string>validator</string>
+                    </field>
+                    <field name="description">
+                      <string>validator membership type</string>
+                    </field>
+                  </object>
+                </value>
+              </collection>
+            </field>
+            <field name="group">
+              <collection type="java.util.ArrayList">
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$Group">
+                    <field name="name">
+                      <string>platform</string>
+                    </field>
+                    <field name="parentId">
+                      <string></string>
+                    </field>
+                    <field name="description">
+                      <string>the /platform group</string>
+                    </field>
+                    <field name="label">
+                      <string>Platform</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$Group">
+                    <field name="name">
+                      <string>administrators</string>
+                    </field>
+                    <field name="parentId">
+                      <string>/platform</string>
+                    </field>
+                    <field name="description">
+                      <string>the /platform/administrators group</string>
+                    </field>
+                    <field name="label">
+                      <string>Administrators</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$Group">
+                    <field name="name">
+                      <string>users</string>
+                    </field>
+                    <field name="parentId">
+                      <string>/platform</string>
+                    </field>
+                    <field name="description">
+                      <string>the /platform/users group</string>
+                    </field>
+                    <field name="label">
+                      <string>Users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$Group">
+                    <field name="name">
+                      <string>guests</string>
+                    </field>
+                    <field name="parentId">
+                      <string>/platform</string>
+                    </field>
+                    <field name="description">
+                      <string>the /platform/guests group</string>
+                    </field>
+                    <field name="label">
+                      <string>Guests</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$Group">
+                    <field name="name">
+                      <string>organization</string>
+                    </field>
+                    <field name="parentId">
+                      <string></string>
+                    </field>
+                    <field name="description">
+                      <string>the organization group</string>
+                    </field>
+                    <field name="label">
+                      <string>Organization</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$Group">
+                    <field name="name">
+                      <string>management</string>
+                    </field>
+                    <field name="parentId">
+                      <string>/organization</string>
+                    </field>
+                    <field name="description">
+                      <string>the /organization/management group</string>
+                    </field>
+                    <field name="label">
+                      <string>Management</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$Group">
+                    <field name="name">
+                      <string>executive-board</string>
+                    </field>
+                    <field name="parentId">
+                      <string>/organization/management</string>
+                    </field>
+                    <field name="description">
+                      <string>the /organization/management/executive-board group</string>
+                    </field>
+                    <field name="label">
+                      <string>Executive Board</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$Group">
+                    <field name="name">
+                      <string>spaces</string>
+                    </field>
+                    <field name="parentId">
+                      <string></string>
+                    </field>
+                    <field name="description">
+                      <string>the /spaces group</string>
+                    </field>
+                    <field name="label">
+                      <string>Spaces</string>
+                    </field>
+                  </object>
+                </value>
+              </collection>
+            </field>
+
+            <field name="user">
+              <collection type="java.util.ArrayList">
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>root</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Root</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Root</string>
+                    </field>
+                    <field name="email">
+                      <string>root@localhost</string>
+                    </field>
+                    <field name="groups">
+                      <string>
+                        manager:/platform/administrators,member:/platform/users,
+                        member:/organization/management/executive-board
+                      </string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>john</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>John</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Smith</string>
+                    </field>
+                    <field name="email">
+                      <string>john@localhost</string>
+                    </field>
+                    <field name="groups">
+                      <string>
+                        member:/platform/administrators,member:/platform/users,
+                        manager:/organization/management/executive-board
+                      </string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>alice</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Alice</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Wicked</string>
+                    </field>
+                    <field name="email">
+                      <string>alice@exo.com</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>bob</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Bob</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Martin</string>
+                    </field>
+                    <field name="email">
+                      <string>bob@exo.com</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>jack</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Jack</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Daniels</string>
+                    </field>
+                    <field name="email">
+                      <string>jack@exo.com</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>james</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>James</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Brown</string>
+                    </field>
+                    <field name="email">
+                      <string>james@exo.com</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>john</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>John</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Smith</string>
+                    </field>
+                    <field name="email">
+                      <string>john@exo.com</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>john</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>John</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Smith</string>
+                    </field>
+                    <field name="email">
+                      <string>john@exo.com</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>mary</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Mary</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Williams</string>
+                    </field>
+                    <field name="email">
+                      <string>mary@exo.com</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>jason</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Jason</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Bourne</string>
+                    </field>
+                    <field name="email">
+                      <string>jason@exo.com</string>
+                    </field>
+                    <field name="groups">
+                      <string>member:/platform/users</string>
+                    </field>
+                  </object>
+                </value>
+              </collection>
+            </field>
+          </object>
+        </object-param>
+      </init-params>
+    </component-plugin>
+  </external-component-plugins>
+  
+
+</configuration>

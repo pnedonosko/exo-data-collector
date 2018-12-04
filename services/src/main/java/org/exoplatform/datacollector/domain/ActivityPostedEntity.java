@@ -27,7 +27,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id AS poster_id, a.owner_id, a.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date" //
         + " FROM soc_activities a, soc_identities si"
-        + " WHERE a.owner_id IS NOT NULL AND si.identity_id = a.poster_id AND si.provider_id = \"organization\""
+        + " WHERE a.owner_id IS NOT NULL AND si.identity_id = a.poster_id AND si.provider_id = 'organization'"
         + " AND a.owner_id IN (:favoriteStreams) AND a.poster_id != :posterId"
         + " ORDER BY a.owner_id, updated_date", resultClass = ActivityPostedEntity.class)
 

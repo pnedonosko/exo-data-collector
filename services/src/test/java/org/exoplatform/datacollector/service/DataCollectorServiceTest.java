@@ -19,15 +19,23 @@ import org.exoplatform.datacollector.TestUtils;
 import org.exoplatform.datacollector.dao.RelevanceDAO;
 import org.exoplatform.datacollector.domain.RelevanceEntity;
 
-@ConfiguredBy({ @ConfigurationUnit(scope = ContainerScope.ROOT, path = "conf/test-root-configuration.xml"),
+@ConfiguredBy({ @ConfigurationUnit(scope = ContainerScope.ROOT, path = "conf/test-configuration.xml"),
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/portal/configuration.xml"),
-    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/portal/test-configuration.xml"),
-    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/jcr/jcr-configuration.xml"),
-    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/jcr-configuration.xml"),
-    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-configuration.xml"),
-    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-portal-configuration.xml"),
-    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-datacollector-configuration.xml"),
-    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/test-portal-configuration.xml") })
+    // @ConfigurationUnit(scope = ContainerScope.PORTAL, path =
+    // "conf/portal/test-configuration.xml"),
+    // @ConfigurationUnit(scope = ContainerScope.PORTAL, path =
+    // "conf/jcr/jcr-configuration.xml"),
+    // @ConfigurationUnit(scope = ContainerScope.PORTAL, path =
+    // "conf/standalone/jcr-configuration.xml"),
+    // @ConfigurationUnit(scope = ContainerScope.PORTAL, path =
+    // "conf/standalone/test-configuration.xml"),
+    // @ConfigurationUnit(scope = ContainerScope.PORTAL, path =
+    // "conf/standalone/test-portal-configuration.xml"),
+    // @ConfigurationUnit(scope = ContainerScope.PORTAL, path =
+    // "conf/standalone/test-datacollector-configuration.xml"),
+    // @ConfigurationUnit(scope = ContainerScope.PORTAL, path =
+    // "conf/test-portal-configuration.xml")
+    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/test/test-configuration.xml") })
 public class DataCollectorServiceTest extends BaseCommonsTestCase {
 
   DataCollectorService dataCollectorService;
@@ -41,16 +49,24 @@ public class DataCollectorServiceTest extends BaseCommonsTestCase {
     ExoContainerContext.setCurrentContainer(container);
 
     /*
-    RepositoryService jcrService = container.getComponentInstanceOfType(RepositoryService.class);
-    SessionProviderService sessionProviders = container.getComponentInstanceOfType(SessionProviderService.class);
-    NodeHierarchyCreator hierarchyCreator = container.getComponentInstanceOfType(NodeHierarchyCreator.class);
-    OrganizationService organization = container.getComponentInstanceOfType(OrganizationService.class);
-    IdentityManager identityManager = container.getComponentInstanceOfType(IdentityManager.class);
-    IdentityStorage identityStorage = container.getComponentInstanceOfType(IdentityStorage.class);
-    ActivityManager activityManager = container.getComponentInstanceOfType(ActivityManager.class);
-    
-    dataCollectorService = new DataCollectorService(jcrService, sessionProviders, hierarchyCreator, organization, identityManager, identityStorage, activityManager, relevanceStorage);
-    */
+     * RepositoryService jcrService =
+     * container.getComponentInstanceOfType(RepositoryService.class);
+     * SessionProviderService sessionProviders =
+     * container.getComponentInstanceOfType(SessionProviderService.class);
+     * NodeHierarchyCreator hierarchyCreator =
+     * container.getComponentInstanceOfType(NodeHierarchyCreator.class);
+     * OrganizationService organization =
+     * container.getComponentInstanceOfType(OrganizationService.class);
+     * IdentityManager identityManager =
+     * container.getComponentInstanceOfType(IdentityManager.class);
+     * IdentityStorage identityStorage =
+     * container.getComponentInstanceOfType(IdentityStorage.class);
+     * ActivityManager activityManager =
+     * container.getComponentInstanceOfType(ActivityManager.class);
+     * dataCollectorService = new DataCollectorService(jcrService,
+     * sessionProviders, hierarchyCreator, organization, identityManager,
+     * identityStorage, activityManager, relevanceStorage);
+     */
     relevanceStorage = mock(RelevanceDAO.class);
     dataCollectorService = new DataCollectorService(relevanceStorage);
     when(relevanceStorage.find(TestUtils.EXISTING_RELEVANCE_ID)).thenReturn(TestUtils.getExistingRelevance());

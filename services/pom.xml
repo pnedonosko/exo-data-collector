@@ -221,6 +221,7 @@
             -Djava.security.manager=org.exoplatform.commons.test.TestSecurityManager
             -Djava.security.policy=${project.build.directory}/test-classes/conf/test.policy</argLine>
           <systemPropertyVariables>
+            <exo.product.developing>true</exo.product.developing>
             <maven.exoplatform.dir>${project.build.directory}</maven.exoplatform.dir>
             <exo.conf.dir.name>test-classes/conf</exo.conf.dir.name>
             <exo.files.storage.dir>${project.build.directory}/files</exo.files.storage.dir>

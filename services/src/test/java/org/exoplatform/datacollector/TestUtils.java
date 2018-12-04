@@ -13,7 +13,7 @@ import org.exoplatform.datacollector.domain.RelevanceId;
 
 public class TestUtils {
 
-  public static final String   TESTING_DATA_FILENAME   = "data.json";
+  public static final String   TESTING_DATA_FILENAME   = "usecase1.json";
   
   public static final String DEFAULT_ACTIVITY = "DEFAULT_ACTIVITY";
 

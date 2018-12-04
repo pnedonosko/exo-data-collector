@@ -94,7 +94,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id AS poster_id, a.owner_id, a.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date, ol.liker_id, ol.created_date AS liked_date"
         + " FROM soc_activities a, soc_activity_likers ol, soc_identities si"
-        + " WHERE si.identity_id = ol.liker_id AND si.provider_id = \"organization\" AND a.activity_id = ol.activity_id"
+        + " WHERE si.identity_id = ol.liker_id AND si.provider_id = 'organization' AND a.activity_id = ol.activity_id"
         + " AND a.owner_id IS NOT NULL AND a.owner_id IN (:favoriteStreams) AND ol.liker_id != :likerId"
         + " ORDER BY a.owner_id, liked_date", resultClass = ActivityCommentedEntity.class),
     /* Others often like comments in the user favorite streams (find likers) */

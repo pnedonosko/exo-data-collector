@@ -40,15 +40,9 @@ import org.exoplatform.social.core.space.impl.DefaultSpaceApplicationHandler;
 import org.exoplatform.social.core.space.model.Space;
 import org.exoplatform.social.core.space.spi.SpaceService;
 
-@ConfiguredBy({ @ConfigurationUnit(scope = ContainerScope.ROOT, path = "conf/test-root-configuration.xml"),
+@ConfiguredBy({ @ConfigurationUnit(scope = ContainerScope.ROOT, path = "conf/test-configuration.xml"),
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/portal/configuration.xml"),
-    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/portal/test-configuration.xml"),
-    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/jcr/jcr-configuration.xml"),
-    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/jcr-configuration.xml"),
-    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-configuration.xml"),
-    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-portal-configuration.xml"),
-    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/standalone/test-datacollector-configuration.xml"),
-    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/test-portal-configuration.xml") })
+    @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/test/test-configuration.xml") })
 public class ActivityDAOTest extends BaseCommonsTestCase {
 
   /** Logger */
@@ -59,8 +53,8 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   private ActivityPostedDAO    activityPostedDAO;
 
   private ActivityMentionedDAO activityMentionedDAO;
-  
-  private ActivityLikedDAO activityLikedDAO;
+
+  private ActivityLikedDAO     activityLikedDAO;
 
   private SpaceService         spaceService;
 
@@ -93,10 +87,13 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     initActivities();
     initRelations();
 
+    // It's current user in tests
+    jasonId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "jason", true);
+    // Other users
     johnId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "john", true);
     jamesId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "james", true);
-    jasonId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "jason", true);
     maryId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "mary", true);
+    // Spaces
     marketingId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "marketing_team", true);
     supportId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "support_team", true);
 
@@ -131,29 +128,27 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
   @Test
   public void testFindPartIsFavoriteStreamPoster() {
-    List<ActivityPostedEntity> res = activityPostedDAO.findPartIsFavoriteStreamPoster(johnId.getId(),
+    List<ActivityPostedEntity> res = activityPostedDAO.findPartIsFavoriteStreamPoster(jasonId.getId(),
                                                                                       Arrays.asList(supportId.getId(),
                                                                                                     marketingId.getId()));
     assertEquals(2, res.size());
-    assertTrue(res.stream().allMatch(entity -> !entity.getPosterId().equals(johnId.getId())));
+    assertTrue(res.stream().allMatch(entity -> !entity.getPosterId().equals(jasonId.getId())));
   }
 
-  /*
   @Test
   public void testfindPartIsMentioned() {
     List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioned(jasonId.getId());
-    assertEquals(2, res.size());
+    assertEquals(3, res.size());
     assertTrue(res.stream().allMatch(entity -> entity.getPosterId().equals(jasonId.getId())));
   }
-  
 
   @Test
   public void testFindPartIsMentioner() {
     List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioner(jamesId.getId());
-    assertEquals(5, res.size());
+    assertEquals(4, res.size());
     assertTrue(res.stream().allMatch(entity -> entity.getMentionedId().equals(jamesId.getId())));
   }
-*/
+
   // ActivityLikedEntity tests
 
   @Test
@@ -162,14 +157,14 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertEquals(3, res.size());
     assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(johnId.getId())));
   }
-  
+
   @Test
   public void testFindPartIsLikedCommenter() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedCommenter(johnId.getId());
     assertEquals(3, res.size());
     assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(johnId.getId())));
   }
-  
+
   @Test
   public void testFindPartIsLikedConvoPoster() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedConvoPoster(johnId.getId());
@@ -183,8 +178,8 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     // one element has likerId equal to jackId, we will fail the test.
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsPostLiker(maryId.getId());
     assertEquals(4, res.size());
-    assertEquals(3 ,res.stream().filter(entity -> entity.getLikerId().equals(johnId.getId())).count());
-    assertEquals(1 ,res.stream().filter(entity -> entity.getLikerId().equals(jasonId.getId())).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getLikerId().equals(johnId.getId())).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getLikerId().equals(jasonId.getId())).count());
     assertTrue(res.stream().allMatch(entity -> entity.getPosterId().equals(maryId.getId())));
   }
 
@@ -197,27 +192,31 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     LOG.info("MARY ID: " + maryId.getId());
     LOG.info("JAMES ID: " + jamesId.getId());
     LOG.info("JOHN ID: " + johnId.getId());
-    res.forEach(entity -> LOG.info("Liker: " + entity.getLikerId() + " POSTER: " + entity.getPosterId() + " " + entity.getPosted()));
+    res.forEach(entity -> LOG.info("Liker: " + entity.getLikerId() + " POSTER: " + entity.getPosterId() + " "
+        + entity.getPosted()));
     /*
-    assertEquals(2 ,res.stream().filter(entity -> entity.getLikerId().equals(maryId.getId())).count());
-    assertEquals(2 ,res.stream().filter(entity -> entity.getLikerId().equals(johnId.getId())).count());
-    assertEquals(1 ,res.stream().filter(entity -> entity.getLikerId().equals(jamesId.getId())).count());
-    */
-    
+     * assertEquals(2 ,res.stream().filter(entity ->
+     * entity.getLikerId().equals(maryId.getId())).count()); assertEquals(2
+     * ,res.stream().filter(entity ->
+     * entity.getLikerId().equals(johnId.getId())).count()); assertEquals(1
+     * ,res.stream().filter(entity ->
+     * entity.getLikerId().equals(jamesId.getId())).count());
+     */
+
   }
-  
+
   @Test
   public void testFindPartIsConvoLiker() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsConvoLiker(jasonId.getId());
     assertEquals(3, res.size());
-    assertEquals(1 ,res.stream().filter(entity -> entity.getLikerId().equals(johnId.getId())).count());
-    assertEquals(2 ,res.stream().filter(entity -> entity.getLikerId().equals(maryId.getId())).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getLikerId().equals(johnId.getId())).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getLikerId().equals(maryId.getId())).count());
   }
-  
+
   @Override
   protected void afterClass() {
     super.afterClass();
-    // cleanSpaces();
+    cleanSpaces();
     RequestLifeCycle.end();
   }
 
@@ -363,11 +362,11 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     Thread.sleep(100);
 
     // Likes
-    
-    if(activityJSON.optJSONArray("likes") != null) {
+
+    if (activityJSON.optJSONArray("likes") != null) {
       initLikes(activityJSON.getJSONArray("likes"), activity);
     }
-    
+
     // Comments
     JSONArray comments = activityJSON.getJSONArray("comments");
     for (int i = 0; i < comments.length(); i++) {
@@ -381,8 +380,8 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
       comment.setTitle(commentJSON.getString("body"));
       comment.setUserId(identityComment.getId());
       activityManager.saveComment(activity, comment);
-      
-      if(commentJSON.optJSONArray("likes") != null) {
+
+      if (commentJSON.optJSONArray("likes") != null) {
         initLikes(commentJSON.getJSONArray("likes"), comment);
       }
 
@@ -391,9 +390,10 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
   /**
    * Initializes likes inside an activity or comment
+   * 
    * @param likes JSONArray with names of likers
    * @param activity that is liked
-   * @throws JSONException 
+   * @throws JSONException
    */
   private void initLikes(JSONArray likes, ExoSocialActivity activity) {
 
@@ -410,7 +410,8 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   }
 
   /**
-   * Initializes testing relations between users from JSON (TestUtils.TESTING_DATA_FILENAME)
+   * Initializes testing relations between users from JSON
+   * (TestUtils.TESTING_DATA_FILENAME)
    */
   private void initRelations() {
     JSONObject json = TestUtils.getJSON(TestUtils.TESTING_DATA_FILENAME);
