@@ -13,7 +13,17 @@
 					{
 						"poster": "jason",
 						"body": "in the main room?",
-						"likes": ["john", "mary"]
+						"likes": ["john", "mary"],
+						"replies": [
+							{
+							"poster": "jack",
+							"body": "Yes"
+							},
+							{
+							"poster": "jason",
+							"body": "Ok, I'll come'"
+							}
+						]
 					},
 					{
 						"poster": "mary",
