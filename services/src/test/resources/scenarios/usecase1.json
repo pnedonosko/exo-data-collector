@@ -4,6 +4,13 @@
 			{
 				"poster": "jason",
 				"space": "product_team",
+				"body": "Strategic planning calendar",
+				"title": "Strategic planning calendar",
+				"likes": ["james", "mary", "john"]
+			},
+			{
+				"poster": "jason",
+				"space": "product_team",
 				"body": "Hi everybody in Product team!",
 				"title": "Hi everybody in Product team!",
 				"likes": [ "james", "mary", "john", "jack" ],
@@ -97,7 +104,14 @@
 					{
 						"poster": "bob",
 						"body": "@jason don't you have an idea of WearOS blog? We could leverage it.",
-						"likes": ["jason", "mary"]
+						"likes": ["jason", "mary"],
+						"replies": [
+							{
+							"poster": "jason",
+							"body": "Yeah, good idea",
+							"likes": ["mary", "bob"]
+							}
+						]
 					}
 				]
 			},
@@ -107,7 +121,20 @@
 				"body": "Please align plans with a strategy schedule @mary",
 				"title": "Please align plans with a strategy schedule @mary",
 				"likes": ["james", "mary"],
-				"comments": []
+				"comments": [
+					{
+						"poster": "mary",
+						"body": "ok, we are working on this",
+						"likes": ["jason"],
+						"replies": [
+							{
+							"poster": "jason",
+							"body": "Let me know",
+							"likes": ["mary"]
+							}
+						]
+					}
+				]
 			},
 			{
 				"poster": "jack",
@@ -119,12 +146,45 @@
 					{
 						"poster": "jason",
 						"body": "@jack ok",
-						"likes": ["jack", "alice"]
+						"likes": ["jack", "alice"],
+						"replies": [
+							{
+								"poster": "jack",
+								"body": "I'm in charge of this call. Waiting for the intro.",
+								"likes": ["jason"]
+							}
+						]
 					},
 					{
 						"poster": "alice",
 						"body": "@jason we planned a call for Wednesday",
 						"likes": ["jack"]
+					}
+				]
+			},
+			{
+				"poster": "mary",
+				"space": "sales_team",
+				"body": "What status of ACME Swiss subscription?",
+				"title": "What status of ACME Swiss subscription?",
+				"likes": ["alice"],
+				"comments": [
+					{
+						"poster": "alice",
+						"body": "All alright with them",
+						"likes": ["mary"],
+						"replies": [
+							{
+								"poster": "jason",
+								"body": "They are nice guys - just help them on their tikets",
+								"likes": ["alice"]
+							}
+						]
+					},
+					{
+						"poster": "alice",
+						"body": "Refer tikets with ID ACMECH2018",
+						"likes": ["mary"]
 					}
 				]
 			},
@@ -144,7 +204,14 @@
 					{
 						"poster": "jason",
 						"body": "@bob I can be your PM :)",
-						"likes": ["john", "jack"]
+						"likes": ["john", "jack"],
+						"replies": [
+							{
+								"poster": "james",
+								"body": "Let's try :)",
+								"likes": ["jason", "bob"]
+							}
+						]
 					}
 				]
 			},
@@ -157,6 +224,19 @@
 					{
 						"poster": "mary",
 						"body": "@jason meet John Smith, he will help us on Engineering and Support topics"
+					}
+				]
+			},
+			{
+				"poster": "jason",
+				"body": "I'd like to join Standford ML cource. Who did this already?",
+				"title": "I'd like to join Standford ML cource. Who did this already?",
+				"likes": [ "john", "bob" ],
+				"comments": [
+					{
+						"poster": "john",
+						"body": "I did - it's good, but too basic - take in account.",
+						"likes": [ "jason", "bob" ]
 					}
 				]
 			}
