@@ -67,7 +67,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
   private ActivityManager      activityManager;
 
-  private Identity             johnId, maryId, jamesId, jasonId, marketingId, supportId;
+  private Identity             johnId, maryId, jamesId, jasonId, jackId, aliceId, marketingId, supportId;
 
   @Override
   protected void beforeClass() {
@@ -98,6 +98,8 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     johnId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "john", true);
     jamesId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "james", true);
     maryId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "mary", true);
+    jackId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "jack", true);
+    aliceId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "alice", true);
     // Spaces
     marketingId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "marketing_team", true);
     supportId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "support_team", true);
@@ -191,22 +193,21 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   @Test
   public void testFindPartIsCommentLiker() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsCommentLiker(jasonId.getId());
-    assertEquals(5, res.size());
+    assertEquals(8, res.size());
     // TODO: fix
-    LOG.info("JASON ID: " + jasonId.getId());
-    LOG.info("MARY ID: " + maryId.getId());
-    LOG.info("JAMES ID: " + jamesId.getId());
-    LOG.info("JOHN ID: " + johnId.getId());
+
+    LOG.info("Jason ID: " + jasonId.getId());
+    LOG.info("James ID " + jamesId.getId() + " count: " + res.stream().filter(entity ->entity.getLikerId().equals(jamesId.getId())).count());
+    LOG.info("John ID " + johnId.getId() + " count: " + res.stream().filter(entity ->entity.getLikerId().equals(johnId.getId())).count());
+    LOG.info("Jack ID " + jackId.getId() + " count: " + res.stream().filter(entity ->entity.getLikerId().equals(jackId.getId())).count());
+    LOG.info("Alice ID " + aliceId.getId() + " count: " + res.stream().filter(entity ->entity.getLikerId().equals(aliceId.getId())).count());
     res.forEach(entity -> LOG.info("Liker: " + entity.getLikerId() + " POSTER: " + entity.getPosterId() + " "
         + entity.getPosted()));
-    /*
-     * assertEquals(2 ,res.stream().filter(entity ->
-     * entity.getLikerId().equals(maryId.getId())).count()); assertEquals(2
-     * ,res.stream().filter(entity ->
-     * entity.getLikerId().equals(johnId.getId())).count()); assertEquals(1
-     * ,res.stream().filter(entity ->
-     * entity.getLikerId().equals(jamesId.getId())).count());
-     */
+    assertEquals(1 ,res.stream().filter(entity ->entity.getLikerId().equals(jamesId.getId())).count());
+    assertEquals(3 ,res.stream().filter(entity ->entity.getLikerId().equals(johnId.getId())).count());
+    assertEquals(3 ,res.stream().filter(entity ->entity.getLikerId().equals(jackId.getId())).count());
+    assertEquals(1 ,res.stream().filter(entity ->entity.getLikerId().equals(aliceId.getId())).count());
+
 
   }
 
@@ -217,7 +218,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertEquals(1, res.stream().filter(entity -> entity.getLikerId().equals(johnId.getId())).count());
     assertEquals(2, res.stream().filter(entity -> entity.getLikerId().equals(maryId.getId())).count());
   }
-
+  
   @Override
   protected void afterClass() {
     super.afterClass();
@@ -373,7 +374,10 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     }
 
     // Comments
-    initComments(activity, activityJSON);
+    if(activityJSON.optJSONArray("comments") != null) {
+      initComments(activity, activityJSON);
+    }
+    
   }
 
   private void initComments(ExoSocialActivity activity, JSONObject activityJSON) throws Exception {
