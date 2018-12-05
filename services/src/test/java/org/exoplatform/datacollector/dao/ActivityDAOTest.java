@@ -108,24 +108,24 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
   @Test
   public void testFindPartIsCommentedPoster() {
-    List<ActivityCommentedEntity> res = activityCommentDAO.findPartIsCommentedPoster(johnId.getId());
+    List<ActivityCommentedEntity> res = activityCommentDAO.findPartIsCommentedPoster(jasonId.getId());
     assertEquals(1, res.size());
     assertEquals(maryId.getId(), res.get(0).getPosterId());
   }
 
   @Test
   public void testFindPartIsCommentedCommenter() {
-    assertTrue(activityCommentDAO.findPartIsCommentedCommenter(johnId.getId()).isEmpty());
+    assertTrue(activityCommentDAO.findPartIsCommentedCommenter(jasonId.getId()).isEmpty());
   }
 
   @Test
   public void testFindPartIsCommentedConvoPoster() {
-    assertTrue(activityCommentDAO.findPartIsCommentedConvoPoster(johnId.getId()).isEmpty());
+    assertTrue(activityCommentDAO.findPartIsCommentedConvoPoster(jasonId.getId()).isEmpty());
   }
 
   @Test
   public void testFindUserPosts() {
-    List<ActivityPostedEntity> res = activityPostedDAO.findUserPosts(maryId.getId());
+    List<ActivityPostedEntity> res = activityPostedDAO.findUserPosts(jasonId.getId());
     assertEquals(4, res.size());
     assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.SPACE.toString())).count());
     assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
@@ -158,30 +158,30 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
   @Test
   public void testFindPartIsLikedPoster() {
-    List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedPoster(johnId.getId());
+    List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedPoster(jasonId.getId());
     assertEquals(3, res.size());
-    assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(johnId.getId())));
+    assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(jasonId.getId())));
   }
 
   @Test
   public void testFindPartIsLikedCommenter() {
-    List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedCommenter(johnId.getId());
+    List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedCommenter(jasonId.getId());
     assertEquals(3, res.size());
-    assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(johnId.getId())));
+    assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(jasonId.getId())));
   }
 
   @Test
   public void testFindPartIsLikedConvoPoster() {
-    List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedConvoPoster(johnId.getId());
+    List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedConvoPoster(jasonId.getId());
     assertEquals(2, res.size());
-    assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(johnId.getId())));
+    assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(jasonId.getId())));
   }
 
   @Test
   public void testFindPartIsPostLiker() {
     // If we add jack's like to any mary's post and expect res.size() == 5 and
     // one element has likerId equal to jackId, we will fail the test.
-    List<ActivityLikedEntity> res = activityLikedDAO.findPartIsPostLiker(maryId.getId());
+    List<ActivityLikedEntity> res = activityLikedDAO.findPartIsPostLiker(jasonId.getId());
     assertEquals(4, res.size());
     assertEquals(3, res.stream().filter(entity -> entity.getLikerId().equals(johnId.getId())).count());
     assertEquals(1, res.stream().filter(entity -> entity.getLikerId().equals(jasonId.getId())).count());
@@ -224,6 +224,8 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     RequestLifeCycle.end();
   }
 
+  /******** internals *********/
+  
   /**
    * Initializes testing spaces
    */
