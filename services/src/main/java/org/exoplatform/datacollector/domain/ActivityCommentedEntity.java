@@ -23,7 +23,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " AND c.poster_id = :commenterId", resultClass = ActivityCommentedEntity.class),
     /* User commented someone's comment in a post (find commenters) */
     @NamedNativeQuery(name = "ActivityCommented.findPartIsCommentedCommenter", query = "SELECT a.activity_id AS post_id,"
-        + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id AS poster_id, a.owner_id, a.parent_id,"
+        + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id AS poster_id, a.owner_id, oc.parent_id,"
         + "  c.posted AS c_posted_date, c.updated_date AS c_updated_date, a.hidden, a.posted AS posted_date, a.updated_date "
         + " FROM soc_activities a, soc_activities oc, soc_activities c"
         + " WHERE a.activity_id = oc.parent_id AND oc.activity_id = c.parent_id AND oc.poster_id != c.poster_id"
@@ -41,13 +41,14 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
     /* ===== Others commented the user ===== */
     /* Others often comment the user posts (find commenters) */
     @NamedNativeQuery(name = "ActivityCommented.findPartIsPostCommenter", query = "SELECT a.activity_id AS post_id,"
-        + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id AS poster_id, a.owner_id, a.parent_id,"
+        + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id, a.owner_id, oc.parent_id,"
         + "  oc.posted AS c_posted_date, oc.updated_date AS c_updated_date, a.hidden, a.posted AS posted_date, a.updated_date "
-        + " FROM soc_activities a, soc_activities oc" + " WHERE a.activity_id = oc.parent_id AND a.poster_id != oc.poster_id"
-        + " AND a.owner_id IS NOT NULL" + " AND a.poster_id = :posterId", resultClass = ActivityCommentedEntity.class),
+        + " FROM soc_activities a, soc_activities oc" //
+        + " WHERE a.activity_id = oc.parent_id AND a.poster_id != oc.poster_id AND a.owner_id IS NOT NULL"
+        + " AND a.poster_id = :posterId", resultClass = ActivityCommentedEntity.class),
     /* Others often comment the user comments (find commenters) */
     @NamedNativeQuery(name = "ActivityCommented.findPartIsCommentCommenter", query = "SELECT a.activity_id AS post_id,"
-        + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id AS poster_id, a.owner_id, a.parent_id,"
+        + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id, a.owner_id, oc.parent_id,"
         + "  oc.posted AS c_posted_date, oc.updated_date AS c_updated_date, a.hidden, a.posted AS posted_date, a.updated_date "
         + " FROM soc_activities a, soc_activities c, soc_activities oc"
         + " WHERE a.activity_id = c.parent_id AND c.activity_id = oc.parent_id AND oc.poster_id != c.poster_id"
@@ -55,7 +56,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " AND c.poster_id = :commenterId", resultClass = ActivityCommentedEntity.class),
     /* Others often comment others in the user posts (find commenters) */
     @NamedNativeQuery(name = "ActivityCommented.findPartIsConvoCommenter", query = "SELECT a.activity_id AS post_id,"
-        + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id AS poster_id, a.owner_id, a.parent_id,"
+        + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id, a.owner_id, a.parent_id,"
         + "  oc.posted AS c_posted_date, oc.updated_date AS c_updated_date, a.hidden, a.posted AS posted_date, a.updated_date"
         + " FROM soc_activities a, soc_activities c, soc_activities oc"
         + " WHERE a.activity_id = c.parent_id AND c.activity_id = oc.parent_id"
@@ -65,14 +66,12 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
     /* ===== Others do in the user favorite streams ===== */
     /* Others often comment in the user favorite streams (find commenters) */
     @NamedNativeQuery(name = "ActivityCommented.findPartIsFavoriteStreamCommenter", query = "SELECT a.activity_id AS post_id,"
-        + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id AS poster_id, a.owner_id, a.parent_id,"
+        + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id, a.owner_id, oc.parent_id,"
         + "  oc.posted AS c_posted_date, oc.updated_date AS c_updated_date, a.hidden, a.posted AS posted_date, a.updated_date"
         + " FROM soc_activities a, soc_activities oc, soc_identities si"
         + " WHERE a.owner_id IS NOT NULL AND si.identity_id = a.poster_id AND si.provider_id = 'organization'"
         + " AND a.activity_id = oc.parent_id AND a.owner_id IN (:favoriteStreams) AND oc.poster_id != :posterId"
-        + " ORDER BY a.owner_id, c_updated_date", resultClass = ActivityCommentedEntity.class)
-
-})
+        + " ORDER BY a.owner_id, c_updated_date", resultClass = ActivityCommentedEntity.class) })
 
 public class ActivityCommentedEntity extends AbstractActivityEntity implements Serializable {
 

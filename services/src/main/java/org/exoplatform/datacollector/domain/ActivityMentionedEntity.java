@@ -21,14 +21,14 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " AND a.poster_id = :posterId" //
         + " UNION ALL" //
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
-        + "  c.poster_id AS poster_id, a.owner_id AS owner_id, c.parent_id AS parent_id, a.hidden,"
+        + "  c.poster_id, a.owner_id, c.parent_id, a.hidden,"
         + "  a.posted AS posted_date, a.updated_date, m.mentioner_id AS mentioned_id"
         + " FROM soc_activities a, soc_activities c, soc_mentions m"
         + " WHERE a.activity_id = c.parent_id AND c.activity_id = m.activity_id AND m.mentioner_id != c.poster_id"
         + " AND a.owner_id IS NOT NULL AND c.owner_id IS NULL AND c.poster_id = :posterId" //
         + " UNION ALL" //
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
-        + "  c.poster_id AS poster_id, a.owner_id AS owner_id, c.parent_id AS parent_id, a.hidden,"
+        + "  c.poster_id, a.owner_id, c.parent_id, a.hidden,"
         + "  a.posted AS posted_date, a.updated_date, m.mentioner_id AS mentioned_id"
         + " FROM soc_activities a, soc_activities cp, soc_activities c, soc_mentions m"
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = c.parent_id AND c.activity_id = m.activity_id"
@@ -44,14 +44,14 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " AND m.mentioner_id = :mentionerId" //
         + " UNION ALL" //
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
-        + "  c.poster_id AS poster_id, a.owner_id AS owner_id, c.parent_id AS parent_id, a.hidden,"
+        + "  c.poster_id, a.owner_id, c.parent_id, a.hidden,"
         + "  a.posted AS posted_date, a.updated_date, m.mentioner_id AS mentioned_id"
         + " FROM soc_activities a, soc_activities c, soc_mentions m"
         + " WHERE a.activity_id = c.parent_id AND c.activity_id = m.activity_id AND m.mentioner_id != c.poster_id"
         + " AND a.owner_id IS NOT NULL AND c.owner_id IS NULL AND m.mentioner_id = :mentionerId" //
         + " UNION ALL" //
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
-        + "  c.poster_id AS poster_id, a.owner_id AS owner_id, c.parent_id AS parent_id, a.hidden,"
+        + "  c.poster_id, a.owner_id, c.parent_id, a.hidden,"
         + "  a.posted AS posted_date, a.updated_date, m.mentioner_id AS mentioned_id"
         + " FROM soc_activities a, soc_activities cp, soc_activities c, soc_mentions m"
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = c.parent_id AND c.activity_id = m.activity_id"
