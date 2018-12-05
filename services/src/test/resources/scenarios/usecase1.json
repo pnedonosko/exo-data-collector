@@ -128,9 +128,14 @@
 						"likes": ["jason"],
 						"replies": [
 							{
-							"poster": "jason",
-							"body": "Let me know",
-							"likes": ["mary"]
+								"poster": "jason",
+								"body": "Let me know",
+								"likes": ["mary"]
+							},
+							{
+								"poster": "james",
+								"body": "I'm also interested",
+								"likes": ["mary", "jason"]
 							}
 						]
 					}
