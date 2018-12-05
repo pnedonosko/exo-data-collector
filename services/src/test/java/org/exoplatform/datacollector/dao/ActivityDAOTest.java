@@ -143,15 +143,15 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   @Test
   public void testfindPartIsMentioned() {
     List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioned(jasonId.getId());
-    assertEquals(3, res.size());
+    assertEquals(11, res.size());
     assertTrue(res.stream().allMatch(entity -> entity.getPosterId().equals(jasonId.getId())));
   }
 
   @Test
   public void testFindPartIsMentioner() {
-    List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioner(jamesId.getId());
-    assertEquals(4, res.size());
-    assertTrue(res.stream().allMatch(entity -> entity.getMentionedId().equals(jamesId.getId())));
+    List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioner(jasonId.getId());
+    assertEquals(8, res.size());
+    assertTrue(res.stream().allMatch(entity -> entity.getMentionedId().equals(jasonId.getId())));
   }
 
   // ActivityLikedEntity tests
@@ -322,7 +322,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
       for (int i = 0; i < activities.length(); i++) {
         try {
           JSONObject activity = activities.getJSONObject(i);
-          pushActivity(activity);
+          createActivity(activity);
         } catch (Exception e) {
           LOG.error("Error when creating activity number " + i, e);
         }
@@ -335,12 +335,12 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   }
 
   /**
-   * Pushes an activity.
+   * Create an activity.
    *
    * @param activityJSON the activity JSON
    * @throws Exception the exception
    */
-  private void pushActivity(JSONObject activityJSON) throws Exception {
+  private void createActivity(JSONObject activityJSON) throws Exception {
     String poster = activityJSON.getString("poster");
     String space = activityJSON.has("space") ? activityJSON.getString("space") : null;
     String body = activityJSON.getString("body");
@@ -363,8 +363,8 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
     activity.setPermanLink(LinkProvider.getSingleActivityUrl(activity.getId()));
 
+    // Wait before adding activity items (for async operations in Social)
     Thread.sleep(100);
-
     // Likes
     if (activityJSON.optJSONArray("likes") != null) {
       initLikes(activityJSON.getJSONArray("likes"), activity);
@@ -381,7 +381,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     for (int i = 0; i < comments.length(); i++) {
       JSONObject commentJSON = comments.getJSONObject(i);
 
-      Thread.sleep(100);
+      //Thread.sleep(100); // TODO need it?
       Identity identityComment = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME,
                                                                      commentJSON.getString("poster"),
                                                                      false);
@@ -395,7 +395,6 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
       }
 
       // replies
-
       if (commentJSON.optJSONArray("replies") != null) {
         JSONArray replies = commentJSON.getJSONArray("replies");
         for (int j = 0; j < replies.length(); j++) {
@@ -410,11 +409,9 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
           reply.setParentCommentId(comment.getId());
 
           activityManager.saveComment(activity, reply);
-
           if (replyJSON.optJSONArray("likes") != null) {
             initLikes(replyJSON.getJSONArray("likes"), reply);
           }
-
         }
       }
     }
@@ -428,7 +425,6 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
    * @throws JSONException
    */
   private void initLikes(JSONArray likes, ExoSocialActivity activity) {
-
     for (int j = 0; j < likes.length(); j++) {
       String like = null;
       try {

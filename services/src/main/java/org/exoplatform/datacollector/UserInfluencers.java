@@ -319,7 +319,7 @@ public class UserInfluencers {
 
   protected void addPost(ActivityPostedEntity p) {
     // Note: AbstractActivityEntity has only a post ID, even if it tells about a
-    // comment or like on the post on its comments
+    // comment or like on the post or its comments.
     activities.computeIfAbsent(p.getId(), id -> new ActivityInfo(p.getId(), p.getPosted()));
   }
 
@@ -422,11 +422,22 @@ public class UserInfluencers {
     }
   }
 
-  public void addMentioner(List<ActivityMentionedEntity> mentioned) {
-    for (ActivityMentionedEntity m : mentioned) {
+  public void addMentioner(List<ActivityMentionedEntity> mentioner) {
+    for (ActivityMentionedEntity m : mentioner) {
       // addParticipant(m.getPosterId(), adjustWeightByDate(0.9,
       // m.getUpdatedDate()));
       double w = 0.8;
+      // TODO similar situation as in addMentioned(), but opposite.
+      // Current user mentioned in post comment of other users, will appear
+      // twice:
+      // 1) first time within the post activity where comment mentions it
+      // 2) second time within the comments itself, if several comments do
+      // mention, then this will happen for each of them.
+      // To figure out was the user mentioned in the post message or its
+      // comments we need see in the texts as DB table soc_mentions duplicates
+      // mentions for post and its comment activities.
+      // FYI part it's who posted with the mention: can be post author or
+      // commenter
       addParticipant(m.getPosterId(), w);
       addStream(m.getOwnerId(), w);
       addMention(m);
@@ -438,6 +449,12 @@ public class UserInfluencers {
       // addParticipant(m.getMentionedId(), adjustWeightByDate(0.8,
       // m.getUpdatedDate()));
       double w = 0.8;
+      // TODO May be we need improve logic for following (get rid of #1):
+      // In a post of current user, a participant once mentioned in a comment to
+      // the post, will appear twice for that post:
+      // 1) first time within the post activity where comment mentions it
+      // 2) second time within the comments itself, if several comments do
+      // mention, then this will happen for each of them.
       addParticipant(m.getMentionedId(), w);
       addStream(m.getOwnerId(), w);
       addMention(m);

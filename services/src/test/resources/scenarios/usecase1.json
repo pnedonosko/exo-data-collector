@@ -21,18 +21,47 @@
 							{
 							"poster": "mary",
 							"body": "Yep"
+							},
+							{
+							"poster": "james",
+							"body": "Thank you @jason",
+							"likes": ["jason"]
+							},
+							{
+							"poster": "jason",
+							"body": "You are welcome @james",
+							"likes": ["james"]
 							}
 						]
 					},
 					{
 						"poster": "john",
 						"body": "We'll discuss strategy here and tactics in Engineering space",
-						"likes": ["jason"]
+						"likes": ["jason"],
+						"replies": [
+							{
+							"poster": "jason",
+							"body": "Right, let's do this way. @jack please plan this at your side",
+							"likes": ["james", "jack"]
+							}
+						]
 					},
 					{
-						"poster": "james",
-						"body": "Thank you @jason",
-						"likes": ["jason"]
+						"poster": "mary",
+						"body": "@jason we would like to follow the strageties in Marketing space",
+						"likes": ["jason", "jack"],
+						"replies": [
+							{
+							"poster": "jason",
+							"body": "@mary you can do like Engineering does",
+							"likes": ["james", "mary"]
+							},
+							{
+							"poster": "john",
+							"body": "I'm ready to share how we do @mary'",
+							"likes": ["jason", "mary"]
+							}
+						]
 					}
 				]
 			},
@@ -64,7 +93,13 @@
 				"body": "Hi, what about our goals for next month?",
 				"title": "Hi, what about our goals for next month?",
 				"likes": ["jason", "bob"],
-				"comments": []
+				"comments": [
+					{
+						"poster": "bob",
+						"body": "@jason don't you have an idea of WearOS blog? We could leverage it.",
+						"likes": ["jason", "mary"]
+					}
+				]
 			},
 			{
 				"poster": "jason",
@@ -83,8 +118,13 @@
 				"comments": [
 					{
 						"poster": "jason",
-						"body": "@mary ok",
-						"likes": ["mary"]
+						"body": "@jack ok",
+						"likes": ["jack", "alice"]
+					},
+					{
+						"poster": "alice",
+						"body": "@jason we planned a call for Wednesday",
+						"likes": ["jack"]
 					}
 				]
 			},
@@ -115,8 +155,8 @@
 				"likes": [ "mary", "jason", "alice" ],
 				"comments": [
 					{
-						"poster": "jason",
-						"body": "Hello, @james welcome :)"
+						"poster": "mary",
+						"body": "@jason meet John Smith, he will help us on Engineering and Support topics"
 					}
 				]
 			}
