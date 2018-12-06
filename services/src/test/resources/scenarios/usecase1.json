@@ -168,6 +168,39 @@
 				]
 			},
 			{
+				"poster": "james",
+				"space": "support_team",
+				"body": "XYZ France has issues with clustering, we need join Engineering team to work on this",
+				"title": "XYZ France has issues with clustering, we need join Engineering team to work on this",
+				"likes": ["bob", "alice", "john"],
+				"comments": [
+					{
+						"poster": "john",
+						"body": "@james I'm ready to join",
+						"likes": ["jack", "bob"],
+						"replies": [
+							{
+								"poster": "bob",
+								"body": "In a case if it's Windows environment involve their admins - we had similar issue in the past.",
+								"likes": ["jason", "james", "jack"]
+							}
+						]
+					},
+					{
+						"poster": "alice",
+						"body": "@james do you need my help on this?",
+						"likes": ["james", "jason"],
+						"replies": [
+							{
+								"poster": "james",
+								"body": "No, it's under control here",
+								"likes": ["alice"]
+							}
+						]
+					}
+				]
+			},
+			{
 				"poster": "mary",
 				"space": "sales_team",
 				"body": "What status of ACME Swiss subscription?",
@@ -183,6 +216,11 @@
 								"poster": "jason",
 								"body": "They are nice guys - just help them on their tikets",
 								"likes": ["alice"]
+							},
+							{
+								"poster": "alice",
+								"body": "OK good to know",
+								"likes": ["mary", "jason"]
 							}
 						]
 					},
