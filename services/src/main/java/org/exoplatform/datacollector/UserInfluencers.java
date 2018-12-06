@@ -134,15 +134,11 @@ public class UserInfluencers {
     void liked(Long likedTime) {
       if (lastLiked == null || lastLiked < likedTime) {
         lastLiked = likedTime;
-      } else {
-        lastLiked = likedTime;
       }
     }
 
     void commented(Long commentTime) {
       if (lastCommented == null || lastCommented < commentTime) {
-        lastCommented = commentTime;
-      } else {
         lastCommented = commentTime;
       }
     }

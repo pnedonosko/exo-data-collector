@@ -10,6 +10,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.runners.MockitoJUnitRunner;
 
+import org.exoplatform.datacollector.domain.ActivityCommentedEntityMock;
+import org.exoplatform.datacollector.domain.ActivityPostedEntityMock;
 import org.exoplatform.social.core.identity.model.Identity;
 import org.exoplatform.social.core.space.model.Space;
 
@@ -17,6 +19,8 @@ import org.exoplatform.social.core.space.model.Space;
 public class UserInfluencersTest {
 
   static UserInfluencers userInfluencers;
+  
+  private static final Long MILISECONDS_IN_DAY = 86400000L;
 
   @BeforeClass
   public static void before() {
@@ -58,6 +62,16 @@ public class UserInfluencersTest {
     userInfluencers.addParticipant("jack", 0.1);
     userInfluencers.addParticipant("john", 0.3);
     
+
+
+    userInfluencers.addPost(new ActivityPostedEntityMock("post1", 10000L));
+    userInfluencers.addPost(new ActivityPostedEntityMock("post2", 450000L));
+    
+    userInfluencers.addComment(new ActivityCommentedEntityMock("post1", 10000L, MILISECONDS_IN_DAY + 10000L));
+    userInfluencers.addComment(new ActivityCommentedEntityMock("post2", 450000L, 94000L));
+    
+
+  
   }
 
   @Test
@@ -98,4 +112,8 @@ public class UserInfluencersTest {
                         0.00001);
   }
 
+  @Test
+  public void testGetPostReactivity() {
+    // TODO: find out with getPostReactivity
+  }
 }
