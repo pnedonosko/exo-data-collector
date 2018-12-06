@@ -115,5 +115,7 @@ public class UserInfluencersTest {
   @Test
   public void testGetPostReactivity() {
     // TODO: find out with getPostReactivity
+    System.out.println(userInfluencers.getPostReactivity("post1"));
+    System.out.println(userInfluencers.getPostReactivity("post2"));
   }
 }
