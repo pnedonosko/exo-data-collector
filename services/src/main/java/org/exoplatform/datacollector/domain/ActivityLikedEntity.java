@@ -145,7 +145,7 @@ public class ActivityLikedEntity extends AbstractActivityEntity implements Seria
    * The liker ID.
    */
   @Column(name = "liker_id")
-  protected String          likerId;
+  protected Long          likerId;
 
   /**
    * The liked date.
@@ -176,7 +176,7 @@ public class ActivityLikedEntity extends AbstractActivityEntity implements Seria
    *
    * @return the liker id
    */
-  public String getLikerId() {
+  public Long getLikerId() {
     return likerId;
   }
 

@@ -54,21 +54,21 @@ public class UserInfluencersTest {
     userInfluencers.addStream("Stream2", 0.3);
     userInfluencers.addStream("Stream3", 0.8);
 
-    userInfluencers.addParticipant("mary", 0.2);
-    userInfluencers.addParticipant("mary", 0.1);
-    userInfluencers.addParticipant("james", 0.8);
-    userInfluencers.addParticipant("jack", 0.3);
-    userInfluencers.addParticipant("jack", 0.3);
-    userInfluencers.addParticipant("jack", 0.1);
-    userInfluencers.addParticipant("john", 0.3);
+    userInfluencers.addParticipant(1l, 0.2); // "mary"
+    userInfluencers.addParticipant(1l, 0.1);
+    userInfluencers.addParticipant(2l, 0.8); // "james"
+    userInfluencers.addParticipant(3l, 0.3); // "jack" 
+    userInfluencers.addParticipant(3l, 0.3);
+    userInfluencers.addParticipant(3l, 0.1);
+    userInfluencers.addParticipant(4l, 0.3); // "john"
     
 
 
-    userInfluencers.addPost(new ActivityPostedEntityMock("post1", 10000L));
-    userInfluencers.addPost(new ActivityPostedEntityMock("post2", 450000L));
+    userInfluencers.addPost(new ActivityPostedEntityMock(1l, 10000L));
+    userInfluencers.addPost(new ActivityPostedEntityMock(2l, 450000L));
     
-    userInfluencers.addComment(new ActivityCommentedEntityMock("post1", 10000L, MILISECONDS_IN_DAY + 10000L));
-    userInfluencers.addComment(new ActivityCommentedEntityMock("post2", 450000L, 94000L));
+    userInfluencers.addComment(new ActivityCommentedEntityMock(1l, 10000L, MILISECONDS_IN_DAY + 10000L));
+    userInfluencers.addComment(new ActivityCommentedEntityMock(2l, 450000L, 94000L));
     
 
   

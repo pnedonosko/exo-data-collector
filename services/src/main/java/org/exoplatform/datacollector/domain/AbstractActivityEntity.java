@@ -4,12 +4,14 @@ import java.util.Date;
 
 import javax.persistence.Column;
 import javax.persistence.Id;
+import javax.persistence.IdClass;
 import javax.persistence.MappedSuperclass;
 
 /**
  * Abstract activity entity.
  */
 @MappedSuperclass
+@IdClass(ActivityId.class)
 public abstract class AbstractActivityEntity {
 
   /**
@@ -17,7 +19,23 @@ public abstract class AbstractActivityEntity {
    */
   @Id
   @Column(name = "post_id")
-  protected String  postId;
+  protected Long    postId;
+
+  /**
+   * The poster ID.
+   */
+  @Id
+  @Column(name = "poster_id")
+  protected Long    posterId;
+
+  /** The updated date. */
+  @Column(name = "updated_date")
+  @Id
+  protected Long    updated;
+
+  /** The posted date. */
+  @Column(name = "posted_date")
+  protected Long    posted;
 
   /**
    * The provider ID.
@@ -32,24 +50,10 @@ public abstract class AbstractActivityEntity {
   protected String  type;
 
   /**
-   * The poster ID.
-   */
-  @Column(name = "poster_id")
-  protected String  posterId;
-
-  /**
    * The owner ID.
    */
   @Column(name = "owner_id")
   protected String  ownerId;
-
-  /** The posted date. */
-  @Column(name = "posted_date")
-  protected Long    posted;
-
-  /** The updated date. */
-  @Column(name = "updated_date")
-  protected Long    updated;
 
   /** The hidden. */
   @Column(name = "hidden")
@@ -64,7 +68,7 @@ public abstract class AbstractActivityEntity {
    *
    * @return the post id
    */
-  public String getId() {
+  public Long getId() {
     return postId;
   }
 
@@ -91,7 +95,7 @@ public abstract class AbstractActivityEntity {
    *
    * @return the poster id
    */
-  public String getPosterId() {
+  public Long getPosterId() {
     return posterId;
   }
 
