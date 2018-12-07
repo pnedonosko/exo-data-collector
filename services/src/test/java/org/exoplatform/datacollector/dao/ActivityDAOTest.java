@@ -1,9 +1,5 @@
 package org.exoplatform.datacollector.dao;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -21,12 +17,8 @@ import org.exoplatform.container.PortalContainer;
 import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.datacollector.TestUtils;
 import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
-import org.exoplatform.datacollector.domain.ActivityLikedEntity;
-import org.exoplatform.datacollector.domain.ActivityMentionedEntity;
-import org.exoplatform.datacollector.domain.ActivityPostedEntity;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
-import org.exoplatform.social.core.activity.model.ActivityStream.Type;
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
 import org.exoplatform.social.core.activity.model.ExoSocialActivityImpl;
 import org.exoplatform.social.core.application.SpaceActivityPublisher;
@@ -67,7 +59,8 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
   private ActivityManager      activityManager;
 
-  private String             johnId, maryId, jamesId, jasonId, jackId, aliceId, bobId, marketingId, supportId;
+  private String               johnId, maryId, jamesId, jasonId, jackId, aliceId, bobId, marketingId, salesId, engineeringId,
+      productId, supportId;
 
   @Override
   protected void beforeClass() {
@@ -92,47 +85,103 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     cleanActivities();
     initActivities();
 
-    // It's current user in tests
-    jasonId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "jason", true).getId();
-    // Other users
-    johnId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "john", true).getId();
-    jamesId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "james", true).getId();
-    maryId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "mary", true).getId();
-    jackId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "jack", true).getId();
-    aliceId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "alice", true).getId();
-    bobId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "bob", true).getId();
-    // Spaces
-    marketingId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "marketing_team", true).getId();
-    supportId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "support_team", true).getId();
-
+    // Initializes users and spaces IDs
+    initIdentitiesIds();
     // TODO this will not work for multi-threading execution (see forkCount in
     // pom.xml)
   }
+
+  // ActivityCommentedDAO tests
 
   @Test
   public void testFindPartIsCommentedPoster() {
     List<ActivityCommentedEntity> res = activityCommentDAO.findPartIsCommentedPoster(jasonId.toString());
     assertEquals(3, res.size());
+
     assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(johnId)).count());
     assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(jackId)).count());
     assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(bobId)).count());
+
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(engineeringId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
   }
 
   @Test
   public void testFindPartIsCommentedCommenter() {
     List<ActivityCommentedEntity> res = activityCommentDAO.findPartIsCommentedCommenter(jasonId);
     assertEquals(5, res.size());
+
     assertEquals(2, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
     assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(bobId)).count());
     assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(johnId)).count());
     assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(aliceId)).count());
-  }
-  /*
-  @Test
-  public void testFindPartIsCommentedConvoPoster() {
-    assertTrue(activityCommentDAO.findPartIsCommentedConvoPoster(jasonId.toString()).isEmpty());
+
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(salesId)).count());
   }
 
+  @Test
+  public void testFindPartIsCommentedConvoPoster() {
+    List<ActivityCommentedEntity> res = activityCommentDAO.findPartIsCommentedConvoPoster(jasonId);
+    assertEquals(2, res.size());
+
+    assertEquals(2, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
+
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(salesId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
+  }
+
+  @Test
+  public void testFindPartIsPostCommenter() {
+    List<ActivityCommentedEntity> res = activityCommentDAO.findPartIsPostCommenter(jasonId);
+    assertEquals(4, res.size());
+    assertEquals(2, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getPosterId().equals(johnId)).count());
+
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
+  }
+
+  @Test
+  public void testFindPartIsCommentCommenter() {
+    List<ActivityCommentedEntity> res = activityCommentDAO.findPartIsCommentCommenter(jasonId);
+    assertEquals(5, res.size());
+    assertEquals(2, res.stream().filter(entity -> entity.getPosterId().equals(jackId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getPosterId().equals(jamesId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
+
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
+  }
+
+  @Test
+  public void testFindPartIsConvoCommenter() {
+    List<ActivityCommentedEntity> res = activityCommentDAO.findPartIsConvoCommenter(jasonId);
+    assertEquals(2, res.size());
+
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(johnId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(jamesId)).count());
+
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
+  }
+
+  @Test
+  public void testFindPartIsFavoriteStreamCommenter() {
+    List<ActivityCommentedEntity> res =
+                                      activityCommentDAO.findPartIsFavoriteStreamCommenter(jasonId,
+                                                                                           Arrays.asList(marketingId, productId));
+    assertEquals(4, res.size());
+    assertEquals(2, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(johnId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(bobId)).count());
+
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
+  }
+
+  /*
   @Test
   public void testFindUserPosts() {
     List<ActivityPostedEntity> res = activityPostedDAO.findUserPosts(jasonId.toString());
@@ -140,7 +189,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.SPACE.toString())).count());
     assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
-
+  
   @Test
   public void testFindPartIsFavoriteStreamPoster() {
     List<ActivityPostedEntity> res = activityPostedDAO.findPartIsFavoriteStreamPoster(jasonId.toString(),
@@ -149,44 +198,44 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertEquals(2, res.size());
     assertTrue(res.stream().allMatch(entity -> !entity.getPosterId().equals(jasonId.toString())));
   }
-
+  
   @Test
   public void testfindPartIsMentioned() {
     List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioned(jasonId.toString());
     assertEquals(11, res.size());
     assertTrue(res.stream().allMatch(entity -> entity.getPosterId().equals(jasonId.toString())));
   }
-
+  
   @Test
   public void testFindPartIsMentioner() {
     List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioner(jasonId.toString());
     assertEquals(8, res.size());
     assertTrue(res.stream().allMatch(entity -> entity.getMentionedId().equals(jasonId.toString())));
   }
-
+  
   // ActivityLikedEntity tests
-
+  
   @Test
   public void testFindPartIsLikedPoster() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedPoster(jasonId.toString());
     assertEquals(3, res.size());
     assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(jasonId.toString())));
   }
-
+  
   @Test
   public void testFindPartIsLikedCommenter() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedCommenter(jasonId.toString());
     assertEquals(3, res.size());
     assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(jasonId.toString())));
   }
-
+  
   @Test
   public void testFindPartIsLikedConvoPoster() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedConvoPoster(jasonId.toString());
     assertEquals(2, res.size());
     assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(jasonId.toString())));
   }
-
+  
   @Test
   public void testFindPartIsPostLiker() {
     // If we add jack's like to any mary's post and expect res.size() == 5 and
@@ -197,13 +246,13 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertEquals(1, res.stream().filter(entity -> entity.getLikerId().equals(jasonId)).count());
     assertTrue(res.stream().allMatch(entity -> entity.getPosterId().equals(maryId)));
   }
-
+  
   @Test
   public void testFindPartIsCommentLiker() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsCommentLiker(jasonId.toString());
     assertEquals(8, res.size());
     // TODO: fix
-
+  
     LOG.info("Jason ID: " + jasonId.toString());
     LOG.info("James ID " + jamesId.toString() + " count: " + res.stream().filter(entity ->entity.getLikerId().equals(jamesId)).count());
     LOG.info("John ID " + johnId.toString() + " count: " + res.stream().filter(entity ->entity.getLikerId().equals(johnId)).count());
@@ -215,10 +264,10 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertEquals(3 ,res.stream().filter(entity ->entity.getLikerId().equals(johnId)).count());
     assertEquals(3 ,res.stream().filter(entity ->entity.getLikerId().equals(jackId)).count());
     assertEquals(1 ,res.stream().filter(entity ->entity.getLikerId().equals(aliceId)).count());
-
-
+  
+  
   }
-
+  
   @Test
   public void testFindPartIsConvoLiker() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsConvoLiker(jasonId.toString());
@@ -234,7 +283,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   }
 
   /******** internals *********/
-  
+
   /**
    * Initializes testing spaces
    */
@@ -254,6 +303,27 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     if (spaceService.getSpaceByDisplayName(TestUtils.SUPPORT_TEAM) == null) {
       createSpace(TestUtils.SUPPORT_TEAM, TestUtils.SUPPORT_MANAGERS, TestUtils.SUPPORT_MEMBERS);
     }
+  }
+
+  /**
+   * Initializes space and user identities ID's
+   */
+  private void initIdentitiesIds() {
+    // It's current user in tests
+    jasonId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "jason", true).getId();
+    // Other users
+    johnId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "john", true).getId();
+    jamesId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "james", true).getId();
+    maryId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "mary", true).getId();
+    jackId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "jack", true).getId();
+    aliceId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "alice", true).getId();
+    bobId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "bob", true).getId();
+    // Spaces
+    marketingId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "marketing_team", true).getId();
+    supportId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "support_team", true).getId();
+    productId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "product_team", true).getId();
+    engineeringId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "engineering_team", true).getId();
+    salesId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "sales_team", true).getId();
   }
 
   /**
@@ -333,6 +403,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
       for (int i = 0; i < activities.length(); i++) {
         try {
           JSONObject activity = activities.getJSONObject(i);
+          Thread.sleep(5);
           createActivity(activity);
         } catch (Exception e) {
           LOG.error("Error when creating activity number " + i, e);
@@ -382,10 +453,10 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     }
 
     // Comments
-    if(activityJSON.optJSONArray("comments") != null) {
+    if (activityJSON.optJSONArray("comments") != null) {
       initComments(activity, activityJSON);
     }
-    
+
   }
 
   private void initComments(ExoSocialActivity activity, JSONObject activityJSON) throws Exception {
@@ -395,7 +466,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     for (int i = 0; i < comments.length(); i++) {
       JSONObject commentJSON = comments.getJSONObject(i);
 
-      //Thread.sleep(100); // TODO need it?
+      Thread.sleep(5);
       Identity identityComment = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME,
                                                                      commentJSON.getString("poster"),
                                                                      false);
@@ -413,7 +484,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
         JSONArray replies = commentJSON.getJSONArray("replies");
         for (int j = 0; j < replies.length(); j++) {
           JSONObject replyJSON = replies.getJSONObject(j);
-
+          Thread.sleep(5);
           Identity identityReply = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME,
                                                                        replyJSON.getString("poster"),
                                                                        false);
@@ -436,10 +507,12 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
    * 
    * @param likes JSONArray with names of likers
    * @param activity that is liked
+   * @throws InterruptedException 
    * @throws JSONException
    */
-  private void initLikes(JSONArray likes, ExoSocialActivity activity) {
+  private void initLikes(JSONArray likes, ExoSocialActivity activity) throws InterruptedException {
     for (int j = 0; j < likes.length(); j++) {
+      Thread.sleep(5);
       String like = null;
       try {
         like = likes.getString(j);
