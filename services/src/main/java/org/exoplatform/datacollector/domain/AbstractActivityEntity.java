@@ -19,14 +19,14 @@ public abstract class AbstractActivityEntity {
    */
   @Id
   @Column(name = "post_id")
-  protected Long    postId;
+  protected String    postId;
 
   /**
    * The poster ID.
    */
   @Id
   @Column(name = "poster_id")
-  protected Long    posterId;
+  protected String    posterId;
 
   /** The updated date. */
   @Column(name = "updated_date")
@@ -68,7 +68,7 @@ public abstract class AbstractActivityEntity {
    *
    * @return the post id
    */
-  public Long getId() {
+  public String getId() {
     return postId;
   }
 
@@ -95,7 +95,7 @@ public abstract class AbstractActivityEntity {
    *
    * @return the poster id
    */
-  public Long getPosterId() {
+  public String getPosterId() {
     return posterId;
   }
 

@@ -98,7 +98,7 @@ public class UserInfluencers {
   }
 
   class ActivityInfo {
-    final Long id;
+    final String id;
 
     // final String ownerId;
     // final String posterId;
@@ -111,7 +111,7 @@ public class UserInfluencers {
 
     Long       lastCommented;
 
-    ActivityInfo(Long id, Long created) {
+    ActivityInfo(String id, Long created) {
       this.id = id;
       this.created = created;
     }
@@ -146,9 +146,9 @@ public class UserInfluencers {
 
   private Map<String, List<Double>> streams      = new HashMap<>();
 
-  private Map<Long, List<Double>>   participants = new HashMap<>();
+  private Map<String, List<Double>>   participants = new HashMap<>();
 
-  private Map<Long, ActivityInfo>   activities   = new HashMap<>();
+  private Map<String, ActivityInfo>   activities   = new HashMap<>();
 
 //  private final OrganizationService           organization;
 //
@@ -266,7 +266,7 @@ public class UserInfluencers {
     return getFavoriteStreams().stream().limit(top).collect(Collectors.toList());
   }
 
-  protected void addParticipant(Long id, double weight) {
+  protected void addParticipant(String id, double weight) {
     participants.computeIfAbsent(id, k -> new ArrayList<Double>()).add(weight);
   }
 

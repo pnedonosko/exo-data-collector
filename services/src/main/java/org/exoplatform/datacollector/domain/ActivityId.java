@@ -29,10 +29,10 @@ public class ActivityId implements Serializable {
   private static final long serialVersionUID = 3235629193550319959L;
 
   /**  The activity id. */
-  protected Long            postId;
+  protected String            postId;
   
   /**  The poster id. */
-  protected Long            posterId;
+  protected String            posterId;
 
   /** The updated date (timestamp). */
   protected Long            updated;
@@ -51,7 +51,7 @@ public class ActivityId implements Serializable {
    * @param postId the post id
    * @param updated the updated
    */
-  public ActivityId(Long posterId, Long postId, Long updated) {
+  public ActivityId(String posterId, String postId, Long updated) {
     super();
     this.posterId = posterId;
     this.postId = postId;
@@ -63,7 +63,7 @@ public class ActivityId implements Serializable {
    *
    * @return the poster id
    */
-  public Long getPosterId() {
+  public String getPosterId() {
     return posterId;
   }
 
@@ -72,7 +72,7 @@ public class ActivityId implements Serializable {
    *
    * @return the post id
    */
-  public Long getPostId() {
+  public String getPostId() {
     return postId;
   }
 

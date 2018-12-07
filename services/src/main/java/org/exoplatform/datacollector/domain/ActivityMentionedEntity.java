@@ -70,14 +70,14 @@ public class ActivityMentionedEntity extends AbstractActivityEntity implements S
    * The mentioned identity ID.
    */
   @Column(name = "mentioned_id")
-  protected Long          mentionedId;
+  protected String          mentionedId;
 
   /**
    * Gets the mentioned ID.
    *
    * @return the mentioned id
    */
-  public Long getMentionedId() {
+  public String getMentionedId() {
     return mentionedId;
   }
 
@@ -88,7 +88,7 @@ public class ActivityMentionedEntity extends AbstractActivityEntity implements S
    * was replied).
    */
   @Override
-  public Long getPosterId() {
+  public String getPosterId() {
     return super.getPosterId();
   }
 
