@@ -103,13 +103,13 @@ public class UserInfluencers {
     // final String ownerId;
     // final String posterId;
 
-    final Long   created;
+    final Long created;
 
     // Long updated;
 
-    Long         lastLiked;
+    Long       lastLiked;
 
-    Long         lastCommented;
+    Long       lastCommented;
 
     ActivityInfo(Long id, Long created) {
       this.id = id;
@@ -148,7 +148,7 @@ public class UserInfluencers {
 
   private Map<Long, List<Double>>   participants = new HashMap<>();
 
-  private Map<Long, ActivityInfo> activities   = new HashMap<>();
+  private Map<Long, ActivityInfo>   activities   = new HashMap<>();
 
 //  private final OrganizationService           organization;
 //
@@ -513,6 +513,9 @@ public class UserInfluencers {
   }
 
   public void addConvoLiker(List<ActivityLikedEntity> liked) {
+    // TODO here we may find more complex relations of liking the post because
+    // of comments/likes by others, and build more robust weight for the liker:
+    // e.g. follow replies to the liker comments or mentions of him
     for (ActivityLikedEntity l : liked) {
       // addParticipant(l.getPosterId(), adjustWeightByDate(0.3,
       // l.getLikedDate()));
