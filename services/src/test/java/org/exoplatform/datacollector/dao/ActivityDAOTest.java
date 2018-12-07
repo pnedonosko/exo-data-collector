@@ -17,8 +17,10 @@ import org.exoplatform.container.PortalContainer;
 import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.datacollector.TestUtils;
 import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
+import org.exoplatform.datacollector.domain.ActivityPostedEntity;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.social.core.activity.model.ActivityStream.Type;
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
 import org.exoplatform.social.core.activity.model.ExoSocialActivityImpl;
 import org.exoplatform.social.core.application.SpaceActivityPublisher;
@@ -104,6 +106,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
     assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(engineeringId)).count());
     assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
 
   @Test
@@ -141,6 +144,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
     assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
     assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
 
   @Test
@@ -153,6 +157,8 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
     assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
     assertEquals(3, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
+    
+    assertEquals(1, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
 
   @Test
@@ -181,12 +187,17 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
   }
 
+  // TODO: Fix
   /*
   @Test
   public void testFindUserPosts() {
     List<ActivityPostedEntity> res = activityPostedDAO.findUserPosts(jasonId.toString());
     assertEquals(4, res.size());
-    assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.SPACE.toString())).count());
+    LOG.info("Marketing: " + marketingId);
+    LOG.info("Product: " + productId);
+    res.forEach(entity -> LOG.info(entity.getOwnerId()));
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId) && entity.getProviderId().equals("space")).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(productId) && entity.getProviderId().equals("space")).count());
     assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
   
