@@ -186,30 +186,33 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
     assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
   }
-
-  // TODO: Fix
-  /*
+  
+  //ActivityPostedDAO tests
+  
   @Test
   public void testFindUserPosts() {
     List<ActivityPostedEntity> res = activityPostedDAO.findUserPosts(jasonId.toString());
     assertEquals(4, res.size());
-    LOG.info("Marketing: " + marketingId);
-    LOG.info("Product: " + productId);
-    res.forEach(entity -> LOG.info(entity.getOwnerId()));
-    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId) && entity.getProviderId().equals("space")).count());
-    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(productId) && entity.getProviderId().equals("space")).count());
-    assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId) && entity.getProviderId().equals(Type.SPACE.toString())).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(productId) && entity.getProviderId().equals(Type.SPACE.toString())).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
-  
+ 
   @Test
   public void testFindPartIsFavoriteStreamPoster() {
     List<ActivityPostedEntity> res = activityPostedDAO.findPartIsFavoriteStreamPoster(jasonId.toString(),
                                                                                       Arrays.asList(supportId.toString(),
                                                                                                     marketingId.toString()));
-    assertEquals(2, res.size());
-    assertTrue(res.stream().allMatch(entity -> !entity.getPosterId().equals(jasonId.toString())));
+    assertEquals(3, res.size());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(jackId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(jamesId)).count());
+    
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
   }
-  
+ 
+  /*
   @Test
   public void testfindPartIsMentioned() {
     List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioned(jasonId.toString());
