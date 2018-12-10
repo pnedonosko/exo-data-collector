@@ -17,6 +17,7 @@ import org.exoplatform.container.PortalContainer;
 import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.datacollector.TestUtils;
 import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
+import org.exoplatform.datacollector.domain.ActivityMentionedEntity;
 import org.exoplatform.datacollector.domain.ActivityPostedEntity;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
@@ -94,7 +95,6 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   }
 
   // ActivityCommentedDAO tests
-
   @Test
   public void testFindPartIsCommentedPoster() {
     List<ActivityCommentedEntity> res = activityCommentDAO.findPartIsCommentedPoster(jasonId.toString());
@@ -157,7 +157,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
     assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
     assertEquals(3, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
-    
+
     assertEquals(1, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
 
@@ -186,47 +186,73 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
     assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
   }
-  
-  //ActivityPostedDAO tests
-  
+
+  // ActivityPostedDAO tests
+
   @Test
   public void testFindUserPosts() {
     List<ActivityPostedEntity> res = activityPostedDAO.findUserPosts(jasonId.toString());
     assertEquals(4, res.size());
-    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId) && entity.getProviderId().equals(Type.SPACE.toString())).count());
-    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(productId) && entity.getProviderId().equals(Type.SPACE.toString())).count());
+    assertEquals(1,
+                 res.stream()
+                    .filter(entity -> entity.getOwnerId().equals(marketingId)
+                        && entity.getProviderId().equals(Type.SPACE.toString()))
+                    .count());
+    assertEquals(2,
+                 res.stream()
+                    .filter(entity -> entity.getOwnerId().equals(productId)
+                        && entity.getProviderId().equals(Type.SPACE.toString()))
+                    .count());
     assertEquals(1, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
- 
+
   @Test
   public void testFindPartIsFavoriteStreamPoster() {
-    List<ActivityPostedEntity> res = activityPostedDAO.findPartIsFavoriteStreamPoster(jasonId.toString(),
+    List<ActivityPostedEntity> res = activityPostedDAO.findPartIsFavoriteStreamPoster(jasonId,
                                                                                       Arrays.asList(supportId.toString(),
                                                                                                     marketingId.toString()));
     assertEquals(3, res.size());
     assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
     assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(jackId)).count());
     assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(jamesId)).count());
-    
+
     assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
     assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
   }
- 
-  /*
+
   @Test
   public void testfindPartIsMentioned() {
-    List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioned(jasonId.toString());
+    List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioned(jasonId);
     assertEquals(11, res.size());
-    assertTrue(res.stream().allMatch(entity -> entity.getPosterId().equals(jasonId.toString())));
+
+    assertTrue(res.stream().allMatch(entity -> entity.getPosterId().equals(jasonId)));
+
+    assertEquals(3, res.stream().filter(entity -> entity.getMentionedId().equals(maryId)).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getMentionedId().equals(jamesId)).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getMentionedId().equals(jackId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getMentionedId().equals(johnId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getMentionedId().equals(bobId)).count());
   }
-  
+
+  // TODO: fix
   @Test
   public void testFindPartIsMentioner() {
     List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioner(jasonId.toString());
     assertEquals(8, res.size());
     assertTrue(res.stream().allMatch(entity -> entity.getMentionedId().equals(jasonId.toString())));
+
+    LOG.info("JasonId: " + jasonId);
+    res.forEach(entity -> LOG.info("PostId: " + entity.getId()));
+
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(jamesId)).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(jackId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(aliceId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(bobId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(johnId)).count());
   }
-  
+
+  /*
   // ActivityLikedEntity tests
   
   @Test
@@ -284,7 +310,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   
   @Test
   public void testFindPartIsConvoLiker() {
-    List<ActivityLikedEntity> res = activityLikedDAO.findPartIsConvoLiker(jasonId.toString());
+    List<ActivityLikedEntity> res = activityLikedDAO.findPartIsConvoLiker(jasonId);
     assertEquals(3, res.size());
     assertEquals(1, res.stream().filter(entity -> entity.getLikerId().equals(johnId)).count());
     assertEquals(2, res.stream().filter(entity -> entity.getLikerId().equals(maryId)).count());
@@ -417,7 +443,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
       for (int i = 0; i < activities.length(); i++) {
         try {
           JSONObject activity = activities.getJSONObject(i);
-          Thread.sleep(5);
+          Thread.sleep(50);
           createActivity(activity);
         } catch (Exception e) {
           LOG.error("Error when creating activity number " + i, e);
@@ -480,7 +506,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     for (int i = 0; i < comments.length(); i++) {
       JSONObject commentJSON = comments.getJSONObject(i);
 
-      Thread.sleep(5);
+      Thread.sleep(50);
       Identity identityComment = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME,
                                                                      commentJSON.getString("poster"),
                                                                      false);
@@ -498,7 +524,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
         JSONArray replies = commentJSON.getJSONArray("replies");
         for (int j = 0; j < replies.length(); j++) {
           JSONObject replyJSON = replies.getJSONObject(j);
-          Thread.sleep(5);
+          Thread.sleep(50);
           Identity identityReply = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME,
                                                                        replyJSON.getString("poster"),
                                                                        false);
@@ -526,7 +552,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
    */
   private void initLikes(JSONArray likes, ExoSocialActivity activity) throws InterruptedException {
     for (int j = 0; j < likes.length(); j++) {
-      Thread.sleep(5);
+      Thread.sleep(50);
       String like = null;
       try {
         like = likes.getString(j);

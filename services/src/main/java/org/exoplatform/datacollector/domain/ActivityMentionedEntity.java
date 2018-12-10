@@ -4,6 +4,8 @@ import java.io.Serializable;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.IdClass;
 import javax.persistence.NamedNativeQueries;
 import javax.persistence.NamedNativeQuery;
 
@@ -58,7 +60,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " AND m.mentioner_id != c.poster_id AND a.owner_id IS NOT NULL AND cp.owner_id IS NULL AND c.owner_id IS NULL"
         + " AND m.mentioner_id = :mentionerId" //
         + " ORDER BY post_id, parent_id", resultClass = ActivityMentionedEntity.class) })
-
+@IdClass(ActivityMentionedId.class)
 public class ActivityMentionedEntity extends AbstractActivityEntity implements Serializable {
 
   /**
@@ -70,6 +72,7 @@ public class ActivityMentionedEntity extends AbstractActivityEntity implements S
    * The mentioned identity ID.
    */
   @Column(name = "mentioned_id")
+  @Id
   protected String          mentionedId;
 
   /**
