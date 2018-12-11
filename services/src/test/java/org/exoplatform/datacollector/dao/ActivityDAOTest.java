@@ -95,7 +95,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   }
 
   // ActivityCommentedDAO tests
-  
+
   @Test
   public void testFindPartIsCommentedPoster() {
     List<ActivityCommentedEntity> res = activityCommentDAO.findPartIsCommentedPoster(jasonId.toString());
@@ -248,15 +248,11 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertEquals(1, res.stream().filter(entity -> entity.getMentionedId().equals(bobId)).count());
   }
 
-  // TODO: fix
   @Test
   public void testFindPartIsMentioner() {
     List<ActivityMentionedEntity> res = activityMentionedDAO.findPartIsMentioner(jasonId.toString());
     assertEquals(8, res.size());
     assertTrue(res.stream().allMatch(entity -> entity.getMentionedId().equals(jasonId.toString())));
-
-    LOG.info("JasonId: " + jasonId);
-    res.forEach(entity -> LOG.info("PostId: " + entity.getId()));
 
     assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(jamesId)).count());
     assertEquals(3, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
@@ -264,6 +260,12 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(aliceId)).count());
     assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(bobId)).count());
     assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(johnId)).count());
+    
+    
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(johnId)).count());
   }
 
   /*
