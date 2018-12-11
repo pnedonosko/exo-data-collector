@@ -95,6 +95,7 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
   }
 
   // ActivityCommentedDAO tests
+  
   @Test
   public void testFindPartIsCommentedPoster() {
     List<ActivityCommentedEntity> res = activityCommentDAO.findPartIsCommentedPoster(jasonId.toString());
@@ -175,16 +176,22 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
   @Test
   public void testFindPartIsFavoriteStreamCommenter() {
-    List<ActivityCommentedEntity> res =
-                                      activityCommentDAO.findPartIsFavoriteStreamCommenter(jasonId,
-                                                                                           Arrays.asList(marketingId, productId));
-    assertEquals(4, res.size());
-    assertEquals(2, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
-    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(johnId)).count());
-    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(bobId)).count());
+    List<String> favoriteStreams = Arrays.asList(productId, engineeringId, marketingId, supportId, salesId, bobId);
+    List<ActivityCommentedEntity> res = activityCommentDAO.findPartIsFavoriteStreamCommenter(jasonId, favoriteStreams);
+    assertEquals(23, res.size());
 
-    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
-    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
+    assertEquals(4, res.stream().filter(entity -> entity.getPosterId().equals(johnId)).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getPosterId().equals(jackId)).count());
+    assertEquals(5, res.stream().filter(entity -> entity.getPosterId().equals(jamesId)).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getPosterId().equals(bobId)).count());
+    assertEquals(5, res.stream().filter(entity -> entity.getPosterId().equals(aliceId)).count());
+
+    assertEquals(6, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
+    assertEquals(10, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getOwnerId().equals(salesId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
 
   // ActivityPostedDAO tests
@@ -208,16 +215,23 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
 
   @Test
   public void testFindPartIsFavoriteStreamPoster() {
-    List<ActivityPostedEntity> res = activityPostedDAO.findPartIsFavoriteStreamPoster(jasonId,
-                                                                                      Arrays.asList(supportId.toString(),
-                                                                                                    marketingId.toString()));
-    assertEquals(3, res.size());
-    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
+    List<String> favoriteStreams = Arrays.asList(productId, engineeringId, marketingId, supportId, salesId, bobId);
+    List<ActivityPostedEntity> res = activityPostedDAO.findPartIsFavoriteStreamPoster(jasonId, favoriteStreams);
+    assertEquals(8, res.size());
+
+    assertEquals(2, res.stream().filter(entity -> entity.getPosterId().equals(johnId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
     assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(jackId)).count());
     assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(jamesId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(aliceId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(bobId)).count());
 
-    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(engineeringId)).count());
     assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(salesId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
+
   }
 
   @Test
