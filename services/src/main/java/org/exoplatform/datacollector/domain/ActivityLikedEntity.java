@@ -36,7 +36,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " WHERE a.activity_id = pc.parent_id AND pc.activity_id = oc.parent_id AND oc.activity_id = l.activity_id"
         + " AND oc.poster_id != l.liker_id AND a.owner_id IS NOT NULL AND pc.owner_id IS NULL"
         + " AND oc.owner_id IS NULL AND l.liker_id = :likerId"
-        + " ORDER BY post_id, parent_id, poster_id", resultClass = ActivityLikedEntity.class),
+        + " ORDER BY post_id, parent_id, liker_id", resultClass = ActivityLikedEntity.class),
     /* User liked others' comments in someone's post (find posters) */
     @NamedNativeQuery(name = "ActivityLiked.findPartIsLikedConvoPoster", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, oc.parent_id,"
@@ -53,7 +53,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = oc.parent_id AND oc.activity_id = l.activity_id"
         + " AND a.poster_id != oc.poster_id AND oc.poster_id != l.liker_id AND a.poster_id != l.liker_id"
         + " AND a.owner_id IS NOT NULL AND cp.owner_id IS NULL AND oc.owner_id IS NULL AND l.liker_id = :likerId"
-        + " ORDER BY post_id, parent_id, poster_id", resultClass = ActivityLikedEntity.class),
+        + " ORDER BY post_id, parent_id, liker_id", resultClass = ActivityLikedEntity.class),
     /* ===== Others liked the user ===== */
     /* Others like user post (find likers) */
     @NamedNativeQuery(name = "ActivityLiked.findPartIsPostLiker", query = "SELECT a.activity_id AS post_id,"
@@ -65,22 +65,25 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
     /* Others like user comments (find likers) */
     @NamedNativeQuery(name = "ActivityLiked.findPartIsCommentLiker", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, c.poster_id, a.owner_id, c.parent_id,"
-        + "  a.hidden, a.posted AS posted_date, a.updated_date, l.liker_id AS liker_id, l.created_date AS liked_date"
+        + "  a.hidden, a.posted AS posted_date, a.updated_date, l.liker_id, l.created_date AS liked_date"
         + " FROM soc_activities a, soc_activities c, soc_activity_likers l"
         + " WHERE a.activity_id = c.parent_id AND c.activity_id = l.activity_id AND c.poster_id != l.liker_id"
         + " AND a.owner_id IS NOT NULL AND c.owner_id IS NULL AND c.poster_id = :commenterId" //
         + " UNION ALL" //
         + "SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  c.poster_id, a.owner_id, c.parent_id, a.hidden,"
-        + "  a.posted AS posted_date, a.updated_date, l.liker_id AS liker_id, l.created_date AS liked_date"
+        + "  a.posted AS posted_date, a.updated_date, l.liker_id, l.created_date AS liked_date"
         + " FROM soc_activities a, soc_activities cp, soc_activities c, soc_activity_likers l"
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = c.parent_id AND c.activity_id = l.activity_id"
         + " AND c.poster_id != l.liker_id AND a.owner_id IS NOT NULL AND cp.owner_id IS NULL"
         + " AND c.owner_id IS NULL AND c.poster_id = :commenterId" //
-        + " ORDER BY post_id, parent_id, poster_id", resultClass = ActivityLikedEntity.class),
+        + " ORDER BY post_id, parent_id, liker_id", resultClass = ActivityLikedEntity.class),
     /* Others like posts where user comments (find likers) */
-    /* TODO here will be duplicates from comments on the post and comment on comments */
-    @NamedNativeQuery(name = "ActivityLiked.findPartIsConvoLiker", query = "SELECT a.activity_id AS post_id,"
+    // TODO here will be duplicates from comments on the post and comments on
+    // comments - solve it in UserInfluencers.addConvoLiker().
+    // XXX attempt to solve duplicated by SELECT DISTINCT a.* FROM
+    @NamedNativeQuery(name = "ActivityLiked.findPartIsConvoLiker", query = "SELECT DISTINCT a.* FROM ("
+        + "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, a.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date, l.liker_id, l.created_date AS liked_date"
         + " FROM soc_activities a, soc_activities c, soc_activity_likers l"
@@ -94,8 +97,8 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " FROM soc_activities a, soc_activities cp, soc_activities c, soc_activity_likers l"
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = c.parent_id AND a.activity_id = l.activity_id"
         + " AND c.poster_id != l.liker_id AND a.poster_id != l.liker_id"
-        + " AND a.owner_id IS NOT NULL AND cp.owner_id IS NULL AND c.owner_id IS NULL"
-        + " AND c.poster_id = :commenterId", resultClass = ActivityLikedEntity.class),
+        + " AND a.owner_id IS NOT NULL AND cp.owner_id IS NULL AND c.owner_id IS NULL AND c.poster_id = :commenterId" + ") AS a" //
+        + " ORDER BY post_id, parent_id, liker_id", resultClass = ActivityLikedEntity.class),
     /* ===== Others liked what the user likes ===== */
     /* Others like same posts the user liked (find likers) */
     @NamedNativeQuery(name = "ActivityLiked.findPartIsSamePostLiker", query = "SELECT a.activity_id AS post_id,"
@@ -107,21 +110,49 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " AND a.owner_id IS NOT NULL AND l.liker_id = :likerId", resultClass = ActivityLikedEntity.class),
     /* Others like same comments the user liked (find likers) */
     @NamedNativeQuery(name = "ActivityLiked.findPartIsSameCommentLiker", query = "SELECT a.activity_id AS post_id,"
-        + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, c.parent_id,"
+        + "  a.provider_id AS post_provider_id, a.type AS post_type, c.poster_id, a.owner_id, c.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date, ol.liker_id, ol.created_date AS liked_date"
         + " FROM soc_activities a, soc_activities c, soc_activity_likers ol, soc_activity_likers l"
         + " WHERE a.activity_id = c.parent_id AND c.activity_id = ol.activity_id AND c.activity_id = l.activity_id"
         + " AND c.poster_id != ol.liker_id AND c.poster_id != l.liker_id AND ol.liker_id != l.liker_id"
-        + " AND a.owner_id IS NOT NULL AND c.owner_id IS NULL AND l.liker_id = :likerId", resultClass = ActivityLikedEntity.class),
-    /* Others like in posts where the user liked other comments (find likers) */
-    @NamedNativeQuery(name = "ActivityLiked.findPartIsSameConvoLiker", query = "SELECT a.activity_id AS post_id,"
-        + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id, a.owner_id, oc.parent_id,"
+        + " AND a.owner_id IS NOT NULL AND c.owner_id IS NULL AND l.liker_id = :likerId" //
+        + " UNION ALL" //
+        + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
+        + "  c.poster_id, a.owner_id, c.parent_id, a.hidden, a.posted AS posted_date, a.updated_date,"
+        + "  ol.liker_id, ol.created_date AS liked_date"
+        + " FROM soc_activities a, soc_activities cp, soc_activities c, soc_activity_likers ol, soc_activity_likers l"
+        + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = c.parent_id"
+        + " AND c.activity_id = ol.activity_id AND c.activity_id = l.activity_id"
+        + " AND c.poster_id != ol.liker_id AND c.poster_id != l.liker_id AND ol.liker_id != l.liker_id"
+        + " AND a.owner_id IS NOT NULL AND cp.owner_id IS NULL AND c.owner_id IS NULL AND l.liker_id = :likerId"
+        + " ORDER BY post_id, parent_id, poster_id", resultClass = ActivityLikedEntity.class),
+    /* Others like posts where the user likes only others' comments (likers) */
+    // TODO here will be duplicates from comments on the post and comments on
+    // comments - solve it in UserInfluencers.addLikedConvoPoster().
+    // XXX attempt to solve duplicated by SELECT DISTINCT a.* FROM
+    @NamedNativeQuery(name = "ActivityLiked.findPartIsSameConvoLiker", query = "SELECT DISTINCT a.* FROM ("
+        + "SELECT a.activity_id AS post_id,"
+        + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, a.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date, ol.liker_id, ol.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activities oc, soc_activities c, soc_activity_likers ol, soc_activity_likers l"
-        + " WHERE a.activity_id = c.parent_id AND a.activity_id = oc.parent_id AND oc.activity_id = ol.activity_id"
-        + " AND c.activity_id = l.activity_id AND oc.poster_id != ol.liker_id AND oc.poster_id != l.liker_id"
+        + " FROM soc_activities a, soc_activities c, soc_activity_likers ol, soc_activity_likers l"
+        + " WHERE a.activity_id NOT IN (SELECT activity_id FROM soc_activity_likers WHERE liker_id = l.liker_id)"
+        + " AND a.activity_id = c.parent_id AND a.activity_id = ol.activity_id AND c.activity_id = l.activity_id"
+        + " AND a.poster_id != ol.liker_id AND a.poster_id != l.liker_id"
         + " AND c.poster_id != l.liker_id AND ol.liker_id != l.liker_id AND ol.activity_id != l.activity_id"
-        + " AND oc.owner_id IS NULL AND c.owner_id IS NULL AND l.liker_id = :likerId", resultClass = ActivityLikedEntity.class),
+        + " AND a.owner_id IS NOT NULL AND c.owner_id IS NULL AND l.liker_id = :likerId" //
+        + " UNION ALL" //
+        + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
+        + "  a.poster_id, a.owner_id, a.parent_id, a.hidden, a.posted AS posted_date, a.updated_date,"
+        + "  ol.liker_id, ol.created_date AS liked_date"
+        + " FROM soc_activities a, soc_activities cp, soc_activities c, soc_activity_likers ol, soc_activity_likers l"
+        + " WHERE a.activity_id NOT IN (SELECT activity_id FROM soc_activity_likers WHERE liker_id = l.liker_id)"
+        + " AND a.activity_id = cp.parent_id AND cp.activity_id = c.parent_id"
+        + " AND a.activity_id = ol.activity_id AND c.activity_id = l.activity_id"
+        + " AND a.poster_id != ol.liker_id AND a.poster_id != l.liker_id"
+        + " AND c.poster_id != l.liker_id AND ol.liker_id != l.liker_id AND ol.activity_id != l.activity_id"
+        + " AND a.owner_id IS NOT NULL AND cp.owner_id IS NULL AND c.owner_id IS NULL AND l.liker_id = :likerId" //
+        + ") AS a" //
+        + " ORDER BY post_id, parent_id, liker_id", resultClass = ActivityLikedEntity.class),
     /* ===== Others do in the user favorite streams ===== */
     /* Others often like posts in the user favorite streams (find likers) */
     @NamedNativeQuery(name = "ActivityLiked.findPartIsFavoriteStreamPostLiker", query = "SELECT a.activity_id AS post_id,"
@@ -146,9 +177,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = oc.parent_id"
         + " AND oc.activity_id = ol.activity_id AND a.owner_id IS NOT NULL"
         + " AND a.owner_id IN (:favoriteStreams) AND ol.liker_id != :likerId"
-        + " ORDER BY a.owner_id, liked_date", resultClass = ActivityCommentedEntity.class)
-
-})
+        + " ORDER BY a.owner_id, liked_date", resultClass = ActivityCommentedEntity.class) })
 
 public class ActivityLikedEntity extends AbstractActivityEntity implements Serializable {
 
@@ -161,7 +190,7 @@ public class ActivityLikedEntity extends AbstractActivityEntity implements Seria
    * The liker ID.
    */
   @Column(name = "liker_id")
-  protected String            likerId;
+  protected String          likerId;
 
   /**
    * The liked date.

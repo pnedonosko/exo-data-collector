@@ -103,13 +103,13 @@ public class UserInfluencers {
     // final String ownerId;
     // final String posterId;
 
-    final Long created;
+    final Long   created;
 
     // Long updated;
 
-    Long       lastLiked;
+    Long         lastLiked;
 
-    Long       lastCommented;
+    Long         lastCommented;
 
     ActivityInfo(String id, Long created) {
       this.id = id;
@@ -146,9 +146,9 @@ public class UserInfluencers {
 
   private Map<String, List<Double>> streams      = new HashMap<>();
 
-  private Map<String, List<Double>>   participants = new HashMap<>();
+  private Map<String, List<Double>> participants = new HashMap<>();
 
-  private Map<String, ActivityInfo>   activities   = new HashMap<>();
+  private Map<String, ActivityInfo> activities   = new HashMap<>();
 
 //  private final OrganizationService           organization;
 //
@@ -516,6 +516,11 @@ public class UserInfluencers {
     // TODO here we may find more complex relations of liking the post because
     // of comments/likes by others, and build more robust weight for the liker:
     // e.g. follow replies to the liker comments or mentions of him
+    // TODO to avoid duplicates of post likers via direct comments and comments
+    // on comments, maintain a set of "postID - likerID" - if item exists,
+    // then don't count it again.
+    // Similar problem in addSameConvoLiker()
+    // XXX attempted to fix this by SQL SELECT DISTINCT
     for (ActivityLikedEntity l : liked) {
       // addParticipant(l.getPosterId(), adjustWeightByDate(0.3,
       // l.getLikedDate()));
@@ -531,7 +536,7 @@ public class UserInfluencers {
       // addParticipant(l.getPosterId(), adjustWeightByDate(0.7,
       // l.getLikedDate()));
       double w = 0.7;
-      addParticipant(l.getPosterId(), w);
+      addParticipant(l.getLikerId(), w);
       addStream(l.getOwnerId(), w);
       addLike(l);
     }
@@ -540,7 +545,7 @@ public class UserInfluencers {
   public void addSameCommentLiker(List<ActivityLikedEntity> liked) {
     for (ActivityLikedEntity l : liked) {
       double w = 0.7;
-      addParticipant(l.getPosterId(), w);
+      addParticipant(l.getLikerId(), w);
       addStream(l.getOwnerId(), w);
       addLike(l);
     }
@@ -548,8 +553,13 @@ public class UserInfluencers {
 
   public void addSameConvoLiker(List<ActivityLikedEntity> liked) {
     for (ActivityLikedEntity l : liked) {
+      // TODO to avoid duplicates of posters via direct comments and
+      // comments on comments, maintain a set of "postID - posterID" - if item
+      // exists, then don't count it again.
+      // Similar problem in addConvoLiker()
+      // XXX attempted to fix this by SQL SELECT DISTINCT
       double w = 0.3;
-      addParticipant(l.getPosterId(), w);
+      addParticipant(l.getLikerId(), w);
       addStream(l.getOwnerId(), w);
       addLike(l);
     }
