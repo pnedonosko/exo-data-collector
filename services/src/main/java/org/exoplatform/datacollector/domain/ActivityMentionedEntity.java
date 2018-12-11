@@ -1,6 +1,7 @@
 package org.exoplatform.datacollector.domain;
 
 import java.io.Serializable;
+import java.util.Date;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -10,6 +11,7 @@ import javax.persistence.NamedNativeQueries;
 import javax.persistence.NamedNativeQuery;
 
 import org.exoplatform.commons.api.persistence.ExoEntity;
+import org.exoplatform.datacollector.domain.id.ActivityMentionedId;
 
 @Entity(name = "ActivityMentioned")
 @ExoEntity
@@ -69,12 +71,61 @@ public class ActivityMentionedEntity extends AbstractActivityEntity implements S
   private static final long serialVersionUID = 2885880561077614334L;
 
   /**
+   * The post ID (activity ID).
+   */
+  @Id
+  @Column(name = "post_id")
+  protected String          postId;
+
+  /**
+   * The poster ID.
+   */
+  @Id
+  @Column(name = "poster_id")
+  protected String          posterId;
+
+  /** The updated date. */
+  @Id
+  @Column(name = "updated_date")
+  protected Long            updated;
+
+  /** The posted date. */
+  @Column(name = "posted_date")
+  protected Long            posted;
+
+  /**
+   * The provider ID.
+   */
+  @Column(name = "post_provider_id")
+  protected String          providerId;
+
+  /**
+   * The post type.
+   */
+  @Column(name = "post_type")
+  protected String          type;
+
+  /**
+   * The owner ID.
+   */
+  @Column(name = "owner_id")
+  protected String          ownerId;
+
+  /** The hidden. */
+  @Column(name = "hidden")
+  protected Boolean         hidden;
+
+  /** The parent id. */
+  @Column(name = "parent_id")
+  protected String          parentId;
+
+  /**
    * The mentioned identity ID.
    */
-  @Column(name = "mentioned_id")
   @Id
+  @Column(name = "mentioned_id")
   protected String          mentionedId;
-
+  
   /**
    * Gets the mentioned ID.
    *
@@ -92,8 +143,59 @@ public class ActivityMentionedEntity extends AbstractActivityEntity implements S
    */
   @Override
   public String getPosterId() {
-    return super.getPosterId();
+    return posterId;
   }
+
+  @Override
+  public String getId() {
+    return postId;
+  }
+
+  @Override
+  public String getProviderId() {
+    return providerId;
+  }
+
+  @Override
+  public String getType() {
+    return type;
+  }
+
+  @Override
+  public String getOwnerId() {
+    return ownerId;
+  }
+
+  @Override
+  public Long getPosted() {
+    return posted;
+  }
+
+  @Override
+  public Long getUpdated() {
+    return updated;
+  }
+
+  @Override
+  public Date getPostedDate() {
+    return posted != null && posted > 0 ? new Date(posted) : null;
+  }
+
+  @Override
+  public Date getUpdatedDate() {
+    return updated != null && updated > 0 ? new Date(updated) : null;
+  }
+
+  @Override
+  public Boolean getHidden() {
+    return hidden;
+  }
+
+  @Override
+  public String getParentId() {
+    return parentId;
+  }
+  
 
   /**
    * Converts the ActivityMentionedEntity to the String
@@ -102,5 +204,4 @@ public class ActivityMentionedEntity extends AbstractActivityEntity implements S
   public String toString() {
     return "ActivityMentionedEntity [id=" + postId + ", posterId=" + posterId + "]";
   }
-
 }

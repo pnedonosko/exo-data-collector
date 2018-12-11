@@ -10,156 +10,94 @@ import javax.persistence.MappedSuperclass;
 /**
  * Abstract activity entity.
  */
-@MappedSuperclass
-@IdClass(ActivityId.class)
+
 public abstract class AbstractActivityEntity {
 
-  /**
-   * The post ID (activity ID).
-   */
-  @Id
-  @Column(name = "post_id")
-  protected String    postId;
-
-  /**
-   * The poster ID.
-   */
-  @Id
-  @Column(name = "poster_id")
-  protected String    posterId;
-
-  /** The updated date. */
-  @Column(name = "updated_date")
-  @Id
-  protected Long    updated;
-
-  /** The posted date. */
-  @Column(name = "posted_date")
-  protected Long    posted;
-
-  /**
-   * The provider ID.
-   */
-  @Column(name = "post_provider_id")
-  protected String  providerId;
-
-  /**
-   * The post type.
-   */
-  @Column(name = "post_type")
-  protected String  type;
-
-  /**
-   * The owner ID.
-   */
-  @Column(name = "owner_id")
-  protected String  ownerId;
-
-  /** The hidden. */
-  @Column(name = "hidden")
-  protected Boolean hidden;
-
-  /** The parent id. */
-  @Column(name = "parent_id")
-  protected String  parentId;
 
   /**
    * Gets the post id.
    *
    * @return the post id
    */
-  public String getId() {
-    return postId;
-  }
+  public abstract String getId();
 
   /**
    * Gets the provider id.
    *
    * @return the provider id
    */
-  public String getProviderId() {
-    return providerId;
-  }
+  public abstract String getProviderId();
 
   /**
    * Gets the type.
    *
    * @return the type
    */
-  public String getType() {
-    return type;
-  }
+  public abstract String getType();
 
   /**
    * Gets the poster id.
    *
    * @return the poster id
    */
-  public String getPosterId() {
-    return posterId;
-  }
+  public abstract String getPosterId();
 
   /**
    * Gets the owner id.
    *
    * @return the owner id
    */
-  public String getOwnerId() {
-    return ownerId;
-  }
+  public abstract String getOwnerId();
 
   /**
    * Gets the posted time in milliseconds.
    *
    * @return the posted
    */
-  public Long getPosted() {
-    return posted;
-  }
+  public abstract Long getPosted();
 
   /**
    * Gets the posted date.
    *
    * @return the posted date
    */
+  public abstract Date getPostedDate();
+  
+  /*
   public Date getPostedDate() {
     return posted != null && posted > 0 ? new Date(posted) : null;
-  }
+  }*/
+ 
 
   /**
    * Gets the updated date.
    *
    * @return the updated date
    */
+  public abstract Date getUpdatedDate();
+  /*
   public Date getUpdatedDate() {
     return updated != null && updated > 0 ? new Date(updated) : null;
-  }
+  }*/
 
   /**
    * Gets the updated time in milliseconds.
    *
    * @return the updated
    */
-  public Long getUpdated() {
-    return updated;
-  }
-
+  public abstract Long getUpdated();
   /**
    * Gets the hidden.
    *
    * @return the hidden
    */
-  public Boolean getHidden() {
-    return hidden;
-  }
+  public abstract Boolean getHidden();
 
   /**
    * Gets the parent id.
    *
    * @return the parent id
    */
-  public String getParentId() {
-    return parentId;
-  }
+  public abstract String getParentId();
 
 }

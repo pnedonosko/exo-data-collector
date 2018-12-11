@@ -5,10 +5,13 @@ import java.util.Date;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.IdClass;
 import javax.persistence.NamedNativeQueries;
 import javax.persistence.NamedNativeQuery;
 
 import org.exoplatform.commons.api.persistence.ExoEntity;
+import org.exoplatform.datacollector.domain.id.ActivityCommentedId;
 
 @Entity(name = "ActivityCommented")
 @ExoEntity
@@ -81,7 +84,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " AND si.provider_id = 'organization' AND a.owner_id IS NOT NULL" //
         + " AND a.owner_id IN (:favoriteStreams) AND oc.poster_id != :posterId" //
         + " ORDER BY post_id, parent_id, poster_id", resultClass = ActivityCommentedEntity.class) })
-
+@IdClass(ActivityCommentedId.class)
 public class ActivityCommentedEntity extends AbstractActivityEntity implements Serializable {
 
   /**
@@ -90,17 +93,123 @@ public class ActivityCommentedEntity extends AbstractActivityEntity implements S
   private static final long serialVersionUID = -1401311373865460325L;
 
   /**
+   * The post ID (activity ID).
+   */
+  @Id
+  @Column(name = "post_id")
+  protected String          postId;
+
+  /**
+   * The poster ID.
+   */
+  @Id
+  @Column(name = "poster_id")
+  protected String          posterId;
+
+  /** The updated date. */
+  @Id
+  @Column(name = "updated_date")
+  protected Long            updated;
+
+  /** The posted date. */
+  @Column(name = "posted_date")
+  protected Long            posted;
+
+  /**
+   * The provider ID.
+   */
+  @Column(name = "post_provider_id")
+  protected String          providerId;
+
+  /**
+   * The post type.
+   */
+  @Column(name = "post_type")
+  protected String          type;
+
+  /**
+   * The owner ID.
+   */
+  @Column(name = "owner_id")
+  protected String          ownerId;
+
+  /** The hidden. */
+  @Column(name = "hidden")
+  protected Boolean         hidden;
+
+  /** The parent id. */
+  @Column(name = "parent_id")
+  protected String          parentId;
+  
+  /**
    * The comment posted date.
    */
   @Column(name = "c_posted_date")
   protected Long            commentPosted;
 
   /**
-   * The comment posted date.
+   * The comment updated date.
    */
+  @Id
   @Column(name = "c_updated_date")
   protected Long            commentUpdated;
 
+  @Override
+  public String getPosterId() {
+    return posterId;
+  }
+
+  @Override
+  public String getId() {
+    return postId;
+  }
+
+  @Override
+  public String getProviderId() {
+    return providerId;
+  }
+
+  @Override
+  public String getType() {
+    return type;
+  }
+
+  @Override
+  public String getOwnerId() {
+    return ownerId;
+  }
+
+  @Override
+  public Long getPosted() {
+    return posted;
+  }
+
+  @Override
+  public Long getUpdated() {
+    return updated;
+  }
+
+  @Override
+  public Date getPostedDate() {
+    return posted != null && posted > 0 ? new Date(posted) : null;
+  }
+
+  @Override
+  public Date getUpdatedDate() {
+    return updated != null && updated > 0 ? new Date(updated) : null;
+  }
+
+  @Override
+  public Boolean getHidden() {
+    return hidden;
+  }
+
+  @Override
+  public String getParentId() {
+    return parentId;
+  }
+  
+  
   /**
    * Gets the comment posted time in milliseconds.
    *
@@ -136,6 +245,7 @@ public class ActivityCommentedEntity extends AbstractActivityEntity implements S
   public Date getCommentUpdatedDate() {
     return commentUpdated != null && commentUpdated > 0 ? new Date(commentUpdated) : null;
   }
+  
 
   /**
    * Converts the ActivityCommentedEntity to the String.
