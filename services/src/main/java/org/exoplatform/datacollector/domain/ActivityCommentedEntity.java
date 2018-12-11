@@ -69,9 +69,18 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id, a.owner_id, oc.parent_id,"
         + "  oc.posted AS c_posted_date, oc.updated_date AS c_updated_date, a.hidden, a.posted AS posted_date, a.updated_date"
         + " FROM soc_activities a, soc_activities oc, soc_identities si"
-        + " WHERE a.owner_id IS NOT NULL AND si.identity_id = a.poster_id AND si.provider_id = 'organization'"
-        + " AND a.activity_id = oc.parent_id AND a.owner_id IN (:favoriteStreams) AND oc.poster_id != :posterId"
-        + " ORDER BY a.owner_id, c_updated_date", resultClass = ActivityCommentedEntity.class) })
+        + " WHERE si.identity_id = a.poster_id AND si.provider_id = 'organization'"
+        + " AND a.activity_id = oc.parent_id AND a.owner_id IS NOT NULL"
+        + " AND a.owner_id IN (:favoriteStreams) AND oc.poster_id != :posterId" //
+        + " UNION ALL" //
+        + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
+        + "  oc.poster_id, a.owner_id, oc.parent_id, oc.posted AS c_posted_date, oc.updated_date AS c_updated_date,"
+        + "  a.hidden, a.posted AS posted_date, a.updated_date" //
+        + " FROM soc_activities a, soc_activities cp, soc_activities oc, soc_identities si"
+        + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = oc.parent_id AND si.identity_id = a.poster_id"
+        + " AND si.provider_id = 'organization' AND a.owner_id IS NOT NULL" //
+        + " AND a.owner_id IN (:favoriteStreams) AND oc.poster_id != :posterId" //
+        + " ORDER BY post_id, parent_id, poster_id", resultClass = ActivityCommentedEntity.class) })
 
 public class ActivityCommentedEntity extends AbstractActivityEntity implements Serializable {
 

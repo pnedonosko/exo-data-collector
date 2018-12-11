@@ -267,6 +267,9 @@ public class UserInfluencers {
   }
 
   protected void addParticipant(String id, double weight) {
+    // TODO we may want to avoid adding same activity part several times via
+    // different queries, like as commenter and favorite stream commenter, same
+    // for commenters and likers.
     participants.computeIfAbsent(id, k -> new ArrayList<Double>()).add(weight);
   }
 
