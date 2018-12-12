@@ -38,7 +38,7 @@ import org.exoplatform.datacollector.domain.id.ActivityMentionedId;
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = c.parent_id AND c.activity_id = m.activity_id"
         + " AND m.mentioner_id != c.poster_id AND a.owner_id IS NOT NULL AND cp.owner_id IS NULL AND c.owner_id IS NULL"
         + " AND c.poster_id = :posterId" //
-        + " ORDER BY post_id, parent_id", resultClass = ActivityMentionedEntity.class),
+        + " ORDER BY post_id, parent_id, mentioned_id", resultClass = ActivityMentionedEntity.class),
     /* Others often mention the user (find mentioners) */
     @NamedNativeQuery(name = "ActivityMentioned.findPartIsMentioner", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, a.parent_id,"
@@ -61,7 +61,7 @@ import org.exoplatform.datacollector.domain.id.ActivityMentionedId;
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = c.parent_id AND c.activity_id = m.activity_id"
         + " AND m.mentioner_id != c.poster_id AND a.owner_id IS NOT NULL AND cp.owner_id IS NULL AND c.owner_id IS NULL"
         + " AND m.mentioner_id = :mentionerId" //
-        + " ORDER BY post_id, parent_id", resultClass = ActivityMentionedEntity.class) })
+        + " ORDER BY post_id, parent_id, poster_id", resultClass = ActivityMentionedEntity.class) })
 @IdClass(ActivityMentionedId.class)
 public class ActivityMentionedEntity extends AbstractActivityEntity implements Serializable {
 
