@@ -73,7 +73,7 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
         + " WHERE a.activity_id = c.parent_id AND c.activity_id = l.activity_id AND c.poster_id != l.liker_id"
         + " AND a.owner_id IS NOT NULL AND c.owner_id IS NULL AND c.poster_id = :commenterId" //
         + " UNION ALL" //
-        + "SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
+        + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  c.poster_id, a.owner_id, c.parent_id, a.hidden,"
         + "  a.posted AS posted_date, a.updated_date, l.liker_id, l.created_date AS liked_date"
         + " FROM soc_activities a, soc_activities cp, soc_activities c, soc_activity_likers l"

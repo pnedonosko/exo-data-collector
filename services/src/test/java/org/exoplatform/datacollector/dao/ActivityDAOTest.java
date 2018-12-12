@@ -17,6 +17,7 @@ import org.exoplatform.container.PortalContainer;
 import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.datacollector.TestUtils;
 import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
+import org.exoplatform.datacollector.domain.ActivityLikedEntity;
 import org.exoplatform.datacollector.domain.ActivityMentionedEntity;
 import org.exoplatform.datacollector.domain.ActivityPostedEntity;
 import org.exoplatform.services.log.ExoLogger;
@@ -268,70 +269,106 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(johnId)).count());
   }
 
-  /*
+
   // ActivityLikedEntity tests
   
   @Test
   public void testFindPartIsLikedPoster() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedPoster(jasonId.toString());
-    assertEquals(3, res.size());
+    assertEquals(6, res.size());
+    
     assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(jasonId.toString())));
+    
+    assertEquals(3, res.stream().filter(entity -> entity.getPosterId().equals(johnId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(jackId)).count());
+    
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(engineeringId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
-  
+   
   @Test
   public void testFindPartIsLikedCommenter() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedCommenter(jasonId.toString());
-    assertEquals(3, res.size());
+    assertEquals(14, res.size());
+    
     assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(jasonId.toString())));
+    
+    assertEquals(4, res.stream().filter(entity -> entity.getPosterId().equals(jamesId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getPosterId().equals(johnId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getPosterId().equals(bobId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(jackId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getPosterId().equals(aliceId)).count());
+    
+    assertEquals(4, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
+    assertEquals(4, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(salesId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
+ 
   
+  // TODO: fix
   @Test
   public void testFindPartIsLikedConvoPoster() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedConvoPoster(jasonId.toString());
-    assertEquals(2, res.size());
+    assertEquals(6, res.size());
     assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(jasonId.toString())));
   }
-  
+
+   
   @Test
   public void testFindPartIsPostLiker() {
-    // If we add jack's like to any mary's post and expect res.size() == 5 and
-    // one element has likerId equal to jackId, we will fail the test.
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsPostLiker(jasonId.toString());
-    assertEquals(4, res.size());
+    assertEquals(11, res.size());
+
+    assertTrue(res.stream().allMatch(entity -> entity.getPosterId().equals(jasonId.toString())));
+    
+    assertEquals(3, res.stream().filter(entity -> entity.getLikerId().equals(jamesId)).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getLikerId().equals(maryId)).count());
     assertEquals(3, res.stream().filter(entity -> entity.getLikerId().equals(johnId)).count());
-    assertEquals(1, res.stream().filter(entity -> entity.getLikerId().equals(jasonId)).count());
-    assertTrue(res.stream().allMatch(entity -> entity.getPosterId().equals(maryId)));
+    assertEquals(1, res.stream().filter(entity -> entity.getLikerId().equals(jackId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getLikerId().equals(bobId)).count());
+    
+    assertEquals(7, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
+  
   
   @Test
   public void testFindPartIsCommentLiker() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsCommentLiker(jasonId.toString());
-    assertEquals(8, res.size());
-    // TODO: fix
-  
-    LOG.info("Jason ID: " + jasonId.toString());
-    LOG.info("James ID " + jamesId.toString() + " count: " + res.stream().filter(entity ->entity.getLikerId().equals(jamesId)).count());
-    LOG.info("John ID " + johnId.toString() + " count: " + res.stream().filter(entity ->entity.getLikerId().equals(johnId)).count());
-    LOG.info("Jack ID " + jackId.toString() + " count: " + res.stream().filter(entity ->entity.getLikerId().equals(jackId)).count());
-    LOG.info("Alice ID " + aliceId.toString() + " count: " + res.stream().filter(entity ->entity.getLikerId().equals(aliceId)).count());
-    res.forEach(entity -> LOG.info("Liker: " + entity.getLikerId() + " POSTER: " + entity.getPosterId() + " "
-        + entity.getPosted()));
-    assertEquals(1 ,res.stream().filter(entity ->entity.getLikerId().equals(jamesId)).count());
+    assertEquals(17, res.size());
+   
+    assertTrue(res.stream().allMatch(entity -> entity.getPosterId().equals(jasonId.toString())));
+    
+    assertEquals(4 ,res.stream().filter(entity ->entity.getLikerId().equals(jamesId)).count());
     assertEquals(3 ,res.stream().filter(entity ->entity.getLikerId().equals(johnId)).count());
-    assertEquals(3 ,res.stream().filter(entity ->entity.getLikerId().equals(jackId)).count());
-    assertEquals(1 ,res.stream().filter(entity ->entity.getLikerId().equals(aliceId)).count());
-  
-  
+    assertEquals(4 ,res.stream().filter(entity ->entity.getLikerId().equals(jackId)).count());
+    assertEquals(3 ,res.stream().filter(entity ->entity.getLikerId().equals(maryId)).count());
+    assertEquals(2 ,res.stream().filter(entity ->entity.getLikerId().equals(aliceId)).count());
+    assertEquals(1 ,res.stream().filter(entity ->entity.getLikerId().equals(bobId)).count());
+    
+    assertEquals(7, res.stream().filter(entity -> entity.getOwnerId().equals(productId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(engineeringId)).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(salesId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
+
   }
-  
+
+  // TODO: fix
   @Test
   public void testFindPartIsConvoLiker() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsConvoLiker(jasonId);
-    assertEquals(3, res.size());
-    assertEquals(1, res.stream().filter(entity -> entity.getLikerId().equals(johnId)).count());
-    assertEquals(2, res.stream().filter(entity -> entity.getLikerId().equals(maryId)).count());
+    assertEquals(10, res.size());  
   }
-  */
+ 
   @Override
   protected void afterClass() {
     super.afterClass();
