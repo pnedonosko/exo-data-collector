@@ -1,6 +1,7 @@
 package org.exoplatform.datacollector.domain.id;
 
 import java.io.Serializable;
+import java.util.Date;
 
 public class ActivityLikedId implements Serializable {
 
@@ -21,6 +22,9 @@ public class ActivityLikedId implements Serializable {
   /** The liker id */
   protected String          likerId;
 
+  /** The liked date */
+  protected Date            likedDate;
+
   /**
    * Initializes a new ActivityLikedId
    */
@@ -35,12 +39,13 @@ public class ActivityLikedId implements Serializable {
    * @param updated
    * @param likerId
    */
-  public ActivityLikedId(String postId, String posterId, Long updated, String likerId) {
+  public ActivityLikedId(String postId, String posterId, Long updated, String likerId, Date likedDate) {
     super();
     this.postId = postId;
     this.posterId = posterId;
     this.updated = updated;
     this.likerId = likerId;
+    this.likedDate = likedDate;
   }
 
   public String getPostId() {
@@ -74,6 +79,15 @@ public class ActivityLikedId implements Serializable {
   public void setLikerId(String likerId) {
     this.likerId = likerId;
   }
+  
+
+  public Date getLikedDate() {
+    return likedDate;
+  }
+
+  public void setLikedDate(Date likedDate) {
+    this.likedDate = likedDate;
+  }
 
   /**
    * {@inheritDoc}
@@ -83,6 +97,7 @@ public class ActivityLikedId implements Serializable {
     hc = hc * 31 + posterId.hashCode();
     hc = hc * 31 + updated.hashCode();
     hc = hc * 31 + likerId.hashCode();
+    hc = hc * 31 + likedDate.hashCode();
     return hc;
   }
 
@@ -95,7 +110,7 @@ public class ActivityLikedId implements Serializable {
       if (ActivityLikedId.class.isAssignableFrom(o.getClass())) {
         ActivityLikedId other = ActivityLikedId.class.cast(o);
         return posterId.equals(other.getPosterId()) && postId.equals(other.getPostId()) && updated.equals(other.getUpdated())
-            && likerId.equals(other.getLikerId());
+            && likerId.equals(other.getLikerId()) && likedDate.equals(other.getLikedDate());
       }
     }
     return false;
