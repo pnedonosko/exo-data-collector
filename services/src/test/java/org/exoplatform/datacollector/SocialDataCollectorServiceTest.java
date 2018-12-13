@@ -24,15 +24,15 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
 
   private SocialDataCollectorService dataCollector;
 
-  private BufferedReader activitiesReader;
-  
+  private BufferedReader             activitiesReader;
+
   @Override
   protected void beforeClass() {
     super.beforeClass();
 
     //
     dataCollector = container.getComponentInstanceOfType(SocialDataCollectorService.class);
-    
+
     //
     try {
       File activitiesFile = File.createTempFile("data_collector", ".csv");
@@ -40,8 +40,8 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
 
       dataCollector.collectUserActivities(writer);
       writer.close();
-      
-      activitiesReader = new BufferedReader(new FileReader(activitiesFile)); 
+
+      activitiesReader = new BufferedReader(new FileReader(activitiesFile));
     } catch (Exception e) {
       fail("Error collecting activities", e);
     }
@@ -50,8 +50,8 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
   @Test
   public void testHeader() throws IOException {
     String header = activitiesReader.readLine();
-    
-    
+    // id,title,type_content,type_social,type_calendar,type_forum,type_wiki,type_poll,type_other,owner_id,owner_title,owner_type_organization,owner_type_space,owner_influence,number_of_likes,number_of_comments,reactivity,is_mentions_me,is_mentions_connections,is_commented_by_me,is_commented_by_connetions,is_liked_by_me,is_liked_by_connections,poster_id,poster_gender,poster_is_employee,poster_is_lead,poster_is_in_connections,poster_focus_engineering,poster_focus_sales,poster_focus_marketing,poster_focus_management,poster_focus_financial,poster_focus_other,poster_influence,participant1_id,participant1_conversed,participant1_favored,participant1_gender,participant1_is_employee,participant1_is_lead,participant1_is_in_connections,participant1_focus_engineering,participant1_focus_sales,participant1_focus_marketing,participant1_focus_management,participant1_focus_financial,participant1_focus_other,participant1_influence,participant2_id,participant2_conversed,participant2_favored,participant2_gender,participant2_is_employee,participant2_is_lead,participant2_is_in_connections,participant2_focus_engineering,participant2_focus_sales,participant2_focus_marketing,participant2_focus_management,participant2_focus_financial,participant2_focus_other,participant2_influence,participant3_id,participant3_conversed,participant3_favored,participant3_gender,participant3_is_employee,participant3_is_lead,participant3_is_in_connections,participant3_focus_engineering,participant3_focus_sales,participant3_focus_marketing,participant3_focus_management,participant3_focus_financial,participant3_focus_other,participant3_influence,participant4_id,participant4_conversed,participant4_favored,participant4_gender,participant4_is_employee,participant4_is_lead,participant4_is_in_connections,participant4_focus_engineering,participant4_focus_sales,participant4_focus_marketing,participant4_focus_management,participant4_focus_financial,participant4_focus_other,participant4_influence,participant5_id,participant5_conversed,participant5_favored,participant5_gender,participant5_is_employee,participant5_is_lead,participant5_is_in_connections,participant5_focus_engineering,participant5_focus_sales,participant5_focus_marketing,participant5_focus_management,participant5_focus_financial,participant5_focus_other,participant5_influence
+
   }
 
 }

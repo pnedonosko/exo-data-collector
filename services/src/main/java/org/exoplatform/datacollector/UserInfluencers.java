@@ -226,12 +226,12 @@ public class UserInfluencers {
     return weight * dweight;
   }
 
-  public static double round(double value, long precision) {
+  public static double round(double value, double precision) {
     return Math.round(value * precision) / precision;
   }
 
   public static double sigmoid(double value) {
-    // 1/(1+EXP(-LN(value)*2))
+    // 1/(1+EXP(-LN(value)*2)) TODO *1.5 may produce a bit smaller values
     return round(1 / (1 + Math.exp(-2 * Math.log(value))), WEIGHT_PRECISION);
   }
 
@@ -258,6 +258,11 @@ public class UserInfluencers {
     return getFavoriteStreamsWeight().getOrDefault(streamId, DEFAULT_WEIGHT);
   }
 
+  /**
+   * Gets the favorite streams, first most favorite and lesser later.
+   *
+   * @return the favorite streams ordered in descending order of user favor
+   */
   public Collection<String> getFavoriteStreams() {
     // TODO filter all the streams to only ones that have weight higher of some
     // trendy value (e.g. 0.75)
@@ -269,7 +274,7 @@ public class UserInfluencers {
     Map<String, Double> weights = getFavoriteStreamsWeight();
     Map<String, Double> ordered = weights.entrySet()
                                          .stream()
-                                         .sorted((e1, e2) -> (int) Math.round((e1.getValue() - e2.getValue()) * WEIGHT_PRECISION))
+                                         .sorted((e1, e2) -> (int) Math.round((e2.getValue() - e1.getValue()) * WEIGHT_PRECISION))
                                          .collect(Collectors.toMap(Map.Entry::getKey,
                                                                    Map.Entry::getValue,
                                                                    (e1, e2) -> e1,

@@ -417,7 +417,7 @@ public class SocialDataCollectorService implements Startable {
       Collection<String> userStreams = influencers.getFavoriteStreamsTop(10);
       if (userStreams.size() < 10) {
         // TODO add required (to 10) streams where user has most of its
-        // connections
+        // connectionsace
       }
       if (userStreams.size() > 0) {
         influencers.addStreamPoster(postStorage.findPartIsFavoriteStreamPoster(id.getId(), userStreams));
@@ -573,8 +573,8 @@ public class SocialDataCollectorService implements Startable {
     StringBuilder aline = new StringBuilder();
     // ID
     aline.append(activity.getId()).append(',');
-    // title
-    aline.append(activity.getTitle()).append(',');
+    // title: escape comma in the text to avoid problems with separator
+    aline.append(activity.getTitle().replace(',', '_')).append(',');
     // type: encoded
     encActivityType(aline, activity.getType());
     // app ID: TODO need it?
@@ -602,6 +602,7 @@ public class SocialDataCollectorService implements Startable {
     // TODO do we need owner/stream focus?
     // aline.append(findStreamFocus(stream.getPrettyId())).append(',');
     // owner influence
+    // TODO format double/float with dot-delimiter for decimal part
     aline.append(influencers.getStreamWeight(ownerId.getId())).append(',');
     // number_of_likes
     aline.append(activity.getNumberOfLikes()).append(',');
@@ -646,7 +647,7 @@ public class SocialDataCollectorService implements Startable {
     // poster gender: encoded
     encGender(aline, posterProfile.getGender());
     // poster_is_employee
-    aline.append(isEmployee(posterProfile.getId()) ? '1' : '0').append(',');
+    aline.append(isEmployee(poster.getRemoteId()) ? '1' : '0').append(',');
     // TODO poster_is_lead
     aline.append('0').append(',');
     // poster_is_in_connections
@@ -678,7 +679,7 @@ public class SocialDataCollectorService implements Startable {
       // participantN_gender: encoded
       encGender(aline, partProfile.getGender());
       // participantN_is_employee
-      aline.append(isEmployee(partProfile.getId()) ? '1' : '0').append(',');
+      aline.append(isEmployee(part.getRemoteId()) ? '1' : '0').append(',');
       // TODO participantN_is_lead
       aline.append('0').append(',');
       // participantN_is_in_connections
@@ -762,16 +763,16 @@ public class SocialDataCollectorService implements Startable {
     }
   }
 
-  protected boolean isEmployee(String userId) {
+  protected boolean isEmployee(String userName) {
     try {
-      Collection<Group> userGroups = organization.getGroupHandler().findGroupsOfUser(userId);
+      Collection<Group> userGroups = organization.getGroupHandler().findGroupsOfUser(userName);
       for (Group g : userGroups) {
         if (EMPLOYEE_GROUPID.equals(g.getId())) {
           return true;
         }
       }
     } catch (Exception e) {
-      LOG.warn("Error getting user group: " + userId + ". Error: " + e.getMessage());
+      LOG.warn("Error getting user group: " + userName + ". Error: " + e.getMessage());
     }
     return false;
   }
@@ -931,7 +932,7 @@ public class SocialDataCollectorService implements Startable {
         // the organization,
         // * if no users - add "black" user with id=0.
         if (top.size() < topLength) {
-          int needAdd = top.size() - topLength;
+          int needAdd = topLength - top.size();
           do {
             top.computeIfAbsent("0", p -> new ActivityParticipant(p, false, false));
             needAdd--;
