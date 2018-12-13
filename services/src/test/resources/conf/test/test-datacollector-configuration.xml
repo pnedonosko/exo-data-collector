@@ -5,7 +5,7 @@
   xmlns="http://www.exoplatform.org/xml/ns/kernel_1_2.xsd">
 
   <component>
-    <type>org.exoplatform.datacollector.DataCollectorService</type>
+    <type>org.exoplatform.datacollector.SocialDataCollectorService</type>
   </component>
 
   <component>

@@ -71,6 +71,11 @@
       </values-param>
     </init-params>
   </component>
+  
+  <component>
+    <key>org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryService</key>  
+    <type>org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryServiceImpl</type>
+  </component>
 
   <external-component-plugins>
     <target-component>org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator</target-component>

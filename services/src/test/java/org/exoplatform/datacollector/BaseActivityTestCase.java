@@ -31,6 +31,8 @@ public class BaseActivityTestCase extends BaseCommonsTestCase {
   /** Logger */
   private static final Log      LOG = ExoLogger.getExoLogger(BaseActivityTestCase.class);
 
+  protected PortalContainer container;
+  
   protected SpaceService        spaceService;
 
   protected RelationshipManager relationshipManager;
