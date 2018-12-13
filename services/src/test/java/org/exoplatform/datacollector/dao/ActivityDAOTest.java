@@ -310,16 +310,16 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
  
-  
+ 
   // TODO: fix
   @Test
   public void testFindPartIsLikedConvoPoster() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedConvoPoster(jasonId.toString());
-    assertEquals(6, res.size());
+    assertEquals(5, res.size());
     assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(jasonId.toString())));
   }
 
-   
+  
   @Test
   public void testFindPartIsPostLiker() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsPostLiker(jasonId.toString());
@@ -381,7 +381,27 @@ public class ActivityDAOTest extends BaseCommonsTestCase {
     assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(salesId)).count());
     assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
- 
+  
+  @Test
+  public void testFindPartIsSamePostLiker() {
+    List<ActivityLikedEntity> res = activityLikedDAO.findPartIsSamePostLiker(jasonId);
+    assertEquals(9, res.size()); 
+    
+    assertEquals(3 ,res.stream().filter(entity ->entity.getPosterId().equals(johnId)).count());
+    assertEquals(3 ,res.stream().filter(entity ->entity.getPosterId().equals(maryId)).count());
+    assertEquals(3 ,res.stream().filter(entity ->entity.getPosterId().equals(jackId)).count());
+    
+    assertEquals(3 ,res.stream().filter(entity ->entity.getLikerId().equals(jamesId)).count());
+    assertEquals(2 ,res.stream().filter(entity ->entity.getLikerId().equals(bobId)).count());
+    assertEquals(3 ,res.stream().filter(entity ->entity.getLikerId().equals(aliceId)).count());
+    assertEquals(1 ,res.stream().filter(entity ->entity.getLikerId().equals(maryId)).count());
+    
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(engineeringId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
+    assertEquals(3, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
+    assertEquals(4, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
+  }
+
   @Override
   protected void afterClass() {
     super.afterClass();
