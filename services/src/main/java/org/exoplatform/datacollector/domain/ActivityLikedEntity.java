@@ -168,7 +168,7 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
         + " FROM soc_activities a, soc_activity_likers ol, soc_identities si"
         + " WHERE si.identity_id = ol.liker_id AND si.provider_id = 'organization' AND a.activity_id = ol.activity_id"
         + " AND a.owner_id IS NOT NULL AND a.owner_id IN (:favoriteStreams) AND ol.liker_id != :likerId"
-        + " ORDER BY post_id, parent_id, liker_id", resultClass = ActivityCommentedEntity.class),
+        + " ORDER BY post_id, parent_id, liker_id", resultClass = ActivityLikedEntity.class),
     /* Others often like comments in the user favorite streams (find likers) */
     @NamedNativeQuery(name = "ActivityLiked.findPartIsFavoriteStreamCommentLiker", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id, a.owner_id, oc.parent_id,"
@@ -184,7 +184,8 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = oc.parent_id"
         + " AND oc.activity_id = ol.activity_id AND a.owner_id IS NOT NULL"
         + " AND a.owner_id IN (:favoriteStreams) AND ol.liker_id != :likerId"
-        + " ORDER BY post_id, parent_id, liker_id", resultClass = ActivityCommentedEntity.class) })
+        + " ORDER BY post_id, parent_id, liker_id", resultClass = ActivityLikedEntity.class) })
+
 @IdClass(ActivityLikedId.class)
 public class ActivityLikedEntity extends AbstractActivityEntity implements Serializable {
 
