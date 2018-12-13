@@ -48,21 +48,21 @@ public class UserInfluencers {
   /** Default or uncertain weight constant. */
   public static final double    DEFAULT_WEIGHT             = 0.1;
 
-  private static final int      WEIGHT_PRECISION           = 100000;
+  public static final int       WEIGHT_PRECISION           = 100000;
 
-  private static final int      REACTIVITY_DAYS_RANGE      = 30;
+  public static final int       REACTIVITY_DAYS_RANGE      = 30;
 
-  private static final int      INFLUENCE_DAYS_RANGE       = 90;
+  public static final int       INFLUENCE_DAYS_RANGE       = 90;
 
-  private static final double   REACTIVITY_DAY_WEIGHT_GROW = 0.7;
+  public static final double    REACTIVITY_DAY_WEIGHT_GROW = 0.7;
 
-  private static final double   INFLUENCE_DAY_WEIGHT_GROW  = 0.2;
+  public static final double    INFLUENCE_DAY_WEIGHT_GROW  = 0.2;
+
+  public static final int       DAY_LENGTH_MILLIS          = 86400000;
 
   private static final double[] REACTIVITY_WEIGHTS         = new double[REACTIVITY_DAYS_RANGE];
 
   private static final double[] INFLUENCE_WEIGHTS          = new double[INFLUENCE_DAYS_RANGE];
-
-  private static final int      DAY_LENGTH_MILLIS          = 86400000;
 
   static {
     // Index 0 is for first day and so on
@@ -144,11 +144,11 @@ public class UserInfluencers {
     }
   }
 
-  private Map<String, List<Double>> streams      = new HashMap<>();
+  private Map<String, List<Double>>    streams      = new HashMap<>();
 
-  private Map<String, List<Double>> participants = new HashMap<>();
+  private Map<String, List<Double>>    participants = new HashMap<>();
 
-  private Map<String, ActivityInfo> activities   = new HashMap<>();
+  private Map<String, ActivityInfo>    activities   = new HashMap<>();
 
 //  private final OrganizationService           organization;
 //
@@ -158,11 +158,11 @@ public class UserInfluencers {
 
 //  private final SpaceService                  spaceService;
 
-  private final Identity            userIdentity;
+  private final Identity               userIdentity;
 
-  private Map<String, Identity>     userConnections;
+  private final Map<String, Identity>  userConnections;
 
-  private Map<String, SpaceInfo>    userSpaces;
+  private final Map<String, SpaceInfo> userSpaces;
 
   public UserInfluencers(Identity userIdentity, List<Identity> userConnections, List<Space> userSpaces
   /*
@@ -178,6 +178,18 @@ public class UserInfluencers {
     // Preload some common info
     this.userConnections = userConnections.stream().collect(Collectors.toMap(c -> c.getId(), c -> c));
     this.userSpaces = userSpaces.stream().collect(Collectors.toMap(s -> s.getId(), s -> new SpaceInfo(s)));
+  }
+
+  public Map<String, Identity> getUserConnections() {
+    return userConnections;
+  }
+
+  public Map<String, SpaceInfo> getUserSpaces() {
+    return userSpaces;
+  }
+
+  public Identity getUserIdentity() {
+    return userIdentity;
   }
 
   private static double dayWeight(double[] table, long from, long to, boolean olderIsZero) {
@@ -214,9 +226,13 @@ public class UserInfluencers {
     return weight * dweight;
   }
 
+  public static double round(double value, long precision) {
+    return Math.round(value * precision) / precision;
+  }
+
   public static double sigmoid(double value) {
     // 1/(1+EXP(-LN(value)*2))
-    return 1 / (1 + Math.exp(-2 * Math.log(value)));
+    return round(1 / (1 + Math.exp(-2 * Math.log(value))), WEIGHT_PRECISION);
   }
 
   protected void addStream(String id, double weight) {
@@ -297,14 +313,17 @@ public class UserInfluencers {
     if (conn != null) {
       weights.add(0.3);
     }
-    SpaceInfo spaceInfo = userSpaces.get(streamId);
-    if (spaceInfo != null) {
-      if (spaceInfo.managers.contains(id)) {
-        weights.add(0.5);
-      } else if (spaceInfo.members.contains(id)) {
-        weights.add(0.2);
-      } else {
-        weights.add(DEFAULT_WEIGHT);
+    SpaceInfo spaceInfo = null;
+    if (streamId != null) {
+      spaceInfo = userSpaces.get(streamId);
+      if (spaceInfo != null) {
+        if (spaceInfo.managers.contains(id)) {
+          weights.add(0.5);
+        } else if (spaceInfo.members.contains(id)) {
+          weights.add(0.2);
+        } else {
+          weights.add(DEFAULT_WEIGHT);
+        }
       }
     }
     if (conn == null && spaceInfo == null) {

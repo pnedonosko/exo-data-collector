@@ -36,6 +36,7 @@ import org.exoplatform.datacollector.domain.RelevanceEntity;
     // @ConfigurationUnit(scope = ContainerScope.PORTAL, path =
     // "conf/test-portal-configuration.xml")
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/test/test-configuration.xml") })
+@Deprecated // TODO remove it
 public class DataCollectorServiceTest extends BaseCommonsTestCase {
 
   DataCollectorService dataCollectorService;

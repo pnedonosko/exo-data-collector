@@ -38,6 +38,7 @@ import org.exoplatform.social.core.storage.api.IdentityStorage;
 /**
  * The Class DataCollectorService.
  */
+@Deprecated // TODO remove it
 public class DataCollectorService implements Startable {
 
   /** Logger */

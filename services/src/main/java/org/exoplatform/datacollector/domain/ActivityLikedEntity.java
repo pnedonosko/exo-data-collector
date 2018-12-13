@@ -43,17 +43,17 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
     /* User liked others' comments in someone's post (find posters) */
     // XXX attempt to solve duplicated by SELECT DISTINCT a.* FROM
     @NamedNativeQuery(name = "ActivityLiked.findPartIsLikedConvoPoster", query = "SELECT DISTINCT a.* FROM ("
-        + "SELECT a.activity_id AS post_id,"
-        + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, a.parent_id,"
-        + "  a.hidden, a.posted AS posted_date, a.updated_date, l.liker_id, l.created_date AS liked_date"
+        + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
+        + "  a.poster_id, a.owner_id, a.parent_id, a.hidden, a.posted AS posted_date, a.updated_date,"
+        + "  l.liker_id, l.created_date AS liked_date" //
         + " FROM soc_activities a, soc_activities oc, soc_activity_likers l"
-        + " WHERE a.activity_id = oc.parent_id AND oc.activity_id = l.activity_id"
-        + " AND oc.poster_id != l.liker_id AND a.poster_id != oc.poster_id"
+        + " WHERE a.activity_id = oc.parent_id AND oc.activity_id = l.activity_id "
+        + " AND oc.poster_id != l.liker_id AND a.poster_id != oc.poster_id AND a.poster_id != l.liker_id"
         + " AND a.owner_id IS NOT NULL AND oc.owner_id IS NULL AND l.liker_id = :likerId" //
         + " UNION ALL" //
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  a.poster_id, a.owner_id, a.parent_id, a.hidden, a.posted AS posted_date, a.updated_date,"
-        + "  l.liker_id, l.created_date AS liked_date"
+        + "  l.liker_id, l.created_date AS liked_date" //
         + " FROM soc_activities a, soc_activities cp, soc_activities oc, soc_activity_likers l"
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = oc.parent_id AND oc.activity_id = l.activity_id"
         + " AND a.poster_id != oc.poster_id AND oc.poster_id != l.liker_id AND a.poster_id != l.liker_id"

@@ -20,9 +20,13 @@ package org.exoplatform.datacollector;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.regex.Pattern;
 
@@ -33,6 +37,9 @@ import org.exoplatform.datacollector.dao.ActivityCommentedDAO;
 import org.exoplatform.datacollector.dao.ActivityLikedDAO;
 import org.exoplatform.datacollector.dao.ActivityMentionedDAO;
 import org.exoplatform.datacollector.dao.ActivityPostedDAO;
+import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryBean;
+import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryService;
+import org.exoplatform.portal.config.UserACL;
 import org.exoplatform.services.jcr.RepositoryService;
 import org.exoplatform.services.jcr.ext.app.SessionProviderService;
 import org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator;
@@ -51,9 +58,9 @@ import org.exoplatform.social.core.manager.ActivityManager;
 import org.exoplatform.social.core.manager.IdentityManager;
 import org.exoplatform.social.core.manager.RelationshipManager;
 import org.exoplatform.social.core.profile.ProfileFilter;
+import org.exoplatform.social.core.space.SpaceUtils;
 import org.exoplatform.social.core.space.model.Space;
 import org.exoplatform.social.core.space.spi.SpaceService;
-import org.exoplatform.social.core.storage.api.IdentityStorage;
 
 /**
  * The Class SocialDataCollectorService.
@@ -84,6 +91,58 @@ public class SocialDataCollectorService implements Startable {
    * /Groups/spaces/exo_employees.
    */
   protected static final String  EMPLOYEE_GROUPID    = "/spaces/exo_employees";
+
+  /**
+   * The Class ActivityParticipant.
+   */
+  protected static class ActivityParticipant {
+    final String  id;
+
+    final Integer isConversed;
+
+    final Integer isFavored;
+
+    ActivityParticipant(String id, Boolean isConversed, Boolean isFavored) {
+      super();
+      if (id == null) {
+        throw new NullPointerException("id should be not null");
+      }
+      this.id = id;
+      if (isConversed == null) {
+        throw new NullPointerException("isConversed should be not null");
+      }
+      this.isConversed = isConversed ? 1 : 0;
+      if (isFavored == null) {
+        throw new NullPointerException("isFavored should be not null");
+      }
+      this.isFavored = isFavored ? 1 : 0;
+    }
+
+    @Override
+    public int hashCode() {
+      int hc = 7 + id.hashCode() * 31;
+      hc = hc * 31 + isConversed.hashCode();
+      hc = hc * 31 + isFavored.hashCode();
+      return hc;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (o != null) {
+        if (this.getClass().isAssignableFrom(o.getClass())) {
+          ActivityParticipant other = this.getClass().cast(o);
+          return id.equals(other.id) && isConversed.equals(other.isConversed) && isFavored.equals(other.isFavored);
+        }
+      }
+      return false;
+    }
+
+    @Override
+    public String toString() {
+      return this.getClass().getSimpleName() + " [id=" + id + ", isConversed=" + isConversed.intValue() + ", isFavored="
+          + isFavored.intValue() + "]";
+    }
+  }
 
   /**
    * Load all given access list to a {@link List} instance. Use carefully for
@@ -219,8 +278,6 @@ public class SocialDataCollectorService implements Startable {
 
   protected final IdentityManager      identityManager;
 
-  protected final IdentityStorage      identityStorage;
-
   protected final ActivityManager      activityManager;
 
   protected final RelationshipManager  relationshipManager;
@@ -228,6 +285,10 @@ public class SocialDataCollectorService implements Startable {
   protected final SpaceService         spaceService;
 
   protected final OrganizationService  organization;
+
+  protected final LoginHistoryService  loginHistory;
+
+  protected final UserACL              userACL;
 
   protected final ActivityCommentedDAO commentStorage;
 
@@ -245,10 +306,11 @@ public class SocialDataCollectorService implements Startable {
    * @param hierarchyCreator the hierarchy creator
    * @param organization the organization
    * @param identityManager the identity manager
-   * @param identityStorage the identity storage
    * @param activityManager the activity manager
    * @param relationshipManager the relationship manager
    * @param spaceService the space service
+   * @param loginHistory the login history
+   * @param userACL the user ACL
    * @param postStorage the post storage
    * @param commentStorage the comment storage
    * @param likeStorage the like storage
@@ -259,27 +321,28 @@ public class SocialDataCollectorService implements Startable {
                                     NodeHierarchyCreator hierarchyCreator,
                                     OrganizationService organization,
                                     IdentityManager identityManager,
-                                    IdentityStorage identityStorage,
                                     ActivityManager activityManager,
                                     RelationshipManager relationshipManager,
                                     SpaceService spaceService,
+                                    LoginHistoryService loginHistory,
+                                    UserACL userACL,
                                     ActivityPostedDAO postStorage,
                                     ActivityCommentedDAO commentStorage,
                                     ActivityLikedDAO likeStorage,
                                     ActivityMentionedDAO mentionStorage) {
     super();
     this.identityManager = identityManager;
-    this.identityStorage = identityStorage;
     this.activityManager = activityManager;
     this.relationshipManager = relationshipManager;
     this.organization = organization;
     this.spaceService = spaceService;
+    this.loginHistory = loginHistory;
+    this.userACL = userACL;
 
     this.postStorage = postStorage;
     this.commentStorage = commentStorage;
     this.likeStorage = likeStorage;
     this.mentionStorage = mentionStorage;
-
   }
 
   /**
@@ -377,7 +440,11 @@ public class SocialDataCollectorService implements Startable {
       Iterator<ExoSocialActivity> feedIter = loadListIterator(activityManager.getActivityFeedWithListAccess(id));
       while (feedIter.hasNext()) {
         ExoSocialActivity activity = feedIter.next();
-        out.println(activityLine(influencers, activity));
+        try {
+          out.println(activityLine(influencers, activity));
+        } catch (ActivityDataException e) {
+          LOG.warn(e);
+        }
       }
     }
   }
@@ -403,10 +470,10 @@ public class SocialDataCollectorService implements Startable {
          .append("reactivity,")
          .append("is_mentions_me,")
          .append("is_mentions_connections,")
-         .append("is_liked_by_connections,")
+         .append("is_commented_by_me,")
          .append("is_commented_by_connetions,")
          .append("is_liked_by_me,")
-         .append("is_commented_by_me,")
+         .append("is_liked_by_connections,")
          // Poster features
          .append("poster_id,")
          .append("poster_gender,")
@@ -494,11 +561,11 @@ public class SocialDataCollectorService implements Startable {
          .append("participant5_focus_management,")
          .append("participant5_focus_financial,")
          .append("participant5_focus_other,")
-         .append("participant5_influence,");
+         .append("participant5_influence\n");
     return aline.toString();
   }
 
-  protected String activityLine(UserInfluencers influencers, ExoSocialActivity activity) {
+  protected String activityLine(UserInfluencers influencers, ExoSocialActivity activity) throws ActivityDataException {
     // Activity identification & type
     StringBuilder aline = new StringBuilder();
     // ID
@@ -518,6 +585,10 @@ public class SocialDataCollectorService implements Startable {
       ownerId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, activity.getStreamOwner(), false);
     }
     // owner ID
+    if (ownerId == null) {
+      throw new ActivityDataException("Cannot find social identity of stream owner: " + activity.getStreamOwner()
+          + ". Activity will be skipped: " + activity.getId());
+    }
     aline.append(ownerId.getId()).append(',');
     // owner type
     if (isSpace) {
@@ -530,46 +601,93 @@ public class SocialDataCollectorService implements Startable {
     // owner influence
     aline.append(influencers.getStreamWeight(ownerId.getId())).append(',');
     // number_of_likes
-    aline.append(activity.getLikeIdentityIds().length).append(',');
+    aline.append(activity.getNumberOfLikes()).append(',');
     // number_of_comments
     aline.append(activity.getCommentedIds().length).append(',');
     // reactivity: difference in days between a day of posted and a day when
     // user commented/liked: 0..1, where 1 is same day, 0 is 30+ days old
-    // TODO Should take in account user login history: time between nearest
-    // login and the reaction - indeed this may be not accurate.
+    // TODO Should we take in account user login history: time between nearest
+    // login and the reaction? Indeed this may be not accurate.
     aline.append(influencers.getPostReactivity(activity.getId())).append(',');
 
-    // TODO is_mentions_me
-    // TODO is_mentions_connections
-    // TODO is_liked_by_connections
-    // TODO is_commented_by_connetions
-    // TODO is_liked_by_me
-    // TODO is_commented_by_me
+    final String myId = influencers.getUserIdentity().getId();
+    final Collection<String> myConns = influencers.getUserConnections().keySet();
+
+    // is_mentions_me
+    // is_mentions_connections
+    encContainsMeOthers(aline, myId, myConns, activity.getMentionedIds());
+
+    // is_commented_by_me
+    // is_commented_by_connetions
+    encContainsMeOthers(aline, myId, myConns, activity.getCommentedIds());
+
+    // is_liked_by_me
+    // is_liked_by_connections
+    encContainsMeOthers(aline, myId, myConns, activity.getLikeIdentityIds());
 
     // Poster (creator)
     String posterId = activity.getPosterId();
     aline.append(posterId).append(','); // poster ID
-    Identity poster = identityManager.getIdentity(posterId, true);
+    Identity poster = identityManager.getIdentity(posterId, false);
+    if (poster == null) {
+      throw new ActivityDataException("Cannot find social identity of activity poster: " + posterId
+          + ". Activity will be skipped: " + activity.getId());
+    }
     Profile posterProfile = identityManager.getProfile(poster);
-    // poster full name
-    aline.append(posterProfile.getFullName()).append(',');
+    if (posterProfile == null) {
+      throw new ActivityDataException("Cannot find profile of activity poster: " + posterId + " (" + poster.getRemoteId() + ")"
+          + ". Activity will be skipped: " + activity.getId());
+    }
+    // TODO poster full name ?
+    // aline.append(posterProfile.getFullName()).append(',');
     // poster gender: encoded
     encGender(aline, posterProfile.getGender());
-    // poster job position as team membership: encoded
-    encPosition(aline, posterProfile.getPosition());
-    // poster is employee: encoded
+    // poster_is_employee
     aline.append(isEmployee(posterProfile.getId()) ? '1' : '0').append(',');
-    // Meta-information
-    // number of likes
-    aline.append(activity.getNumberOfLikes()).append(',');
-    String[] commentedIds = activity.getCommentedIds();
-    aline.append(commentedIds.length).append(','); // number of comments
-    String[] mentionsIds = activity.getMentionedIds();
-    // aline.append().append(','); //
+    // TODO poster_is_lead
+    aline.append('0').append(',');
+    // poster_is_in_connections
+    aline.append(myConns.contains(posterId) ? '1' : '0').append(',');
+    // poster_focus_*: poster job position as team membership encoded
+    encPosition(aline, posterProfile.getPosition());
+    // poster_influence
+    aline.append(influencers.getParticipantWeight(posterId, ownerId.getId())).append(',');
 
-    // TODO others isXXX
-    // activityManager.getActivitiesOfUserSpacesWithListAccess(poster).
-    //
+    // Find top 5 participants in this activity, we need not less than 5!
+    for (ActivityParticipant p : findTopParticipants(activity, influencers, isSpace, 5)) {
+      // participantN_id
+      aline.append(p.id).append(',');
+      // participantN_conversed
+      aline.append(p.isConversed).append(',');
+      // participantN_favored
+      aline.append(p.isFavored).append(',');
+      //
+      Identity part = identityManager.getIdentity(p.id, false);
+      if (part == null) {
+        throw new ActivityDataException("Cannot find social identity of activity participant: " + p.id
+            + ". Activity will be skipped: " + activity.getId());
+      }
+      Profile partProfile = identityManager.getProfile(part);
+      if (partProfile == null) {
+        throw new ActivityDataException("Cannot find profile of activity participant: " + p.id + " (" + part.getRemoteId() + ")"
+            + ". Activity will be skipped: " + activity.getId());
+      }
+      // participantN_gender: encoded
+      encGender(aline, partProfile.getGender());
+      // participantN_is_employee
+      aline.append(isEmployee(partProfile.getId()) ? '1' : '0').append(',');
+      // TODO participantN_is_lead
+      aline.append('0').append(',');
+      // participantN_is_in_connections
+      aline.append(myConns.contains(p.id) ? '1' : '0').append(',');
+      // participantN_focus_*: job position as team membership encoded
+      encPosition(aline, partProfile.getPosition());
+      // participantN_influence
+      aline.append(influencers.getParticipantWeight(p.id, ownerId.getId())).append(',');
+    }
+    
+    aline.setCharAt(aline.length() - 1, '\n'); // end of line
+
     return aline.toString();
   }
 
@@ -653,6 +771,208 @@ public class SocialDataCollectorService implements Startable {
       LOG.warn("Error getting user group: " + userId + ". Error: " + e.getMessage());
     }
     return false;
+  }
+
+  protected void encContainsMeOthers(StringBuilder aline, String me, Collection<String> others, String[] target) {
+    int isMe = 0;
+    int isOthers = 0;
+    for (String o : target) {
+      if (me.equals(o)) {
+        isMe = 1;
+      }
+      if (others.contains(o)) {
+        isOthers = 1;
+      }
+      if (isMe == 1 && isOthers == 1) {
+        break; // Make loop quicker if already know everything
+      }
+    }
+    aline.append(isMe).append(',');
+    aline.append(isOthers).append(',');
+  }
+
+  protected Collection<ActivityParticipant> findTopParticipants(ExoSocialActivity activity,
+                                                                UserInfluencers influencers,
+                                                                boolean isInSpace,
+                                                                int topLength) {
+    Map<String, ActivityParticipant> top = new LinkedHashMap<>();
+    // 1) Commenters are first line candidates:
+    Iterator<String> piter = Arrays.asList(activity.getCommentedIds()).iterator();
+    while (piter.hasNext() && top.size() < topLength) {
+      top.computeIfAbsent(piter.next(), p -> new ActivityParticipant(p, true, false));
+    }
+    if (top.size() < topLength) {
+      // 2) Mentioned are second line (count them as passive commenters)
+      piter = Arrays.asList(activity.getMentionedIds()).iterator();
+      while (piter.hasNext() && top.size() < topLength) {
+        top.computeIfAbsent(piter.next(), p -> new ActivityParticipant(p, true, false));
+      }
+    }
+    if (top.size() < topLength) {
+      // 3) Liked are third line
+      piter = Arrays.asList(activity.getLikeIdentityIds()).iterator();
+      while (piter.hasNext() && top.size() < topLength) {
+        top.computeIfAbsent(piter.next(), p -> new ActivityParticipant(p, false, true));
+      }
+    }
+    if (top.size() < topLength) {
+      // 4) Viewers are fourth line: find connection/space viewers for given
+      // user:
+      // 4.1) First try over user connections/space-members who can
+      // access the activity stream and last active around the activity date -
+      // this seems a heavy op.
+
+      // TODO attempt to select most relevant connections/members (use another
+      // ML to figure out 'leaders' in the intranet/spaces)
+
+      // Count on user history for 30 days after the activity
+      long beforeTime = 15 * 60 * 1000; // 15min in ms
+      long activityDate = activity.getPostedTime();
+      long activityScopeTimeBegin = activityDate - beforeTime;
+      long activityScopeTimeEnd = activityScopeTimeBegin
+          + (UserInfluencers.DAY_LENGTH_MILLIS * UserInfluencers.REACTIVITY_DAYS_RANGE);
+
+      if (isInSpace) {
+        // Get space managers and members who were logged-in
+        Space space = spaceService.getSpaceByGroupId(activity.getStreamOwner());
+        if (space != null) {
+          String[] smanagers = space.getManagers();
+          for (int i = 0; i < smanagers.length && top.size() < topLength; i++) {
+            if (wasUserLoggedin(smanagers[i], activityScopeTimeBegin, activityScopeTimeEnd)) {
+              top.computeIfAbsent(smanagers[i], p -> new ActivityParticipant(p, false, false));
+            }
+          }
+          String[] smembers = space.getMembers();
+          for (int i = 0; i < smembers.length && top.size() < topLength; i++) {
+            if (wasUserLoggedin(smembers[i], activityScopeTimeBegin, activityScopeTimeEnd)) {
+              top.computeIfAbsent(smembers[i], p -> new ActivityParticipant(p, false, false));
+            }
+          }
+          // if top still not full, we add managers w/o login check
+          for (int i = 0; i < smanagers.length && top.size() < topLength; i++) {
+            top.computeIfAbsent(smanagers[i], p -> new ActivityParticipant(p, false, false));
+          }
+        }
+      }
+
+      if (top.size() < topLength) {
+        // Add user connections who were logged-in
+        Iterator<String> citer = influencers.getUserConnections().keySet().iterator();
+        while (citer.hasNext() && top.size() < topLength) {
+          String cid = citer.next();
+          if (wasUserLoggedin(cid, activityScopeTimeBegin, activityScopeTimeEnd)) {
+            top.computeIfAbsent(cid, p -> new ActivityParticipant(p, false, false));
+          }
+        }
+      }
+
+      if (top.size() < topLength) {
+        // TODO 4.2) Second and finally, if user has no spaces/connections,
+        // * then we choose user's group managers
+        // TODO first use Employees group (or similar)
+        Collection<Group> userGroups;
+        try {
+          userGroups = organization.getGroupHandler().findGroupsOfUser(influencers.getUserIdentity().getRemoteId());
+        } catch (Exception e) {
+          LOG.warn("Error reading user groups for " + influencers.getUserIdentity().getRemoteId(), e);
+          userGroups = null;
+        }
+        if (userGroups != null) {
+          for (Group ug : userGroups) {
+            String gid = ug.getId();
+            if (!gid.startsWith(SpaceUtils.SPACE_GROUP)) {
+              // Use non space groups
+              String managerMemebership = getMembershipName("manager");
+              if (managerMemebership != null) {
+                Iterator<String> miter = SpaceUtils.findMembershipUsersByGroupAndTypes(gid, managerMemebership).iterator();
+                // TODO cleanup
+                // Iterator<User> gusers =
+                // loadListIterator(organization.getUserHandler().findUsersByGroupId(gid));
+                while (miter.hasNext() && top.size() < topLength) {
+                  // String userId = gusers.next().getUserName();
+                  String uname = miter.next();
+                  Identity mid = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, uname, false);
+                  if (mid != null) {
+                    top.computeIfAbsent(mid.getId(), p -> new ActivityParticipant(p, false, false));
+                  } else {
+                    LOG.warn("Group '" + gid + "' manager identity cannot be found in Social: " + uname);
+                  }
+                }
+              }
+            }
+          }
+        }
+        // * then we choose Root user and members of Admins group,
+        if (top.size() < topLength) {
+          Identity sid = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, userACL.getSuperUser(), false);
+          if (sid != null) {
+            top.computeIfAbsent(sid.getId(), p -> new ActivityParticipant(p, false, false));
+          } else {
+            LOG.warn("Root user identity cannot be found in Social");
+          }
+          // organization.getGroupHandler().findGroupById(userACL.getAdminGroups());
+          Iterator<String> aiter = SpaceUtils.findMembershipUsersByGroupAndTypes(userACL.getAdminGroups(), "*").iterator();
+          while (aiter.hasNext() && top.size() < topLength) {
+            // String userId = gusers.next().getUserName();
+            String aname = aiter.next();
+            Identity aid = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, aname, false);
+            if (aid != null) {
+              top.computeIfAbsent(aid.getId(), p -> new ActivityParticipant(p, false, false));
+            } else {
+              LOG.warn("Admin group member identity cannot be found in Social: " + aname);
+            }
+          }
+        }
+        // * TODO if not enough in admins - then guess random from "similar"
+        // users in
+        // the organization,
+        // * if no users - add "black" user with id=0.
+        if (top.size() < topLength) {
+          int needAdd = top.size() - topLength;
+          do {
+            top.computeIfAbsent("0", p -> new ActivityParticipant(p, false, false));
+            needAdd--;
+          } while (needAdd > 0);
+        }
+      }
+    }
+    return Collections.unmodifiableCollection(top.values());
+  }
+
+  protected boolean wasUserLoggedin(String userId, long fromTime, long toTime) {
+    try {
+      List<LoginHistoryBean> phistory = loginHistory.getLoginHistory(userId, fromTime, toTime);
+      // List is descending order, thus we see from the last (earlier login)
+      // ListIterator<LoginHistoryBean> liter =
+      // phistory.listIterator(phistory.size());
+      // while (liter.hasPrevious()) {
+      // LoginHistoryBean hbean = liter.previous();
+      // if (hbean.getLoginTime() >= activityScopeTimeBegin &&
+      // hbean.getLoginTime() < activityScopeTimeEnd) {
+      // return true;
+      // }
+      // }
+      // return false;
+      return phistory.size() > 0;
+    } catch (Exception e) {
+      LOG.warn("Error reading login history for " + userId);
+      return false;
+    }
+  }
+
+  /**
+   * Gets organizational membership name by its type name.
+   *
+   * @param membershipType the membership type
+   * @return the membership name
+   */
+  protected String getMembershipName(String membershipType) {
+    try {
+      return organization.getMembershipTypeHandler().findMembershipType(membershipType).getName();
+    } catch (Exception e) {
+      LOG.error("Error finding manager membership in organization service", e);
+      return null;
+    }
   }
 
 }
