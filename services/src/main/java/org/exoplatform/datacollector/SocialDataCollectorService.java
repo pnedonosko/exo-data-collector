@@ -161,6 +161,9 @@ public class SocialDataCollectorService implements Startable {
       size = 1;
     }
     int batches = size / BATCH_SIZE;
+    if (batches == 0) {
+      batches = 1;
+    }
     int batchIndex = 0;
     for (int fi = 0; fi < batches; fi++) {
       try {
