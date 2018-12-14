@@ -373,6 +373,9 @@ public class SocialDataCollectorService implements Startable {
    * @throws Exception the exception
    */
   protected void collectUserActivities(PrintWriter out) throws IllegalArgumentException, Exception {
+    // FIXME it's not right place - we need dataset per user
+    out.println(activityHeader());
+    
     // ProfileFilter filter = new ProfileFilter();
     // long idsCount =
     // identityStorage.getIdentitiesByProfileFilterCount(OrganizationIdentityProvider.NAME,
@@ -438,7 +441,6 @@ public class SocialDataCollectorService implements Startable {
       // activityManager.getActivitiesWithListAccess(ownerIdentity,
       // viewerIdentity)
 
-      out.println(activityHeader());
       // load identity's activities and collect its data
       Iterator<ExoSocialActivity> feedIter = loadListIterator(activityManager.getActivityFeedWithListAccess(id));
       while (feedIter.hasNext()) {
@@ -564,7 +566,7 @@ public class SocialDataCollectorService implements Startable {
          .append("participant5_focus_management,")
          .append("participant5_focus_financial,")
          .append("participant5_focus_other,")
-         .append("participant5_influence\n");
+         .append("participant5_influence");
     return aline.toString();
   }
 
@@ -587,13 +589,15 @@ public class SocialDataCollectorService implements Startable {
     } else {
       ownerId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, activity.getStreamOwner(), false);
     }
-    // owner ID
+    // owner_id
     if (ownerId == null) {
       throw new ActivityDataException("Cannot find social identity of stream owner: " + activity.getStreamOwner()
           + ". Activity will be skipped: " + activity.getId());
     }
     aline.append(ownerId.getId()).append(',');
-    // owner type
+    // owner_title
+    aline.append(ownerId.getRemoteId()).append(',');
+    // owner_type
     if (isSpace) {
       aline.append("0,1,");
     } else {
@@ -689,8 +693,6 @@ public class SocialDataCollectorService implements Startable {
       // participantN_influence
       aline.append(influencers.getParticipantWeight(p.id, ownerId.getId())).append(',');
     }
-    
-    aline.setCharAt(aline.length() - 1, '\n'); // end of line
 
     return aline.toString();
   }
