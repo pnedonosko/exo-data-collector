@@ -31,8 +31,8 @@ public class BaseActivityTestCase extends BaseCommonsTestCase {
   /** Logger */
   private static final Log      LOG = ExoLogger.getExoLogger(BaseActivityTestCase.class);
 
-  protected PortalContainer container;
-  
+  protected PortalContainer     container;
+
   protected SpaceService        spaceService;
 
   protected RelationshipManager relationshipManager;
@@ -47,7 +47,7 @@ public class BaseActivityTestCase extends BaseCommonsTestCase {
   @Override
   protected void beforeClass() {
     super.beforeClass();
-    
+
     this.container = PortalContainer.getInstance();
     ExoContainerContext.setCurrentContainer(container);
     RequestLifeCycle.begin(container);
@@ -240,7 +240,7 @@ public class BaseActivityTestCase extends BaseCommonsTestCase {
     activity.setPermanLink(LinkProvider.getSingleActivityUrl(activity.getId()));
 
     // Wait before adding activity items (for async operations in Social)
-    Thread.sleep(100);
+    Thread.sleep(250);
     // Likes
     if (activityJSON.optJSONArray("likes") != null) {
       initLikes(activityJSON.getJSONArray("likes"), activity);
@@ -260,7 +260,7 @@ public class BaseActivityTestCase extends BaseCommonsTestCase {
     for (int i = 0; i < comments.length(); i++) {
       JSONObject commentJSON = comments.getJSONObject(i);
 
-      Thread.sleep(50);
+      Thread.sleep(100);
       Identity identityComment = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME,
                                                                      commentJSON.getString("poster"),
                                                                      false);
@@ -306,7 +306,7 @@ public class BaseActivityTestCase extends BaseCommonsTestCase {
    */
   protected void initLikes(JSONArray likes, ExoSocialActivity activity) throws InterruptedException {
     for (int j = 0; j < likes.length(); j++) {
-      Thread.sleep(50);
+      Thread.sleep(100);
       String like = null;
       try {
         like = likes.getString(j);
