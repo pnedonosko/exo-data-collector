@@ -256,12 +256,22 @@ public class ActivityDAOTest extends BaseActivityTestCase {
     assertEquals(2, res.stream().filter(entity -> entity.getProviderId().equals(Type.USER.toString())).count());
   }
 
-  // TODO: fix
   @Test
   public void testFindPartIsLikedConvoPoster() {
     List<ActivityLikedEntity> res = activityLikedDAO.findPartIsLikedConvoPoster(jasonId.toString());
     assertEquals(5, res.size());
     assertTrue(res.stream().allMatch(entity -> entity.getLikerId().equals(jasonId.toString())));
+
+    assertEquals(2, res.stream().filter(entity -> entity.getPosterId().equals(maryId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(jamesId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(aliceId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getPosterId().equals(bobId)).count());
+    
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(marketingId)).count());
+    assertEquals(2, res.stream().filter(entity -> entity.getOwnerId().equals(supportId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(salesId)).count());
+    assertEquals(1, res.stream().filter(entity -> entity.getOwnerId().equals(bobId)).count());
+    
   }
 
   @Test
