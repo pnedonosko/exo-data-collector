@@ -18,6 +18,8 @@
  */
 package org.exoplatform.datacollector;
 
+import static org.exoplatform.datacollector.UserInfluencers.ACTIVITY_PARTICIPANTS_TOP;
+
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,9 +27,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import org.picocontainer.Startable;
@@ -366,6 +370,20 @@ public class SocialDataCollectorService implements Startable {
 
   // **** internals
 
+  protected void collectUsersActivities() throws Exception {
+    // TODO go through all users in the organization and swap their datasets
+    // into separate data stream, then feed them to the Training Service
+
+    Iterator<Identity> idIter = loadListIterator(identityManager.getIdentitiesByProfileFilter(OrganizationIdentityProvider.NAME,
+                                                                                              new ProfileFilter(),
+                                                                                              true));
+    while (idIter.hasNext()) {
+      Identity id = idIter.next();
+
+      // TODO
+    }
+  }
+
   /**
    * Collect user activities.
    *
@@ -375,7 +393,7 @@ public class SocialDataCollectorService implements Startable {
   protected void collectUserActivities(PrintWriter out) throws IllegalArgumentException, Exception {
     // FIXME it's not right place - we need dataset per user
     out.println(activityHeader());
-    
+
     // ProfileFilter filter = new ProfileFilter();
     // long idsCount =
     // identityStorage.getIdentitiesByProfileFilterCount(OrganizationIdentityProvider.NAME,
@@ -384,7 +402,6 @@ public class SocialDataCollectorService implements Startable {
                                                                                               new ProfileFilter(),
                                                                                               true));
     while (idIter.hasNext()) {
-      // FYI flag for profile loading not used inside the call
       Identity id = idIter.next();
 
       // Find this user favorite participants (influencers) and streams
@@ -420,7 +437,7 @@ public class SocialDataCollectorService implements Startable {
       Collection<String> userStreams = influencers.getFavoriteStreamsTop(10);
       if (userStreams.size() < 10) {
         // TODO add required (to 10) streams where user has most of its
-        // connectionsace
+        // connections
       }
       if (userStreams.size() > 0) {
         influencers.addStreamPoster(postStorage.findPartIsFavoriteStreamPoster(id.getId(), userStreams));
@@ -481,7 +498,8 @@ public class SocialDataCollectorService implements Startable {
          .append("is_liked_by_connections,")
          // Poster features
          .append("poster_id,")
-         .append("poster_gender,")
+         .append("poster_gender_male,")
+         .append("poster_gender_female,")
          .append("poster_is_employee,")
          .append("poster_is_lead,")
          .append("poster_is_in_connections,")
@@ -491,82 +509,42 @@ public class SocialDataCollectorService implements Startable {
          .append("poster_focus_management,")
          .append("poster_focus_financial,")
          .append("poster_focus_other,")
-         .append("poster_influence,")
-         // Participant #1 features
-         .append("participant1_id,")
-         .append("participant1_conversed,")
-         .append("participant1_favored,")
-         .append("participant1_gender,")
-         .append("participant1_is_employee,")
-         .append("participant1_is_lead,")
-         .append("participant1_is_in_connections,")
-         .append("participant1_focus_engineering,")
-         .append("participant1_focus_sales,")
-         .append("participant1_focus_marketing,")
-         .append("participant1_focus_management,")
-         .append("participant1_focus_financial,")
-         .append("participant1_focus_other,")
-         .append("participant1_influence,")
-         // Participant #2 features
-         .append("participant2_id,")
-         .append("participant2_conversed,")
-         .append("participant2_favored,")
-         .append("participant2_gender,")
-         .append("participant2_is_employee,")
-         .append("participant2_is_lead,")
-         .append("participant2_is_in_connections,")
-         .append("participant2_focus_engineering,")
-         .append("participant2_focus_sales,")
-         .append("participant2_focus_marketing,")
-         .append("participant2_focus_management,")
-         .append("participant2_focus_financial,")
-         .append("participant2_focus_other,")
-         .append("participant2_influence,")
-         // Participant #3 features
-         .append("participant3_id,")
-         .append("participant3_conversed,")
-         .append("participant3_favored,")
-         .append("participant3_gender,")
-         .append("participant3_is_employee,")
-         .append("participant3_is_lead,")
-         .append("participant3_is_in_connections,")
-         .append("participant3_focus_engineering,")
-         .append("participant3_focus_sales,")
-         .append("participant3_focus_marketing,")
-         .append("participant3_focus_management,")
-         .append("participant3_focus_financial,")
-         .append("participant3_focus_other,")
-         .append("participant3_influence,")
-         // Participant #4 features
-         .append("participant4_id,")
-         .append("participant4_conversed,")
-         .append("participant4_favored,")
-         .append("participant4_gender,")
-         .append("participant4_is_employee,")
-         .append("participant4_is_lead,")
-         .append("participant4_is_in_connections,")
-         .append("participant4_focus_engineering,")
-         .append("participant4_focus_sales,")
-         .append("participant4_focus_marketing,")
-         .append("participant4_focus_management,")
-         .append("participant4_focus_financial,")
-         .append("participant4_focus_other,")
-         .append("participant4_influence,")
-         // Participant #5 features
-         .append("participant5_id,")
-         .append("participant5_conversed,")
-         .append("participant5_favored,")
-         .append("participant5_gender,")
-         .append("participant5_is_employee,")
-         .append("participant5_is_lead,")
-         .append("participant5_is_in_connections,")
-         .append("participant5_focus_engineering,")
-         .append("participant5_focus_sales,")
-         .append("participant5_focus_marketing,")
-         .append("participant5_focus_management,")
-         .append("participant5_focus_financial,")
-         .append("participant5_focus_other,")
-         .append("participant5_influence");
+         .append("poster_influence,");
+    for (int i = 1; i <= ACTIVITY_PARTICIPANTS_TOP; i++) {
+      // Participant #N features
+      StringBuilder prefix = new StringBuilder("participant").append(i).append('_');
+      aline.append(prefix)
+           .append("id,")
+           .append(prefix)
+           .append("conversed,")
+           .append(prefix)
+           .append("favored,")
+           .append(prefix)
+           .append("gender_male,")
+           .append(prefix)
+           .append("gender_female,")
+           .append(prefix)
+           .append("is_employee,")
+           .append(prefix)
+           .append("is_lead,")
+           .append(prefix)
+           .append("is_in_connections,")
+           .append(prefix)
+           .append("focus_engineering,")
+           .append(prefix)
+           .append("focus_sales,")
+           .append(prefix)
+           .append("focus_marketing,")
+           .append(prefix)
+           .append("focus_management,")
+           .append(prefix)
+           .append("focus_financial,")
+           .append(prefix)
+           .append("focus_other,")
+           .append(prefix)
+           .append("influence,");
+    }
+    aline.deleteCharAt(aline.length() - 1); // remove last comma
     return aline.toString();
   }
 
@@ -578,7 +556,7 @@ public class SocialDataCollectorService implements Startable {
     // title: escape comma in the text to avoid problems with separator
     aline.append(activity.getTitle().replace(',', '_')).append(',');
     // type: encoded
-    encActivityType(aline, activity.getType());
+    encActivityType(aline, activity.getType()).append(',');
     // app ID: TODO need it?
     // aline.append(activity.getAppId()).append(',');
     Identity ownerId;
@@ -623,15 +601,15 @@ public class SocialDataCollectorService implements Startable {
 
     // is_mentions_me
     // is_mentions_connections
-    encContainsMeOthers(aline, myId, myConns, activity.getMentionedIds());
+    encContainsMeOthers(aline, myId, myConns, activity.getMentionedIds()).append(',');
 
     // is_commented_by_me
     // is_commented_by_connetions
-    encContainsMeOthers(aline, myId, myConns, activity.getCommentedIds());
+    encContainsMeOthers(aline, myId, myConns, activity.getCommentedIds()).append(',');
 
     // is_liked_by_me
     // is_liked_by_connections
-    encContainsMeOthers(aline, myId, myConns, activity.getLikeIdentityIds());
+    encContainsMeOthers(aline, myId, myConns, activity.getLikeIdentityIds()).append(',');
 
     // Poster (creator)
     String posterId = activity.getPosterId();
@@ -649,7 +627,7 @@ public class SocialDataCollectorService implements Startable {
     // TODO poster full name ?
     // aline.append(posterProfile.getFullName()).append(',');
     // poster gender: encoded
-    encGender(aline, posterProfile.getGender());
+    encGender(aline, posterProfile.getGender()).append(',');
     // poster_is_employee
     aline.append(isEmployee(poster.getRemoteId()) ? '1' : '0').append(',');
     // TODO poster_is_lead
@@ -657,47 +635,64 @@ public class SocialDataCollectorService implements Startable {
     // poster_is_in_connections
     aline.append(myConns.contains(posterId) ? '1' : '0').append(',');
     // poster_focus_*: poster job position as team membership encoded
-    encPosition(aline, posterProfile.getPosition());
+    encPosition(aline, posterProfile.getPosition()).append(',');
     // poster_influence
     aline.append(influencers.getParticipantWeight(posterId, ownerId.getId())).append(',');
 
     // Find top 5 participants in this activity, we need not less than 5!
-    for (ActivityParticipant p : findTopParticipants(activity, influencers, isSpace, 5)) {
+    for (ActivityParticipant p : findTopParticipants(activity, influencers, isSpace, ACTIVITY_PARTICIPANTS_TOP)) {
+      Identity part = identityManager.getIdentity(p.id, false);
+      if (part == null) {
+        LOG.warn("Cannot find social identity of activity participant: " + p.id + ". Activity: " + activity.getId());
+      }
+      Profile partProfile = identityManager.getProfile(part);
+      if (partProfile == null) {
+        LOG.warn("Cannot find profile of activity participant: " + p.id + " (" + part.getRemoteId() + "). Activity: "
+            + activity.getId());
+      }
       // participantN_id
       aline.append(p.id).append(',');
       // participantN_conversed
       aline.append(p.isConversed).append(',');
       // participantN_favored
       aline.append(p.isFavored).append(',');
-      //
-      Identity part = identityManager.getIdentity(p.id, false);
-      if (part == null) {
-        throw new ActivityDataException("Cannot find social identity of activity participant: " + p.id
-            + ". Activity will be skipped: " + activity.getId());
+      if (part != null && partProfile != null) {
+        // participantN_gender: encoded
+        encGender(aline, partProfile.getGender()).append(',');
+        // participantN_is_employee
+        aline.append(isEmployee(part.getRemoteId()) ? '1' : '0').append(',');
+        // TODO participantN_is_lead
+        aline.append('0').append(',');
+        // participantN_is_in_connections
+        aline.append(myConns.contains(p.id) ? '1' : '0').append(',');
+        // participantN_focus_*: job position as team membership encoded
+        encPosition(aline, partProfile.getPosition()).append(',');
+        // participantN_influence
+        aline.append(influencers.getParticipantWeight(p.id, ownerId.getId())).append(',');
+      } else {
+        // add fake data
+        // participantN_gender: encoded
+        encGender(aline, null).append(',');
+        // participantN_is_employee
+        aline.append('0').append(',');
+        // participantN_is_lead
+        aline.append('0').append(',');
+        // participantN_is_in_connections
+        aline.append('0').append(',');
+        // participantN_focus_*: job position as team membership encoded
+        encPosition(aline, null).append(',');
+        // participantN_influence
+        aline.append("0.0").append(',');
       }
-      Profile partProfile = identityManager.getProfile(part);
-      if (partProfile == null) {
-        throw new ActivityDataException("Cannot find profile of activity participant: " + p.id + " (" + part.getRemoteId() + ")"
-            + ". Activity will be skipped: " + activity.getId());
-      }
-      // participantN_gender: encoded
-      encGender(aline, partProfile.getGender());
-      // participantN_is_employee
-      aline.append(isEmployee(part.getRemoteId()) ? '1' : '0').append(',');
-      // TODO participantN_is_lead
-      aline.append('0').append(',');
-      // participantN_is_in_connections
-      aline.append(myConns.contains(p.id) ? '1' : '0').append(',');
-      // participantN_focus_*: job position as team membership encoded
-      encPosition(aline, partProfile.getPosition());
-      // participantN_influence
-      aline.append(influencers.getParticipantWeight(p.id, ownerId.getId())).append(',');
     }
+
+    // remove ending comma
+    aline.deleteCharAt(aline.length() - 1);
 
     return aline.toString();
   }
 
-  protected void encPosition(StringBuilder aline, String position) {
+  protected StringBuilder encPosition(StringBuilder aline, String position) {
     // Columns order: engineering, sales&support, marketing, management,
     // financial, other
     if (position != null) {
@@ -718,9 +713,10 @@ public class SocialDataCollectorService implements Startable {
     } else {
       aline.append("0,0,0,0,0,1");
     }
+    return aline;
   }
 
-  protected void encGender(StringBuilder aline, String gender) {
+  protected StringBuilder encGender(StringBuilder aline, String gender) {
     // Columns order: male, female
     if (gender != null) {
       if (gender.toUpperCase().toLowerCase().equals("female")) {
@@ -731,9 +727,10 @@ public class SocialDataCollectorService implements Startable {
     } else {
       aline.append("1,0");
     }
+    return aline;
   }
 
-  protected void encActivityType(StringBuilder aline, String activityType) {
+  protected StringBuilder encActivityType(StringBuilder aline, String activityType) {
     // Write several columns, fill the one with 1 for given type, others with 0
     //
     // Possible types: exosocial:people, exosocial:spaces,
@@ -763,6 +760,7 @@ public class SocialDataCollectorService implements Startable {
     } else {
       aline.append("0,0,0,0,0,0,1");
     }
+    return aline;
   }
 
   protected boolean isEmployee(String userName) {
@@ -779,7 +777,7 @@ public class SocialDataCollectorService implements Startable {
     return false;
   }
 
-  protected void encContainsMeOthers(StringBuilder aline, String me, Collection<String> others, String[] target) {
+  protected StringBuilder encContainsMeOthers(StringBuilder aline, String me, Collection<String> others, String[] target) {
     int isMe = 0;
     int isOthers = 0;
     for (String o : target) {
@@ -794,7 +792,8 @@ public class SocialDataCollectorService implements Startable {
       }
     }
     aline.append(isMe).append(',');
-    aline.append(isOthers).append(',');
+    aline.append(isOthers);
+    return aline;
   }
 
   protected Collection<ActivityParticipant> findTopParticipants(ExoSocialActivity activity,
@@ -842,30 +841,32 @@ public class SocialDataCollectorService implements Startable {
         // Get space managers and members who were logged-in
         Space space = spaceService.getSpaceByGroupId(activity.getStreamOwner());
         if (space != null) {
-          String[] smanagers = space.getManagers();
-          for (int i = 0; i < smanagers.length && top.size() < topLength; i++) {
-            if (wasUserLoggedin(smanagers[i], activityScopeTimeBegin, activityScopeTimeEnd)) {
-              top.computeIfAbsent(smanagers[i], p -> new ActivityParticipant(p, false, false));
+          Collection<String> smanagers = userNames(space.getManagers());
+          for (Iterator<String> miter = smanagers.iterator(); miter.hasNext() && top.size() < topLength;) {
+            String mid = miter.next();
+            if (wasUserLoggedin(mid, activityScopeTimeBegin, activityScopeTimeEnd)) {
+              top.computeIfAbsent(mid, p -> new ActivityParticipant(p, false, false));
             }
           }
-          String[] smembers = space.getMembers();
-          for (int i = 0; i < smembers.length && top.size() < topLength; i++) {
-            if (wasUserLoggedin(smembers[i], activityScopeTimeBegin, activityScopeTimeEnd)) {
-              top.computeIfAbsent(smembers[i], p -> new ActivityParticipant(p, false, false));
+          Collection<String> smembers = userNames(space.getMembers());
+          for (Iterator<String> miter = smembers.iterator(); miter.hasNext() && top.size() < topLength;) {
+            String mid = miter.next();
+            if (wasUserLoggedin(mid, activityScopeTimeBegin, activityScopeTimeEnd)) {
+              top.computeIfAbsent(mid, p -> new ActivityParticipant(p, false, false));
             }
           }
           // if top still not full, we add managers w/o login check
-          for (int i = 0; i < smanagers.length && top.size() < topLength; i++) {
-            top.computeIfAbsent(smanagers[i], p -> new ActivityParticipant(p, false, false));
+          for (Iterator<String> miter = smanagers.iterator(); miter.hasNext() && top.size() < topLength;) {
+            top.computeIfAbsent(miter.next(), p -> new ActivityParticipant(p, false, false));
           }
         }
       }
 
       if (top.size() < topLength) {
         // Add user connections who were logged-in
-        Iterator<String> citer = influencers.getUserConnections().keySet().iterator();
+        Iterator<Identity> citer = influencers.getUserConnections().values().iterator();
         while (citer.hasNext() && top.size() < topLength) {
-          String cid = citer.next();
+          String cid = citer.next().getRemoteId();
           if (wasUserLoggedin(cid, activityScopeTimeBegin, activityScopeTimeEnd)) {
             top.computeIfAbsent(cid, p -> new ActivityParticipant(p, false, false));
           }
@@ -873,7 +874,7 @@ public class SocialDataCollectorService implements Startable {
       }
 
       if (top.size() < topLength) {
-        // TODO 4.2) Second and finally, if user has no spaces/connections,
+        // 4.2) Second and finally, if user has no spaces/connections,
         // * then we choose user's group managers
         // TODO first use Employees group (or similar)
         Collection<Group> userGroups;
@@ -888,21 +889,15 @@ public class SocialDataCollectorService implements Startable {
             String gid = ug.getId();
             if (!gid.startsWith(SpaceUtils.SPACE_GROUP)) {
               // Use non space groups
-              String managerMemebership = getMembershipName("manager");
-              if (managerMemebership != null) {
-                Iterator<String> miter = SpaceUtils.findMembershipUsersByGroupAndTypes(gid, managerMemebership).iterator();
-                // TODO cleanup
-                // Iterator<User> gusers =
-                // loadListIterator(organization.getUserHandler().findUsersByGroupId(gid));
-                while (miter.hasNext() && top.size() < topLength) {
-                  // String userId = gusers.next().getUserName();
-                  String uname = miter.next();
-                  Identity mid = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, uname, false);
-                  if (mid != null) {
-                    top.computeIfAbsent(mid.getId(), p -> new ActivityParticipant(p, false, false));
-                  } else {
-                    LOG.warn("Group '" + gid + "' manager identity cannot be found in Social: " + uname);
-                  }
+              Iterator<String> miter = SpaceUtils.findMembershipUsersByGroupAndTypes(gid, "manager").iterator();
+              while (miter.hasNext() && top.size() < topLength) {
+                // String userId = gusers.next().getUserName();
+                String uname = miter.next();
+                Identity mid = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, uname, false);
+                if (mid != null) {
+                  top.computeIfAbsent(mid.getId(), p -> new ActivityParticipant(p, false, false));
+                } else {
+                  LOG.warn("Group '" + gid + "' manager identity cannot be found in Social: " + uname);
                 }
               }
             }
@@ -916,8 +911,8 @@ public class SocialDataCollectorService implements Startable {
           } else {
             LOG.warn("Root user identity cannot be found in Social");
           }
-          // organization.getGroupHandler().findGroupById(userACL.getAdminGroups());
-          Iterator<String> aiter = SpaceUtils.findMembershipUsersByGroupAndTypes(userACL.getAdminGroups(), "*").iterator();
+          Iterator<String> aiter = SpaceUtils.findMembershipUsersByGroupAndTypes(userACL.getAdminGroups(), "member", "manager")
+                                             .iterator();
           while (aiter.hasNext() && top.size() < topLength) {
             // String userId = gusers.next().getUserName();
             String aname = aiter.next();
@@ -930,8 +925,7 @@ public class SocialDataCollectorService implements Startable {
           }
         }
         // * TODO if not enough in admins - then guess random from "similar"
-        // users in
-        // the organization,
+        // users in the organization,
         // * if no users - add "black" user with id=0.
         if (top.size() < topLength) {
           int needAdd = topLength - top.size();
@@ -943,6 +937,19 @@ public class SocialDataCollectorService implements Startable {
       }
     }
     return Collections.unmodifiableCollection(top.values());
+  }
+
+  protected Collection<String> userNames(String... ids) {
+    Set<String> res = new LinkedHashSet<>();
+    for (String id : ids) {
+      Identity socId = identityManager.getIdentity(id, false);
+      if (socId == null) {
+        LOG.error("Cannot find social identity: " + id);
+      } else {
+        res.add(socId.getRemoteId());
+      }
+    }
+    return res;
   }
 
   protected boolean wasUserLoggedin(String userId, long fromTime, long toTime) {

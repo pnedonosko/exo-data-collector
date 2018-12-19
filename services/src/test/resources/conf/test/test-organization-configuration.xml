@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 
-<configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.exoplatform.org/xml/ns/kernel_1_3.xsd http://www.exoplatform.org/xml/ns/kernel_1_3.xsd"
-               xmlns="http://www.exoplatform.org/xml/ns/kernel_1_3.xsd">
+<configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.exoplatform.org/xml/ns/kernel_1_3.xsd http://www.exoplatform.org/xml/ns/kernel_1_3.xsd"
+  xmlns="http://www.exoplatform.org/xml/ns/kernel_1_3.xsd">
 
   <component>
     <type>org.exoplatform.services.organization.cache.OrganizationCacheHandler</type>
@@ -67,16 +68,16 @@
       <properties-param>
         <name>hibernate.properties</name>
         <description>Default Hibernate Service</description>
-        <property name="hibernate.hbm2ddl.auto" value="create-drop"/>
-        <property name="hibernate.show_sql" value="false"/>
-        <property name="hibernate.current_session_context_class" value="thread"/>
-        <property name="hibernate.cache.use_second_level_cache" value="false"/>
-        <property name="hibernate.cache.use_query_cache" value="false"/>
-        <property name="hibernate.connection.datasource" value="jdbcidm"/>
-        <property name="hibernate.c3p0.min_size" value="5"/>
-        <property name="hibernate.c3p0.max_size" value="20"/>
-        <property name="hibernate.c3p0.timeout" value="1800"/>
-        <property name="hibernate.c3p0.max_statements" value="50"/>
+        <property name="hibernate.hbm2ddl.auto" value="create-drop" />
+        <property name="hibernate.show_sql" value="false" />
+        <property name="hibernate.current_session_context_class" value="thread" />
+        <property name="hibernate.cache.use_second_level_cache" value="false" />
+        <property name="hibernate.cache.use_query_cache" value="false" />
+        <property name="hibernate.connection.datasource" value="jdbcidm" />
+        <property name="hibernate.c3p0.min_size" value="5" />
+        <property name="hibernate.c3p0.max_size" value="20" />
+        <property name="hibernate.c3p0.timeout" value="1800" />
+        <property name="hibernate.c3p0.max_statements" value="50" />
       </properties-param>
     </init-params>
   </component>
@@ -323,6 +324,126 @@
                 <value>
                   <object type="org.exoplatform.services.organization.OrganizationConfig$User">
                     <field name="userName">
+                      <string>admin1</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Admin</string>
+                    </field>
+                    <field name="lastName">
+                      <string>First</string>
+                    </field>
+                    <field name="email">
+                      <string>admin1@localhost</string>
+                    </field>
+                    <field name="groups">
+                      <string>
+                        member:/platform/administrators,member:/platform/users
+                      </string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>admin2</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Admin</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Second</string>
+                    </field>
+                    <field name="email">
+                      <string>admin2@localhost</string>
+                    </field>
+                    <field name="groups">
+                      <string>
+                        member:/platform/administrators,member:/platform/users
+                      </string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>admin3</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Admin</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Third</string>
+                    </field>
+                    <field name="email">
+                      <string>admin3@localhost</string>
+                    </field>
+                    <field name="groups">
+                      <string>
+                        member:/platform/administrators,member:/platform/users
+                      </string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>admin4</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Admin</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Forth</string>
+                    </field>
+                    <field name="email">
+                      <string>admin4@localhost</string>
+                    </field>
+                    <field name="groups">
+                      <string>
+                        member:/platform/administrators,member:/platform/users
+                      </string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
+                      <string>admin5</string>
+                    </field>
+                    <field name="password">
+                      <string>gtn</string>
+                    </field>
+                    <field name="firstName">
+                      <string>Admin</string>
+                    </field>
+                    <field name="lastName">
+                      <string>Fifth</string>
+                    </field>
+                    <field name="email">
+                      <string>admin5@localhost</string>
+                    </field>
+                    <field name="groups">
+                      <string>
+                        member:/platform/administrators,member:/platform/users
+                      </string>
+                    </field>
+                  </object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.services.organization.OrganizationConfig$User">
+                    <field name="userName">
                       <string>john</string>
                     </field>
                     <field name="password">
@@ -339,7 +460,7 @@
                     </field>
                     <field name="groups">
                       <string>
-                        member:/platform/administrators,member:/platform/users,
+                        member:/platform/users,
                         manager:/organization/management/executive-board
                       </string>
                     </field>
@@ -451,7 +572,7 @@
                       <string>john@exo.com</string>
                     </field>
                     <field name="groups">
-                      <string>member:/platform/users</string>
+                      <string>member:/platform/users,member:/organization/management/executive-board</string>
                     </field>
                   </object>
                 </value>
@@ -528,6 +649,6 @@
       </init-params>
     </component-plugin>
   </external-component-plugins>
-  
+
 
 </configuration>

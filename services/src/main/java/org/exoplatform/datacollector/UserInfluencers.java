@@ -57,6 +57,8 @@ public class UserInfluencers {
   public static final double    REACTIVITY_DAY_WEIGHT_GROW = 0.7;
 
   public static final double    INFLUENCE_DAY_WEIGHT_GROW  = 0.2;
+  
+  public static final int ACTIVITY_PARTICIPANTS_TOP = 5;
 
   public static final int       DAY_LENGTH_MILLIS          = 86400000;
 
@@ -128,7 +130,7 @@ public class UserInfluencers {
       if (lastActive != null) {
         return getDateReactivityWeight(lastActive, created);
       }
-      return 0;
+      return 0d;
     }
 
     void liked(Long likedTime) {
@@ -197,9 +199,9 @@ public class UserInfluencers {
     Long d = Math.round(Math.floor(diff / DAY_LENGTH_MILLIS));
     int day = d.intValue();
     if (day == 0) {
-      return 1;
+      return 1d;
     } else if (day >= table.length) {
-      return olderIsZero ? 0 : table[table.length - 1];
+      return olderIsZero ? 0d : table[table.length - 1];
     } else {
       return table[day];
     }
@@ -377,7 +379,7 @@ public class UserInfluencers {
 
   public double getPostReactivity(String postId) {
     ActivityInfo a = activities.get(postId);
-    return a != null ? a.reactivity() : 0;
+    return a != null ? a.reactivity() : 0d;
   }
 
   // *********************************
