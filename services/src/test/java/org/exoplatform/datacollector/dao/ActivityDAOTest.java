@@ -36,10 +36,11 @@ public class ActivityDAOTest extends BaseActivityTestCase {
   @Override
   protected void beforeClass() {
     super.beforeClass();
-    activityCommentDAO = (ActivityCommentedDAO) container.getComponentInstanceOfType(ActivityCommentedDAO.class);
-    activityPostedDAO = (ActivityPostedDAO) container.getComponentInstance(ActivityPostedDAO.class);
-    activityMentionedDAO = (ActivityMentionedDAO) container.getComponentInstance(ActivityMentionedDAO.class);
-    activityLikedDAO = (ActivityLikedDAO) container.getComponentInstanceOfType(ActivityLikedDAO.class);
+    
+    activityCommentDAO = getService(ActivityCommentedDAO.class);
+    activityPostedDAO = getService(ActivityPostedDAO.class);
+    activityMentionedDAO = getService(ActivityMentionedDAO.class);
+    activityLikedDAO = getService(ActivityLikedDAO.class);
   }
 
   // ActivityCommentedDAO tests

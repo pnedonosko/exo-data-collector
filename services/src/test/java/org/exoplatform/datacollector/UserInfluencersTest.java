@@ -18,8 +18,8 @@ import org.exoplatform.social.core.space.model.Space;
 @RunWith(MockitoJUnitRunner.class)
 public class UserInfluencersTest {
 
-  static UserInfluencers userInfluencers;
-  
+  static UserInfluencers    userInfluencers;
+
   private static final Long MILISECONDS_IN_DAY = 86400000L;
 
   @BeforeClass
@@ -49,29 +49,24 @@ public class UserInfluencersTest {
 
     userInfluencers.addStream("Stream1", 0.2);
     userInfluencers.addStream("Stream1", 0.4);
-    userInfluencers.addStream("Stream1", 0.1);
+    userInfluencers.addStream("Stream1", 0.1); // influencer #3
     userInfluencers.addStream("Stream2", 0.6);
-    userInfluencers.addStream("Stream2", 0.3);
-    userInfluencers.addStream("Stream3", 0.8);
+    userInfluencers.addStream("Stream2", 0.3); // influencer #1
+    userInfluencers.addStream("Stream3", 0.8); // influencer #2
 
     userInfluencers.addParticipant("mary", 0.2); // "mary"
     userInfluencers.addParticipant("mary", 0.1);
     userInfluencers.addParticipant("james", 0.8); // "james"
-    userInfluencers.addParticipant("jack", 0.3); // "jack" 
+    userInfluencers.addParticipant("jack", 0.3); // "jack"
     userInfluencers.addParticipant("jack", 0.3);
     userInfluencers.addParticipant("jack", 0.1);
     userInfluencers.addParticipant("john", 0.3); // "john"
-    
-
 
     userInfluencers.addPost(new ActivityPostedEntityMock("mary", 10000L));
     userInfluencers.addPost(new ActivityPostedEntityMock("james", 450000L));
-    
+
     userInfluencers.addComment(new ActivityCommentedEntityMock("mary", 10000L, MILISECONDS_IN_DAY + 10000L));
     userInfluencers.addComment(new ActivityCommentedEntityMock("james", 450000L, 94000L));
-    
-
-  
   }
 
   @Test
@@ -86,16 +81,16 @@ public class UserInfluencersTest {
   public void testGetFavoriteStreams() {
     Collection<String> result = userInfluencers.getFavoriteStreams();
     Assert.assertEquals(result.size(), 3);
-    Assert.assertEquals("Stream1", result.toArray()[0]);
+    Assert.assertEquals("Stream2", result.toArray()[0]);
     Assert.assertEquals("Stream3", result.toArray()[1]);
-    Assert.assertEquals("Stream2", result.toArray()[2]);
+    Assert.assertEquals("Stream1", result.toArray()[2]);
   }
 
   @Test
   public void testGetFavoriteStreamsTop() {
     Collection<String> result = userInfluencers.getFavoriteStreamsTop(2);
     Assert.assertEquals(result.size(), 2);
-    Assert.assertEquals("Stream1", result.toArray()[0]);
+    Assert.assertEquals("Stream2", result.toArray()[0]);
     Assert.assertEquals("Stream3", result.toArray()[1]);
   }
 

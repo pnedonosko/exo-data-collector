@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import org.junit.Test;
@@ -28,6 +29,8 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
 
   private static final String        TEXT_PATTERN = ".*[a-zA-Z]+.*";
 
+  private static AtomicReference<String>                activitiesFile = new AtomicReference<>();
+
   private SocialDataCollectorService dataCollector;
 
   private BufferedReader             activitiesReader;
@@ -37,26 +40,35 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
     super.beforeClass();
 
     //
-    dataCollector = container.getComponentInstanceOfType(SocialDataCollectorService.class);
+    dataCollector = getService(SocialDataCollectorService.class);
 
     //
-    try {
-      File activitiesFile;
-      String dataDirPath = System.getProperty("gatein.data.dir");
-      if (dataDirPath != null && dataDirPath.length() > 0) {
-        activitiesFile = File.createTempFile("data_collector", ".csv", new File(dataDirPath));
-      } else {
-        activitiesFile = File.createTempFile("data_collector", ".csv");
+    if (activitiesFile.get() == null) {
+      try {
+        File file;
+        String dataDirPath = System.getProperty("gatein.data.dir");
+        if (dataDirPath != null && dataDirPath.length() > 0) {
+          file = File.createTempFile("data_collector", ".csv", new File(dataDirPath));
+        } else {
+          file = File.createTempFile("data_collector", ".csv");
+        }
+        PrintWriter writer = new PrintWriter(file);
+        
+        begin();
+        dataCollector.collectUserActivities(writer);
+        writer.close();
+        activitiesFile.set(file.getAbsolutePath());
+      } catch (Exception e) {
+        fail("Error collecting activities", e);
+      } finally {
+        end();
       }
+    }
 
-      PrintWriter writer = new PrintWriter(activitiesFile);
-
-      dataCollector.collectUserActivities(writer);
-      writer.close();
-
-      activitiesReader = new BufferedReader(new FileReader(activitiesFile));
+    try {
+      activitiesReader = new BufferedReader(new FileReader(activitiesFile.get()));
     } catch (Exception e) {
-      fail("Error collecting activities", e);
+      fail("Error reading collected activities", e);
     }
   }
 
