@@ -2,9 +2,6 @@ package org.exoplatform.datacollector;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import javax.jcr.Node;
-import javax.jcr.NodeIterator;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;

@@ -247,8 +247,8 @@
           </systemPropertyVariables>
           <includes>
             <!-- include>**/**/ActivityDAOTest.java</include --> 
-            <include>**/**/SocialDataCollectorServiceTest_.java</include>
-            <include>**/**/*Test.java</include>
+            <include>**/**/SocialDataCollectorServiceTest.java</include>
+            <include>**/**/*Test_.java</include>
           </includes>
           <forkCount>0</forkCount>
         </configuration>

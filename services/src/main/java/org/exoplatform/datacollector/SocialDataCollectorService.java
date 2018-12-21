@@ -20,11 +20,14 @@ package org.exoplatform.datacollector;
 
 import static org.exoplatform.datacollector.UserInfluencers.ACTIVITY_PARTICIPANTS_TOP;
 
+import java.io.File;
 import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -72,29 +75,31 @@ import org.exoplatform.social.core.space.spi.SpaceService;
 public class SocialDataCollectorService implements Startable {
 
   /** Logger */
-  private static final Log       LOG                 = ExoLogger.getExoLogger(SocialDataCollectorService.class);
+  private static final Log       LOG                   = ExoLogger.getExoLogger(SocialDataCollectorService.class);
 
-  public static final int        BATCH_SIZE          = 200;
+  public static final int        BATCH_SIZE            = 200;
 
-  protected static final Pattern ENGINEERING_PATTERN =
+  protected static final Pattern ENGINEERING_PATTERN   =
                                                      Pattern.compile("^.*developer|architect|r&d|mobile|qa|fqa|tqa|test|quality|qualité|expert|integrator|designer|cwi|technical advisor|services delivery|software engineer.*$");
 
-  protected static final Pattern SALES_PATTERN       =
+  protected static final Pattern SALES_PATTERN         =
                                                Pattern.compile("^.*consultant|sales|client|support|sales engineer|demand generator.*$");
 
-  protected static final Pattern MARKETING_PATTERN   =
+  protected static final Pattern MARKETING_PATTERN     =
                                                    Pattern.compile("^.*brand|communication|marketing|customer success|user experience|.*$");
 
-  protected static final Pattern MANAGEMENT_PATTERN  =
+  protected static final Pattern MANAGEMENT_PATTERN    =
                                                     Pattern.compile("^.*officer|chief|founder|coo|cto|cio|evp|advisor|product manager|director|general manager.*$");
 
-  protected static final Pattern FINANCIAL_PATTERN   = Pattern.compile("^.*accountant|financial|investment|account manager.*$");
+  protected static final Pattern FINANCIAL_PATTERN     = Pattern.compile("^.*accountant|financial|investment|account manager.*$");
 
   /**
    * The Constant EMPLOYEE_GROUPID - TODO better make it configurable. For
    * /Groups/spaces/exo_employees.
    */
-  protected static final String  EMPLOYEE_GROUPID    = "/spaces/exo_employees";
+  protected static final String  EMPLOYEE_GROUPID      = "/spaces/exo_employees";
+
+  protected static final String  FILE_TIMESTAMP_FORMAT = "yyyy-MM-dd_HHmmss.SSSS";
 
   /**
    * The Class ActivityParticipant.
@@ -370,29 +375,38 @@ public class SocialDataCollectorService implements Startable {
 
   // **** internals
 
-  protected void collectUsersActivities() throws Exception {
+  /**
+   * Collect users activities into files bucket in Platform data folder, each
+   * file will have name of an user with <code>.csv</code> extension. If such
+   * folder already exists, it will overwrite the files that match found users.
+   *
+   * @param bucketName the bucket name, can be <code>null</code> then a
+   *          timestamped name will be created
+   * @return the string with a path to saved bucket folder
+   * @throws Exception the exception
+   */
+  public String collectUsersActivities(String bucketName) throws Exception {
     // TODO go through all users in the organization and swap their datasets
     // into separate data stream, then feed them to the Training Service
 
-    Iterator<Identity> idIter = loadListIterator(identityManager.getIdentitiesByProfileFilter(OrganizationIdentityProvider.NAME,
-                                                                                              new ProfileFilter(),
-                                                                                              true));
-    while (idIter.hasNext()) {
-      Identity id = idIter.next();
-
-      // TODO
+    // TODO Temporally spool all users datasets into a dedicated folder into
+    // ${gatein.data.dir}/data-collector/${bucketName}
+    String dataDirPath = System.getProperty("gatein.data.dir");
+    if (dataDirPath == null || dataDirPath.trim().length() == 0) {
+      dataDirPath = System.getProperty("exo.data.dir");
+      if (dataDirPath == null || dataDirPath.trim().length() == 0) {
+        dataDirPath = System.getProperty("java.io.tmpdir");
+        LOG.warn("Platoform data dir not defined. Will use: " + dataDirPath);
+      }
     }
-  }
-
-  /**
-   * Collect user activities.
-   *
-   * @throws IllegalArgumentException the illegal argument exception
-   * @throws Exception the exception
-   */
-  protected void collectUserActivities(PrintWriter out) throws IllegalArgumentException, Exception {
-    // FIXME it's not right place - we need dataset per user
-    out.println(activityHeader());
+    if (bucketName == null || bucketName.trim().length() == 0) {
+      bucketName = "bucket-" + new SimpleDateFormat(FILE_TIMESTAMP_FORMAT).format(new Date());
+    } /*
+       * else { bucketName += "-" + new
+       * SimpleDateFormat(FILE_TIMESTAMP_FORMAT).format(new Date()); }
+       */
+    File collectorDir = new File(dataDirPath + "/data-collector/" + bucketName);
+    collectorDir.mkdirs();
 
     // ProfileFilter filter = new ProfileFilter();
     // long idsCount =
@@ -404,69 +418,91 @@ public class SocialDataCollectorService implements Startable {
     while (idIter.hasNext()) {
       Identity id = idIter.next();
 
-      // Find this user favorite participants (influencers) and streams
-      List<Identity> idConnections = loadListAll(relationshipManager.getConnections(id));
-
-      List<Space> userSpaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
-      UserInfluencers influencers = new UserInfluencers(id, idConnections, userSpaces);
-
-      influencers.addCommentedPoster(commentStorage.findPartIsCommentedPoster(id.getId()));
-      influencers.addCommentedCommenter(commentStorage.findPartIsCommentedCommenter(id.getId()));
-      influencers.addCommentedConvoPoster(commentStorage.findPartIsCommentedConvoPoster(id.getId()));
-
-      influencers.addPostCommenter(commentStorage.findPartIsPostCommenter(id.getId()));
-      influencers.addCommentCommenter(commentStorage.findPartIsCommentCommenter(id.getId()));
-      influencers.addConvoCommenter(commentStorage.findPartIsConvoCommenter(id.getId()));
-
-      influencers.addMentioner(mentionStorage.findPartIsMentioner(id.getId()));
-      influencers.addMentioned(mentionStorage.findPartIsMentioned(id.getId()));
-
-      influencers.addLikedPoster(likeStorage.findPartIsLikedPoster(id.getId()));
-      influencers.addLikedCommenter(likeStorage.findPartIsLikedCommenter(id.getId()));
-      influencers.addLikedConvoPoster(likeStorage.findPartIsLikedConvoPoster(id.getId()));
-
-      influencers.addPostLiker(likeStorage.findPartIsPostLiker(id.getId()));
-      influencers.addCommentLiker(likeStorage.findPartIsCommentLiker(id.getId()));
-      influencers.addConvoLiker(likeStorage.findPartIsConvoLiker(id.getId()));
-
-      influencers.addSamePostLiker(likeStorage.findPartIsSamePostLiker(id.getId()));
-      influencers.addSameCommentLiker(likeStorage.findPartIsSameCommentLiker(id.getId()));
-      influencers.addSameConvoLiker(likeStorage.findPartIsSameConvoLiker(id.getId()));
-
-      // Here the influencers object knows favorite streams of the user
-      Collection<String> userStreams = influencers.getFavoriteStreamsTop(10);
-      if (userStreams.size() < 10) {
-        // TODO add required (to 10) streams where user has most of its
-        // connections
+      File userFile = new File(collectorDir, id.getRemoteId() + ".csv");
+      PrintWriter writer = new PrintWriter(userFile);
+      try {
+        collectUserActivities(id, writer);
+      } finally {
+        writer.close();
       }
-      if (userStreams.size() > 0) {
-        influencers.addStreamPoster(postStorage.findPartIsFavoriteStreamPoster(id.getId(), userStreams));
-        influencers.addStreamCommenter(commentStorage.findPartIsFavoriteStreamCommenter(id.getId(), userStreams));
-        influencers.addStreamPostLiker(likeStorage.findPartIsFavoriteStreamPostLiker(id.getId(), userStreams));
-        influencers.addStreamCommentLiker(likeStorage.findPartIsFavoriteStreamCommentLiker(id.getId(), userStreams));
-      }
+    }
 
-      //
-      // RealtimeListAccess<ExoSocialActivity> spacesActivities =
-      // activityManager.getActivitiesOfUserSpacesWithListAccess(id);
-      //
-      // spacesActivities.loadNewer(sinceTime, limit);
-      // spacesActivities.getNumberOfNewer(sinceTime);
-      // RealtimeListAccess<ExoSocialActivity> connsActivities =
-      // activityManager.getActivitiesOfConnectionsWithListAccess(id);
-      //
-      // activityManager.getActivitiesWithListAccess(ownerIdentity,
-      // viewerIdentity)
+    return collectorDir.getAbsolutePath();
+  }
 
-      // load identity's activities and collect its data
-      Iterator<ExoSocialActivity> feedIter = loadListIterator(activityManager.getActivityFeedWithListAccess(id));
-      while (feedIter.hasNext()) {
-        ExoSocialActivity activity = feedIter.next();
-        try {
-          out.println(activityLine(influencers, activity));
-        } catch (ActivityDataException e) {
-          LOG.warn(e);
-        }
+  /**
+   * Collect user activities.
+   *
+   * @param id the user identity in Social
+   * @param out the writer where spool the user activities dataset
+   * @throws IllegalArgumentException the illegal argument exception
+   * @throws Exception the exception
+   */
+  protected void collectUserActivities(Identity id, PrintWriter out) throws IllegalArgumentException, Exception {
+    out.println(activityHeader());
+
+    // Find this user favorite participants (influencers) and streams
+    List<Identity> idConnections = loadListAll(relationshipManager.getConnections(id));
+
+    List<Space> userSpaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
+    UserInfluencers influencers = new UserInfluencers(id, idConnections, userSpaces);
+
+    influencers.addCommentedPoster(commentStorage.findPartIsCommentedPoster(id.getId()));
+    influencers.addCommentedCommenter(commentStorage.findPartIsCommentedCommenter(id.getId()));
+    influencers.addCommentedConvoPoster(commentStorage.findPartIsCommentedConvoPoster(id.getId()));
+
+    influencers.addPostCommenter(commentStorage.findPartIsPostCommenter(id.getId()));
+    influencers.addCommentCommenter(commentStorage.findPartIsCommentCommenter(id.getId()));
+    influencers.addConvoCommenter(commentStorage.findPartIsConvoCommenter(id.getId()));
+
+    influencers.addMentioner(mentionStorage.findPartIsMentioner(id.getId()));
+    influencers.addMentioned(mentionStorage.findPartIsMentioned(id.getId()));
+
+    influencers.addLikedPoster(likeStorage.findPartIsLikedPoster(id.getId()));
+    influencers.addLikedCommenter(likeStorage.findPartIsLikedCommenter(id.getId()));
+    influencers.addLikedConvoPoster(likeStorage.findPartIsLikedConvoPoster(id.getId()));
+
+    influencers.addPostLiker(likeStorage.findPartIsPostLiker(id.getId()));
+    influencers.addCommentLiker(likeStorage.findPartIsCommentLiker(id.getId()));
+    influencers.addConvoLiker(likeStorage.findPartIsConvoLiker(id.getId()));
+
+    influencers.addSamePostLiker(likeStorage.findPartIsSamePostLiker(id.getId()));
+    influencers.addSameCommentLiker(likeStorage.findPartIsSameCommentLiker(id.getId()));
+    influencers.addSameConvoLiker(likeStorage.findPartIsSameConvoLiker(id.getId()));
+
+    // Here the influencers object knows favorite streams of the user
+    Collection<String> userStreams = influencers.getFavoriteStreamsTop(10);
+    if (userStreams.size() < 10) {
+      // TODO add required (to 10) streams where user has most of its
+      // connections
+    }
+    if (userStreams.size() > 0) {
+      influencers.addStreamPoster(postStorage.findPartIsFavoriteStreamPoster(id.getId(), userStreams));
+      influencers.addStreamCommenter(commentStorage.findPartIsFavoriteStreamCommenter(id.getId(), userStreams));
+      influencers.addStreamPostLiker(likeStorage.findPartIsFavoriteStreamPostLiker(id.getId(), userStreams));
+      influencers.addStreamCommentLiker(likeStorage.findPartIsFavoriteStreamCommentLiker(id.getId(), userStreams));
+    }
+
+    //
+    // RealtimeListAccess<ExoSocialActivity> spacesActivities =
+    // activityManager.getActivitiesOfUserSpacesWithListAccess(id);
+    //
+    // spacesActivities.loadNewer(sinceTime, limit);
+    // spacesActivities.getNumberOfNewer(sinceTime);
+    // RealtimeListAccess<ExoSocialActivity> connsActivities =
+    // activityManager.getActivitiesOfConnectionsWithListAccess(id);
+    //
+    // activityManager.getActivitiesWithListAccess(ownerIdentity,
+    // viewerIdentity)
+
+    // load identity's activities and collect its data
+    Iterator<ExoSocialActivity> feedIter = loadListIterator(activityManager.getActivityFeedWithListAccess(id));
+    while (feedIter.hasNext()) {
+      ExoSocialActivity activity = feedIter.next();
+      try {
+        out.println(activityLine(influencers, activity));
+      } catch (ActivityDataException e) {
+        LOG.warn(e);
       }
     }
   }
@@ -641,21 +677,25 @@ public class SocialDataCollectorService implements Startable {
 
     // Find top 5 participants in this activity, we need not less than 5!
     for (ActivityParticipant p : findTopParticipants(activity, influencers, isSpace, ACTIVITY_PARTICIPANTS_TOP)) {
-      Identity part = identityManager.getIdentity(p.id, false);
-      if (part == null) {
-        LOG.warn("Cannot find social identity of activity participant: " + p.id + ". Activity: " + activity.getId());
-      }
-      Profile partProfile = identityManager.getProfile(part);
-      if (partProfile == null) {
-        LOG.warn("Cannot find profile of activity participant: " + p.id + " (" + part.getRemoteId() + "). Activity: "
-            + activity.getId());
-      }
       // participantN_id
       aline.append(p.id).append(',');
       // participantN_conversed
       aline.append(p.isConversed).append(',');
       // participantN_favored
       aline.append(p.isFavored).append(',');
+      //
+      Profile partProfile;
+      Identity part = identityManager.getIdentity(p.id, false);
+      if (part == null) {
+        LOG.warn("Cannot find social identity of activity participant: " + p.id + ". Activity: " + activity.getId());
+        partProfile = null;
+      } else {
+        partProfile = identityManager.getProfile(part);
+        if (partProfile == null) {
+          LOG.warn("Cannot find profile of activity participant: " + p.id + " (" + part.getRemoteId() + "). Activity: "
+              + activity.getId());
+        }
+      }
       if (part != null && partProfile != null) {
         // participantN_gender: encoded
         encGender(aline, partProfile.getGender()).append(',');

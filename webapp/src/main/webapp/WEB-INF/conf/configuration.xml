@@ -19,16 +19,12 @@
   <component>
     <type>org.exoplatform.datacollector.SocialDataCollectorService</type>
   </component>
-
 	<component>
-		<type>org.exoplatform.datacollector.rest.RESTDataCollectorService</type>
-	</component>
+    <type>org.exoplatform.datacollector.rest.RESTSocialDataCollectorService</type>
+  </component>
 
 	<component>
 		<type>org.exoplatform.commons.persistence.impl.EntityManagerService</type>
-	</component>
-	<component>
-		<type>org.exoplatform.datacollector.dao.RelevanceDAO</type>
 	</component>
   <component>
     <type>org.exoplatform.datacollector.dao.ActivityPostedDAO</type>

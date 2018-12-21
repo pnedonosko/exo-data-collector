@@ -18,6 +18,7 @@ import org.exoplatform.component.test.ConfiguredBy;
 import org.exoplatform.component.test.ContainerScope;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.social.core.identity.provider.OrganizationIdentityProvider;
 
 @ConfiguredBy({ @ConfigurationUnit(scope = ContainerScope.ROOT, path = "conf/test-configuration.xml"),
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/portal/configuration.xml"),
@@ -25,15 +26,15 @@ import org.exoplatform.services.log.Log;
 public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
 
   /** Logger */
-  private static final Log           LOG          = ExoLogger.getExoLogger(SocialDataCollectorServiceTest.class);
+  private static final Log               LOG            = ExoLogger.getExoLogger(SocialDataCollectorServiceTest.class);
 
-  private static final String        TEXT_PATTERN = ".*[a-zA-Z]+.*";
+  private static final String            TEXT_PATTERN   = ".*[a-zA-Z]+.*";
 
-  private static AtomicReference<String>                activitiesFile = new AtomicReference<>();
+  private static AtomicReference<String> activitiesFile = new AtomicReference<>();
 
-  private SocialDataCollectorService dataCollector;
+  private SocialDataCollectorService     dataCollector;
 
-  private BufferedReader             activitiesReader;
+  private BufferedReader                 activitiesReader;
 
   @Override
   protected void beforeClass() {
@@ -53,9 +54,9 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
           file = File.createTempFile("data_collector", ".csv");
         }
         PrintWriter writer = new PrintWriter(file);
-        
+
         begin();
-        dataCollector.collectUserActivities(writer);
+        dataCollector.collectUserActivities(identityManager.getIdentity(jasonId, false), writer);
         writer.close();
         activitiesFile.set(file.getAbsolutePath());
       } catch (Exception e) {
