@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<databaseChangeLog
-	xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.3.xsd">
 
   <!-- Managing auto generation of timestamp by Database -->
@@ -10,4 +9,48 @@
   <property name="now" value="sysdate" dbms="oracle" />
   <property name="now" value="CURRENT_TIMESTAMP" dbms="mssql" />
   
+	<!-- Definition of ST_PREDICTION_MODELS table -->
+  <changeSet author="data-collector" id="1.0.0-1">
+    <createTable tableName="ST_PREDICTION_MODELS">
+      <column name="NAME" type="NVARCHAR(255)">
+        <constraints nullable="false" />
+      </column>
+      <column name="VERSION" type="BIGINT">
+        <constraints nullable="false" />
+      </column>
+      <column name="STATUS" type="NVARCHAR(255)">
+        <constraints nullable="false" />
+      </column>
+      <column name="MODEL_FILE" type="NVARCHAR(2000)" />
+      <column name="DATASET_FILE" type="NVARCHAR(2000)" />
+      <column name="CREATED_DATE" type="TIMESTAMP" defaultValue="${now}">
+        <constraints nullable="false" />
+      </column>
+      <column name="ACTIVATED_DATE" type="TIMESTAMP" />
+      <column name="ARCHIVED_DATE" type="TIMESTAMP" />
+    </createTable>
+    <modifySql dbms="mysql">
+      <append value=" ENGINE=INNODB CHARSET=UTF8 COLLATE utf8_general_ci" />
+    </modifySql>
+  </changeSet>
+
+	<!-- Definition of ST_PREDICTION_MODELS PK -->
+  <changeSet author="data-collector" id="1.0.0-2">
+    <addPrimaryKey tableName="ST_PREDICTION_MODELS" columnNames="NAME, VERSION"
+      constraintName="PK_ST_PREDICTION_MODEL" />
+  </changeSet>
+  
+  <!-- Definition of ST_PREDICTION_MODELS K -->
+  <changeSet author="data-collector" id="1.0.0-3">
+    <addUniqueConstraint tableName="ST_PREDICTION_MODELS" columnNames="NAME, VERSION, STATUS"
+      constraintName="UK_ST_PREDICTION_MODEL_VERSION" />
+  </changeSet>
+  
+  <!-- changeSet author="data-collector" id="1.0.0-3" dbms="oracle,postgresql">
+    <createSequence sequenceName="SEQ_ST_DATASET_ID" startValue="1"/>
+  </changeSet>
+  <changeSet author="data-collector" id="1.0.0-4" dbms="oracle,postgresql">
+    <createSequence sequenceName="SEQ_ST_MODEL_ID" startValue="1"/>
+  </changeSet -->
+
 </databaseChangeLog>

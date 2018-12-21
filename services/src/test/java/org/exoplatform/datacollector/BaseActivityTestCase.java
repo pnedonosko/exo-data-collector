@@ -10,6 +10,7 @@ import org.exoplatform.commons.testing.BaseCommonsTestCase;
 import org.exoplatform.container.ExoContainerContext;
 import org.exoplatform.container.PortalContainer;
 import org.exoplatform.container.component.RequestLifeCycle;
+import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryService;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
@@ -40,6 +41,8 @@ public class BaseActivityTestCase extends BaseCommonsTestCase {
   protected IdentityManager     identityManager;
 
   protected ActivityManager     activityManager;
+
+  protected LoginHistoryService loginHistoryService;
 
   protected String              johnId, maryId, jamesId, jasonId, jackId, aliceId, bobId, marketingId, salesId, engineeringId,
       productId, supportId;
@@ -144,7 +147,49 @@ public class BaseActivityTestCase extends BaseCommonsTestCase {
   }
 
   /**
-   * Creates a space
+   * <<<<<<< Updated upstream ======= Initializes space and user identities ID's
+   */
+  protected void initIdentitiesIds() {
+    // Get users with login history
+    // It's current user in tests
+    jasonId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "jason", true).getId();
+    makeLoginHistory("jason");
+    // Other users
+    johnId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "john", true).getId();
+    makeLoginHistory("john");
+    jamesId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "james", true).getId();
+    makeLoginHistory("james");
+    maryId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "mary", true).getId();
+    makeLoginHistory("mary");
+    jackId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "jack", true).getId();
+    makeLoginHistory("jack");
+    aliceId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "alice", true).getId();
+    makeLoginHistory("alice");
+    bobId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, "bob", true).getId();
+    makeLoginHistory("bob");
+    // Spaces
+    marketingId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "marketing_team", true).getId();
+    supportId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "support_team", true).getId();
+    productId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "product_team", true).getId();
+    engineeringId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "engineering_team", true).getId();
+    salesId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, "sales_team", true).getId();
+  }
+
+  protected void makeLoginHistory(String userId) {
+    // Code grabbed from LoginHistoryListener.onEvent()
+    final long now = System.currentTimeMillis();
+    try {
+      Long lastLogin = loginHistoryService.getLastLogin(userId);
+      if (lastLogin == null || now - lastLogin > 180000) {
+        loginHistoryService.addLoginHistoryEntry(userId, now);
+      }
+    } catch (Exception e) {
+      LOG.error("Error creating user login hostory for: " + userId, e);
+    }
+  }
+
+  /**
+   * >>>>>>> Stashed changes Creates a space
    * 
    * @param displayName space displayName
    * @param managers managers of the space
