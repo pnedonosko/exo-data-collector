@@ -47,7 +47,7 @@ public class TrainingService implements Startable {
   public void addDataset(InputStream data) {
     // TODO
     // 1) Save data to a local file
-    // 2) Submit a task to a queue
+    // 2) Submit a task to a queue (DB: ModelEntity)
   }
 
   /**
