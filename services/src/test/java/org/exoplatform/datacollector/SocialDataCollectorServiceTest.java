@@ -5,12 +5,18 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 import org.junit.Test;
 
+import com.google.caja.util.Sets;
 import com.google.common.primitives.Doubles;
 
 import org.exoplatform.component.test.ConfigurationUnit;
@@ -18,7 +24,6 @@ import org.exoplatform.component.test.ConfiguredBy;
 import org.exoplatform.component.test.ContainerScope;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
-import org.exoplatform.social.core.identity.provider.OrganizationIdentityProvider;
 
 @ConfiguredBy({ @ConfigurationUnit(scope = ContainerScope.ROOT, path = "conf/test-configuration.xml"),
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/portal/configuration.xml"),
@@ -26,11 +31,23 @@ import org.exoplatform.social.core.identity.provider.OrganizationIdentityProvide
 public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
 
   /** Logger */
-  private static final Log               LOG            = ExoLogger.getExoLogger(SocialDataCollectorServiceTest.class);
+  private static final Log               LOG             = ExoLogger.getExoLogger(SocialDataCollectorServiceTest.class);
 
-  private static final String            TEXT_PATTERN   = ".*[a-zA-Z]+.*";
+  private static final String            TEXT_PATTERN    = ".*[a-zA-Z]+.*";
 
-  private static AtomicReference<String> activitiesFile = new AtomicReference<>();
+  public static final String             DELIMITER       = ",";
+
+  // Some of them are String in eXo Platform
+  public static final String[]           INTEGER_COLUMNS = { "id", "owner_id", "poster_id", "participant1_id", "participant2_id",
+      "participant3_id", "participant4_id", "participant5_id" };
+
+  private static final String[]          STRING_COLUMNS  = { "title", "owner_title" };
+
+  private static final String[]          FLOAT_COLUMNS   = { "owner_influence", "number_of_likes", "number_of_comments",
+      "reactivity", "poster_influence", "participant1_influence", "participant2_influence", "participant3_influence",
+      "participant4_influence", "participant5_influence" };
+
+  private static AtomicReference<String> activitiesFile  = new AtomicReference<>();
 
   private SocialDataCollectorService     dataCollector;
 
@@ -59,6 +76,7 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
         dataCollector.collectUserActivities(identityManager.getIdentity(jasonId, false), writer);
         writer.close();
         activitiesFile.set(file.getAbsolutePath());
+        LOG.info("PATH: " + file.getAbsolutePath());
       } catch (Exception e) {
         fail("Error collecting activities", e);
       } finally {
@@ -97,77 +115,63 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
     });
   }
 
-  // @Test
-  public void _testDataFormat() {
-    // TODO in this test use a table: Map of Lists, a key it's Column title, the
-    // column value it's a List with related values
-    // Or Map of indexes: a key it's Column title, a value is an index of the
-    // column value in array of data in each read line split by comma.
-    // 1) Read all the dataset in the table
-    // 2) Get column by a name and check the values type
+  @Test
+  public void testDataFormat() {
 
-    activitiesReader.lines().skip(1).forEach(line -> {
-      String[] columns = line.split(",");
-      if (columns.length >= 111) {
+    List<String> lines = activitiesReader.lines().collect(Collectors.toList());
+    Map<String, List<String>> dataset = new HashMap<String, List<String>>();
+    String[] columnTitles = lines.get(0).split(DELIMITER);
 
-        // If you've added or removed any column, make sure the ranges and data
-        // types are correct.
+    for (String title : columnTitles) {
+      dataset.put(title, new ArrayList<>());
+    }
 
-        // Ranges of bytes
-        Stream<String> bitRange1 = Arrays.stream(Arrays.copyOfRange(columns, 2, 9));
-        Stream<String> bitRange2 = Arrays.stream(Arrays.copyOfRange(columns, 11, 13));
-        Stream<String> bitRange3 = Arrays.stream(Arrays.copyOfRange(columns, 17, 23));
-        Stream<String> bitRange4 = Arrays.stream(Arrays.copyOfRange(columns, 24, 34));
-        Stream<String> bitRange5 = Arrays.stream(Arrays.copyOfRange(columns, 36, 48));
-        Stream<String> bitRange6 = Arrays.stream(Arrays.copyOfRange(columns, 50, 62));
-        Stream<String> bitRange7 = Arrays.stream(Arrays.copyOfRange(columns, 64, 76));
-        Stream<String> bitRange8 = Arrays.stream(Arrays.copyOfRange(columns, 78, 90));
-        Stream<String> bitRange9 = Arrays.stream(Arrays.copyOfRange(columns, 92, 104));
-
-        // Range of strings. Column numbers: 0, 1, 9, 10, 23, 35, 49, 63, 77, 91
-        Stream<String> stringRange = Stream.of(columns[0],
-                                               columns[1],
-                                               columns[9],
-                                               columns[10],
-                                               columns[23],
-                                               columns[35],
-                                               columns[49],
-                                               columns[63],
-                                               columns[77],
-                                               columns[91]);
-
-        // Range of floats 13, 14, 15, 16, 34, 48, 62, 76, 90, 104
-        Stream<String> floatRange = Stream.of(columns[13],
-                                              columns[14],
-                                              columns[15],
-                                              columns[16],
-                                              columns[34],
-                                              columns[48],
-                                              columns[62],
-                                              columns[76],
-                                              columns[90],
-                                              columns[104]);
-
-        assertTrue(bitRange1.allMatch(elem -> elem.equals("1") || elem.equals("0")));
-        assertTrue(bitRange2.allMatch(elem -> elem.equals("1") || elem.equals("0")));
-        assertTrue(bitRange3.allMatch(elem -> elem.equals("1") || elem.equals("0")));
-        assertTrue(bitRange4.allMatch(elem -> elem.equals("1") || elem.equals("0")));
-        assertTrue(bitRange5.allMatch(elem -> elem.equals("1") || elem.equals("0")));
-        assertTrue(bitRange6.allMatch(elem -> elem.equals("1") || elem.equals("0")));
-        assertTrue(bitRange7.allMatch(elem -> elem.equals("1") || elem.equals("0")));
-        assertTrue(bitRange8.allMatch(elem -> elem.equals("1") || elem.equals("0")));
-        assertTrue(bitRange9.allMatch(elem -> elem.equals("1") || elem.equals("0")));
-
-        assertTrue(stringRange.allMatch(elem -> elem.matches(TEXT_PATTERN)));
-
-        assertTrue(floatRange.allMatch(elem -> Doubles.tryParse(elem) != null));
-        assertTrue(floatRange.allMatch(elem -> {
-          Double value = Double.parseDouble(elem);
-          return value >= 0 && value <= 1;
-        }));
-
+    // Init dataset
+    lines.stream().skip(1).forEach(line -> {
+      String[] columns = line.split(DELIMITER);
+      for (int i = 0; i < columns.length; i++) {
+        dataset.get(columnTitles[i]).add(columns[i]);
       }
     });
+
+    // INTEGERS checks
+    for (String title : INTEGER_COLUMNS) {
+      assertTrue(dataset.get(title).stream().allMatch(value -> {
+        try {
+          Integer.parseInt(value);
+        } catch (Exception e) {
+          return false;
+        }
+        return true;
+      }));
+    }
+
+    // STRINGS check
+    for (String title : STRING_COLUMNS) {
+      assertTrue(dataset.get(title).stream().allMatch(value -> {
+        return value.matches(TEXT_PATTERN);
+      }));
+    }
+
+    // FLOATS check
+    for (String title : FLOAT_COLUMNS) {
+      assertTrue(dataset.get(title).stream().allMatch(value -> {
+        return Doubles.tryParse(value) != null;
+      }));
+    }
+
+    // There are a lot of bit columns. Consider all columns that are not STRING,
+    // INTEGER or FLOAT columns as BIT columns.
+    Set<String> bitColumns = Sets.newHashSet(columnTitles);
+    bitColumns.removeAll(Arrays.asList(INTEGER_COLUMNS));
+    bitColumns.removeAll(Arrays.asList(FLOAT_COLUMNS));
+    bitColumns.removeAll(Arrays.asList(STRING_COLUMNS));
+
+    // BITS check
+    bitColumns.forEach(title -> {
+      assertTrue(dataset.get(title).stream().allMatch(value -> value.equals("1") || value.equals("0")));
+    });
+
   }
 
 }
