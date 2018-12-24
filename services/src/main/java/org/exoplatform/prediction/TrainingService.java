@@ -22,10 +22,11 @@ import java.io.InputStream;
 
 import org.picocontainer.Startable;
 
+import org.exoplatform.prediction.user.domain.ModelEntity.Status;
+
 /**
- * Train ML models using users data and save them in the storage.
- * 
- * Created by The eXo Platform SAS.
+ * Train ML models using users data and save them in the storage. Created by The
+ * eXo Platform SAS.
  *
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
  * @version $Id: TrainingService.java 00000 Dec 14, 2018 pnedonosko $
@@ -37,17 +38,30 @@ public class TrainingService implements Startable {
    */
   public TrainingService() {
   }
-  
-  
+
   /**
-   * Submit a new dataset to train a new model in the prediction service.
+   * Submit a new model to train in the training service.
    *
-   * @param data the data stream
+   * @param userName the user name
+   * @param datasetFile the dataset file
    */
-  public void addDataset(InputStream data) {
+  public void addModel(String userName, String datasetFile) {
     // TODO
-    // 1) Save data to a local file
-    // 2) Submit a task to a queue (DB: ModelEntity)
+    // 1) Submit a training task to a queue (DB: ModelEntity), using user name
+    // to build a model name. The task is asynchronous.
+    // 2) Later, it should be possible to find a status of the model
+    // 3) Respect current model status: if it's NEW - need cleanup it, if it's
+    // PROCESSING - need cancel it, if it's READY - create a NEW version and
+    // when will be processed mark as READY also.
+  }
+
+  /**
+   * Gets the model's last actual status.
+   *
+   * @return the model status
+   */
+  public Status getModelStatus() {
+    return null; // TODO
   }
 
   /**
