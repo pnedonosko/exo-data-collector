@@ -25,11 +25,14 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
+import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.IdClass;
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
 import javax.persistence.Table;
+
+import org.hibernate.annotations.GenericGenerator;
 
 import org.exoplatform.commons.api.persistence.ExoEntity;
 
@@ -46,8 +49,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
 @NamedQueries({
     /* Get last named version */
     @NamedQuery(name = "PredictionModel.findLastModelVersion", query = "SELECT MAX(m.version) FROM PredictionModel m"
-        + " WHERE m.name = :name GROUP BY m.name, m.status, m.created, m.datasetFile, m.modelFile, m.activated, m.archived") 
- })
+        + " WHERE m.name = :name GROUP BY m.name, m.status, m.created, m.datasetFile, m.modelFile, m.activated, m.archived") })
 public class ModelEntity implements Serializable {
 
   /**
@@ -65,10 +67,8 @@ public class ModelEntity implements Serializable {
 
   @Id
   @Column(name = "VERSION", nullable = false)
-  // @SequenceGenerator(name = "SEQ_ST_MODEL_VERSION", sequenceName =
-  // "SEQ_ST_MODEL_VERSION")
-  // @GeneratedValue(strategy = GenerationType.AUTO, generator =
-  // "SEQ_ST_MODEL_VERSION")
+  @GenericGenerator(name = "SEQ_ST_MODEL_VERSION", strategy = "org.exoplatform.prediction.user.domain.VersionGenerator")
+  @GeneratedValue(generator = "SEQ_ST_MODEL_VERSION")
   protected Long   version;
 
   @Column(name = "STATUS", nullable = false)
@@ -77,7 +77,7 @@ public class ModelEntity implements Serializable {
 
   @Column(name = "MODEL_FILE")
   protected String modelFile;
-  
+
   @Column(name = "DATASET_FILE")
   protected String datasetFile;
 
@@ -89,5 +89,69 @@ public class ModelEntity implements Serializable {
 
   @Column(name = "ARCHIVED_DATE")
   protected Date   archived;
+
+  public String getName() {
+    return name;
+  }
+
+  public void setName(String name) {
+    this.name = name;
+  }
+
+  public Long getVersion() {
+    return version;
+  }
+
+  public void setVersion(Long version) {
+    this.version = version;
+  }
+
+  public Status getStatus() {
+    return status;
+  }
+
+  public void setStatus(Status status) {
+    this.status = status;
+  }
+
+  public String getModelFile() {
+    return modelFile;
+  }
+
+  public void setModelFile(String modelFile) {
+    this.modelFile = modelFile;
+  }
+
+  public String getDatasetFile() {
+    return datasetFile;
+  }
+
+  public void setDatasetFile(String datasetFile) {
+    this.datasetFile = datasetFile;
+  }
+
+  public Date getCreated() {
+    return created;
+  }
+
+  public void setCreated(Date created) {
+    this.created = created;
+  }
+
+  public Date getActivated() {
+    return activated;
+  }
+
+  public void setActivated(Date activated) {
+    this.activated = activated;
+  }
+
+  public Date getArchived() {
+    return archived;
+  }
+
+  public void setArchived(Date archived) {
+    this.archived = archived;
+  }
 
 }

@@ -32,7 +32,7 @@ public class ActivityDAOTest extends BaseActivityTestCase {
   private ActivityMentionedDAO activityMentionedDAO;
 
   private ActivityLikedDAO     activityLikedDAO;
-
+  
   @Override
   protected void beforeClass() {
     super.beforeClass();
@@ -453,4 +453,5 @@ public class ActivityDAOTest extends BaseActivityTestCase {
     assertEquals(4, res.stream().filter(entity -> entity.getOwnerId().equals(salesId)).count());
     assertEquals(3, res.stream().filter(entity -> entity.getOwnerId().equals(bobId)).count());
   }
+  
 }
