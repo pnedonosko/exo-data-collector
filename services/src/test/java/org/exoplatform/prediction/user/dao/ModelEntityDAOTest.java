@@ -59,31 +59,13 @@ public class ModelEntityDAOTest extends BaseCommonsTestCase {
 
   private void initEntities() {
 
-    entityJohnV1 = new ModelEntity();
-    entityJohnV2 = new ModelEntity();
-    entityJohnV3 = new ModelEntity();
-    for (ModelEntity entityJohn : Arrays.asList(entityJohnV1, entityJohnV2, entityJohnV3)) {
-      entityJohn.setActivated(new Date());
-      entityJohn.setArchived(new Date());
-      entityJohn.setCreated(new Date());
-      entityJohn.setDatasetFile("datasetfile");
-      entityJohn.setModelFile("modelfile");
-      entityJohn.setName("john");
-      entityJohn.setStatus(Status.NEW);
-    }
+    entityJohnV1 = new ModelEntity("john", Status.NEW, "modelfile", "datasetfile", new Date(), new Date(), new Date());
+    entityJohnV2 = new ModelEntity("john", Status.NEW, "modelfile", "datasetfile", new Date(), new Date(), new Date());
+    entityJohnV3 = new ModelEntity("john", Status.NEW, "modelfile", "datasetfile", new Date(), new Date(), new Date());
+    
+    entityMaryV1 = new ModelEntity("mary", Status.NEW, "anotherModelfile", "anotherDatasetfile", new Date(), new Date(), new Date());
+    entityMaryV2 = new ModelEntity("mary", Status.NEW, "anotherModelfile", "anotherDatasetfile", new Date(), new Date(), new Date());
 
-    entityMaryV1 = new ModelEntity();
-    entityMaryV2 = new ModelEntity();
-
-    for (ModelEntity entityMary : Arrays.asList(entityMaryV1, entityMaryV2)) {
-      entityMary.setActivated(new Date());
-      entityMary.setArchived(new Date());
-      entityMary.setCreated(new Date());
-      entityMary.setDatasetFile("anotherDatasetFile");
-      entityMary.setModelFile("anotherModelFile");
-      entityMary.setName("mary");
-      entityMary.setStatus(Status.PROCESSING);
-    }
   }
 
 }

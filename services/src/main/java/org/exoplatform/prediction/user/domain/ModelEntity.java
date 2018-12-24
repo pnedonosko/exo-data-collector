@@ -89,69 +89,59 @@ public class ModelEntity implements Serializable {
 
   @Column(name = "ARCHIVED_DATE")
   protected Date   archived;
+  
+  public ModelEntity() {
+    
+  }
+
+  public ModelEntity(String name,
+                     Status status,
+                     String modelFile,
+                     String datasetFile,
+                     Date created,
+                     Date activated,
+                     Date archived) {
+    super();
+    this.name = name;
+    this.status = status;
+    this.modelFile = modelFile;
+    this.datasetFile = datasetFile;
+    this.created = created;
+    this.activated = activated;
+    this.archived = archived;
+  }
+
 
   public String getName() {
     return name;
-  }
-
-  public void setName(String name) {
-    this.name = name;
   }
 
   public Long getVersion() {
     return version;
   }
 
-  public void setVersion(Long version) {
-    this.version = version;
-  }
-
   public Status getStatus() {
     return status;
-  }
-
-  public void setStatus(Status status) {
-    this.status = status;
   }
 
   public String getModelFile() {
     return modelFile;
   }
 
-  public void setModelFile(String modelFile) {
-    this.modelFile = modelFile;
-  }
-
   public String getDatasetFile() {
     return datasetFile;
-  }
-
-  public void setDatasetFile(String datasetFile) {
-    this.datasetFile = datasetFile;
   }
 
   public Date getCreated() {
     return created;
   }
 
-  public void setCreated(Date created) {
-    this.created = created;
-  }
-
   public Date getActivated() {
     return activated;
   }
 
-  public void setActivated(Date activated) {
-    this.activated = activated;
-  }
-
   public Date getArchived() {
     return archived;
-  }
-
-  public void setArchived(Date archived) {
-    this.archived = archived;
   }
 
 }
