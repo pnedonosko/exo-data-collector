@@ -59,13 +59,12 @@ public class ModelEntityDAOTest extends BaseCommonsTestCase {
 
   private void initEntities() {
 
-    entityJohnV1 = new ModelEntity("john", Status.NEW, "modelfile", "datasetfile", new Date(), new Date(), new Date());
-    entityJohnV2 = new ModelEntity("john", Status.NEW, "modelfile", "datasetfile", new Date(), new Date(), new Date());
-    entityJohnV3 = new ModelEntity("john", Status.NEW, "modelfile", "datasetfile", new Date(), new Date(), new Date());
+    entityJohnV1 = new ModelEntity("john", Status.NEW, "modelfile", "datasetfile");
+    entityJohnV2 = new ModelEntity("john", Status.NEW, "modelfile", "datasetfile");
+    entityJohnV3 = new ModelEntity("john", Status.NEW, "modelfile", "datasetfile");
     
-    entityMaryV1 = new ModelEntity("mary", Status.NEW, "anotherModelfile", "anotherDatasetfile", new Date(), new Date(), new Date());
-    entityMaryV2 = new ModelEntity("mary", Status.NEW, "anotherModelfile", "anotherDatasetfile", new Date(), new Date(), new Date());
-
+    entityMaryV1 = new ModelEntity("mary", Status.NEW, "anotherModelfile", "anotherDatasetfile");
+    entityMaryV2 = new ModelEntity("mary", Status.NEW, "anotherModelfile", "anotherDatasetfile");
   }
 
 }

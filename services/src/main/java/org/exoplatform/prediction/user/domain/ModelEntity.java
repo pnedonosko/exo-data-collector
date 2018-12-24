@@ -94,21 +94,13 @@ public class ModelEntity implements Serializable {
 
   }
 
-  public ModelEntity(String name,
-                     Status status,
-                     String modelFile,
-                     String datasetFile,
-                     Date created,
-                     Date activated,
-                     Date archived) {
+  public ModelEntity(String name, Status status, String modelFile, String datasetFile) {
     super();
     this.name = name;
     this.status = status;
     this.modelFile = modelFile;
     this.datasetFile = datasetFile;
-    this.created = created;
-    this.activated = activated;
-    this.archived = archived;
+
   }
 
   public String getName() {
@@ -163,6 +155,4 @@ public class ModelEntity implements Serializable {
     this.archived = archived;
   }
 
-  
-  
 }
