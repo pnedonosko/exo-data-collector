@@ -38,6 +38,10 @@
   <component>
     <type>org.exoplatform.datacollector.dao.ActivityMentionedDAO</type>
   </component>
+  
+  <component>
+    <type>org.exoplatform.prediction.user.dao.ModelEntityDAO</type>
+  </component>
 
 	<external-component-plugins>
 		<target-component>org.exoplatform.commons.api.persistence.DataInitializer</target-component>

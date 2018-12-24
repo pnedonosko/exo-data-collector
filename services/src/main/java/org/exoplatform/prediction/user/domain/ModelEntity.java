@@ -49,8 +49,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
 @NamedQueries({
     /* Get last named version */
     @NamedQuery(name = "PredictionModel.findLastModelVersion", query = "SELECT MAX(m.version) FROM PredictionModel m"
-        + " WHERE m.name = :name GROUP BY m.name, m.status, m.created, m.datasetFile, m.modelFile, m.activated, m.archived") 
- })
+        + " WHERE m.name = :name GROUP BY m.name, m.status, m.created, m.datasetFile, m.modelFile, m.activated, m.archived") })
 public class ModelEntity implements Serializable {
 
   /**
@@ -78,7 +77,7 @@ public class ModelEntity implements Serializable {
 
   @Column(name = "MODEL_FILE")
   protected String modelFile;
-  
+
   @Column(name = "DATASET_FILE")
   protected String datasetFile;
 
@@ -155,5 +154,4 @@ public class ModelEntity implements Serializable {
     this.archived = archived;
   }
 
-  
 }
