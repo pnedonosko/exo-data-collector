@@ -89,9 +89,9 @@ public class ModelEntity implements Serializable {
 
   @Column(name = "ARCHIVED_DATE")
   protected Date   archived;
-  
+
   public ModelEntity() {
-    
+
   }
 
   public ModelEntity(String name,
@@ -110,7 +110,6 @@ public class ModelEntity implements Serializable {
     this.activated = activated;
     this.archived = archived;
   }
-
 
   public String getName() {
     return name;
@@ -144,4 +143,26 @@ public class ModelEntity implements Serializable {
     return archived;
   }
 
+  public void setStatus(Status status) {
+    this.status = status;
+  }
+
+  public void setModelFile(String modelFile) {
+    this.modelFile = modelFile;
+  }
+
+  public void setDatasetFile(String datasetFile) {
+    this.datasetFile = datasetFile;
+  }
+
+  public void setActivated(Date activated) {
+    this.activated = activated;
+  }
+
+  public void setArchived(Date archived) {
+    this.archived = archived;
+  }
+
+  
+  
 }
