@@ -2,17 +2,11 @@ package org.exoplatform.datacollector.domain;
 
 import java.util.Date;
 
-import javax.persistence.Column;
-import javax.persistence.Id;
-import javax.persistence.IdClass;
-import javax.persistence.MappedSuperclass;
-
 /**
  * Abstract activity entity.
  */
 
 public abstract class AbstractActivityEntity {
-
 
   /**
    * Gets the post id.
@@ -62,12 +56,11 @@ public abstract class AbstractActivityEntity {
    * @return the posted date
    */
   public abstract Date getPostedDate();
-  
+
   /*
-  public Date getPostedDate() {
-    return posted != null && posted > 0 ? new Date(posted) : null;
-  }*/
- 
+   * public Date getPostedDate() { return posted != null && posted > 0 ? new
+   * Date(posted) : null; }
+   */
 
   /**
    * Gets the updated date.
@@ -76,9 +69,9 @@ public abstract class AbstractActivityEntity {
    */
   public abstract Date getUpdatedDate();
   /*
-  public Date getUpdatedDate() {
-    return updated != null && updated > 0 ? new Date(updated) : null;
-  }*/
+   * public Date getUpdatedDate() { return updated != null && updated > 0 ? new
+   * Date(updated) : null; }
+   */
 
   /**
    * Gets the updated time in milliseconds.
@@ -86,6 +79,7 @@ public abstract class AbstractActivityEntity {
    * @return the updated
    */
   public abstract Long getUpdated();
+
   /**
    * Gets the hidden.
    *

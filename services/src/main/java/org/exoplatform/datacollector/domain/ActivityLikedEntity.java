@@ -21,21 +21,21 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
     @NamedNativeQuery(name = "ActivityLiked.findPartIsLikedPoster", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, a.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date, l.liker_id, l.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activity_likers l"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITY_LIKERS l"
         + " WHERE a.activity_id = l.activity_id AND a.poster_id != l.liker_id AND a.owner_id IS NOT NULL"
         + " AND l.liker_id = :likerId", resultClass = ActivityLikedEntity.class),
     /* User liked others' comments (find commenters) */
     @NamedNativeQuery(name = "ActivityLiked.findPartIsLikedCommenter", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id, a.owner_id, oc.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date, l.liker_id, l.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activities oc, soc_activity_likers l"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES oc, SOC_ACTIVITY_LIKERS l"
         + " WHERE a.activity_id = oc.parent_id AND oc.activity_id = l.activity_id AND oc.poster_id != l.liker_id"
         + " AND a.owner_id IS NOT NULL AND oc.owner_id IS NULL AND l.liker_id = :likerId" //
         + " UNION ALL" //
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  oc.poster_id, a.owner_id, oc.parent_id, a.hidden, a.posted AS posted_date, a.updated_date,"
         + "  l.liker_id, l.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activities pc, soc_activities oc, soc_activity_likers l"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES pc, SOC_ACTIVITIES oc, SOC_ACTIVITY_LIKERS l"
         + " WHERE a.activity_id = pc.parent_id AND pc.activity_id = oc.parent_id AND oc.activity_id = l.activity_id"
         + " AND oc.poster_id != l.liker_id AND a.owner_id IS NOT NULL AND pc.owner_id IS NULL"
         + " AND oc.owner_id IS NULL AND l.liker_id = :likerId"
@@ -49,7 +49,7 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  a.poster_id, a.owner_id, a.parent_id, a.hidden, a.posted AS posted_date, a.updated_date,"
         + "  l.liker_id, l.created_date AS liked_date" //
-        + " FROM soc_activities a, soc_activities oc, soc_activity_likers l"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES oc, SOC_ACTIVITY_LIKERS l"
         + " WHERE a.activity_id = oc.parent_id AND oc.activity_id = l.activity_id "
         + " AND oc.poster_id != l.liker_id AND a.poster_id != oc.poster_id AND a.poster_id != l.liker_id"
         + " AND a.owner_id IS NOT NULL AND oc.owner_id IS NULL AND l.liker_id = :likerId" //
@@ -57,7 +57,7 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  a.poster_id, a.owner_id, a.parent_id, a.hidden, a.posted AS posted_date, a.updated_date,"
         + "  l.liker_id, l.created_date AS liked_date" //
-        + " FROM soc_activities a, soc_activities cp, soc_activities oc, soc_activity_likers l"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES cp, SOC_ACTIVITIES oc, SOC_ACTIVITY_LIKERS l"
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = oc.parent_id AND oc.activity_id = l.activity_id"
         + " AND a.poster_id != oc.poster_id AND oc.poster_id != l.liker_id AND a.poster_id != l.liker_id"
         + " AND a.owner_id IS NOT NULL AND cp.owner_id IS NULL AND oc.owner_id IS NULL AND l.liker_id = :likerId" //
@@ -69,21 +69,21 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
     @NamedNativeQuery(name = "ActivityLiked.findPartIsPostLiker", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, a.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date, l.liker_id, l.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activity_likers l" //
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITY_LIKERS l" //
         + " WHERE a.activity_id = l.activity_id AND a.poster_id != l.liker_id"
         + " AND a.owner_id IS NOT NULL AND a.poster_id = :posterId", resultClass = ActivityLikedEntity.class),
     /* Others like user comments (find likers) */
     @NamedNativeQuery(name = "ActivityLiked.findPartIsCommentLiker", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, c.poster_id, a.owner_id, c.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date, l.liker_id, l.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activities c, soc_activity_likers l"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES c, SOC_ACTIVITY_LIKERS l"
         + " WHERE a.activity_id = c.parent_id AND c.activity_id = l.activity_id AND c.poster_id != l.liker_id"
         + " AND a.owner_id IS NOT NULL AND c.owner_id IS NULL AND c.poster_id = :commenterId" //
         + " UNION ALL" //
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  c.poster_id, a.owner_id, c.parent_id, a.hidden,"
         + "  a.posted AS posted_date, a.updated_date, l.liker_id, l.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activities cp, soc_activities c, soc_activity_likers l"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES cp, SOC_ACTIVITIES c, SOC_ACTIVITY_LIKERS l"
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = c.parent_id AND c.activity_id = l.activity_id"
         + " AND c.poster_id != l.liker_id AND a.owner_id IS NOT NULL AND cp.owner_id IS NULL"
         + " AND c.owner_id IS NULL AND c.poster_id = :commenterId" //
@@ -96,7 +96,7 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
         + "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, a.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date, l.liker_id, l.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activities c, soc_activity_likers l"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES c, SOC_ACTIVITY_LIKERS l"
         + " WHERE a.activity_id = c.parent_id AND a.activity_id = l.activity_id"
         + " AND c.poster_id != l.liker_id AND a.poster_id != l.liker_id"
         + " AND a.owner_id IS NOT NULL AND c.owner_id IS NULL AND c.poster_id = :commenterId" //
@@ -104,7 +104,7 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
         + " SELECT DISTINCT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  a.poster_id, a.owner_id, a.parent_id, a.hidden, a.posted AS posted_date, a.updated_date,"
         + "  l.liker_id, l.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activities cp, soc_activities c, soc_activity_likers l"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES cp, SOC_ACTIVITIES c, SOC_ACTIVITY_LIKERS l"
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = c.parent_id AND a.activity_id = l.activity_id"
         + " AND c.poster_id != l.liker_id AND a.poster_id != l.liker_id"
         + " AND a.owner_id IS NOT NULL AND cp.owner_id IS NULL AND c.owner_id IS NULL AND c.poster_id = :commenterId" //
@@ -115,7 +115,7 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
     @NamedNativeQuery(name = "ActivityLiked.findPartIsSamePostLiker", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, a.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date, ol.liker_id, ol.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activity_likers ol, soc_activity_likers l"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITY_LIKERS ol, SOC_ACTIVITY_LIKERS l"
         + " WHERE a.activity_id = ol.activity_id AND a.activity_id = l.activity_id"
         + " AND a.poster_id != l.liker_id AND a.poster_id != ol.liker_id AND ol.liker_id != l.liker_id"
         + " AND a.owner_id IS NOT NULL AND l.liker_id = :likerId", resultClass = ActivityLikedEntity.class),
@@ -123,7 +123,7 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
     @NamedNativeQuery(name = "ActivityLiked.findPartIsSameCommentLiker", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, c.poster_id, a.owner_id, c.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date, ol.liker_id, ol.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activities c, soc_activity_likers ol, soc_activity_likers l"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES c, SOC_ACTIVITY_LIKERS ol, SOC_ACTIVITY_LIKERS l"
         + " WHERE a.activity_id = c.parent_id AND c.activity_id = ol.activity_id AND c.activity_id = l.activity_id"
         + " AND c.poster_id != ol.liker_id AND c.poster_id != l.liker_id AND ol.liker_id != l.liker_id"
         + " AND a.owner_id IS NOT NULL AND c.owner_id IS NULL AND l.liker_id = :likerId" //
@@ -131,7 +131,7 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  c.poster_id, a.owner_id, c.parent_id, a.hidden, a.posted AS posted_date, a.updated_date,"
         + "  ol.liker_id, ol.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activities cp, soc_activities c, soc_activity_likers ol, soc_activity_likers l"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES cp, SOC_ACTIVITIES c, SOC_ACTIVITY_LIKERS ol, SOC_ACTIVITY_LIKERS l"
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = c.parent_id"
         + " AND c.activity_id = ol.activity_id AND c.activity_id = l.activity_id"
         + " AND c.poster_id != ol.liker_id AND c.poster_id != l.liker_id AND ol.liker_id != l.liker_id"
@@ -145,8 +145,8 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
         + "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, a.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date, ol.liker_id, ol.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activities c, soc_activity_likers ol, soc_activity_likers l"
-        + " WHERE a.activity_id NOT IN (SELECT activity_id FROM soc_activity_likers WHERE liker_id = l.liker_id)"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES c, SOC_ACTIVITY_LIKERS ol, SOC_ACTIVITY_LIKERS l"
+        + " WHERE a.activity_id NOT IN (SELECT activity_id FROM SOC_ACTIVITY_LIKERS WHERE liker_id = l.liker_id)"
         + " AND a.activity_id = c.parent_id AND a.activity_id = ol.activity_id AND c.activity_id = l.activity_id"
         + " AND a.poster_id != ol.liker_id AND a.poster_id != l.liker_id"
         + " AND c.poster_id != l.liker_id AND ol.liker_id != l.liker_id AND ol.activity_id != l.activity_id"
@@ -155,8 +155,8 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  a.poster_id, a.owner_id, a.parent_id, a.hidden, a.posted AS posted_date, a.updated_date,"
         + "  ol.liker_id, ol.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activities cp, soc_activities c, soc_activity_likers ol, soc_activity_likers l"
-        + " WHERE a.activity_id NOT IN (SELECT activity_id FROM soc_activity_likers WHERE liker_id = l.liker_id)"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES cp, SOC_ACTIVITIES c, SOC_ACTIVITY_LIKERS ol, SOC_ACTIVITY_LIKERS l"
+        + " WHERE a.activity_id NOT IN (SELECT activity_id FROM SOC_ACTIVITY_LIKERS WHERE liker_id = l.liker_id)"
         + " AND a.activity_id = cp.parent_id AND cp.activity_id = c.parent_id"
         + " AND a.activity_id = ol.activity_id AND c.activity_id = l.activity_id"
         + " AND a.poster_id != ol.liker_id AND a.poster_id != l.liker_id"
@@ -169,7 +169,7 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
     @NamedNativeQuery(name = "ActivityLiked.findPartIsFavoriteStreamPostLiker", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, a.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date, ol.liker_id, ol.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activity_likers ol, soc_identities si"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITY_LIKERS ol, SOC_IDENTITIES si"
         + " WHERE si.identity_id = ol.liker_id AND si.provider_id = 'organization' AND a.activity_id = ol.activity_id"
         + " AND a.owner_id IS NOT NULL AND a.owner_id IN (:favoriteStreams) AND ol.liker_id != :likerId"
         + " ORDER BY post_id, parent_id, liker_id", resultClass = ActivityLikedEntity.class),
@@ -177,14 +177,14 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
     @NamedNativeQuery(name = "ActivityLiked.findPartIsFavoriteStreamCommentLiker", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, oc.poster_id, a.owner_id, oc.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date, ol.liker_id, ol.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activities oc, soc_activity_likers ol"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES oc, SOC_ACTIVITY_LIKERS ol"
         + " WHERE a.activity_id = oc.parent_id AND oc.activity_id = ol.activity_id AND a.owner_id IS NOT NULL"
         + " AND a.owner_id IN (:favoriteStreams) AND ol.liker_id != :likerId" //
         + " UNION ALL" //
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  oc.poster_id, a.owner_id, oc.parent_id," //
         + "  a.hidden, a.posted AS posted_date, a.updated_date, ol.liker_id, ol.created_date AS liked_date"
-        + " FROM soc_activities a, soc_activities cp, soc_activities oc, soc_activity_likers ol"
+        + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES cp, SOC_ACTIVITIES oc, SOC_ACTIVITY_LIKERS ol"
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = oc.parent_id"
         + " AND oc.activity_id = ol.activity_id AND a.owner_id IS NOT NULL"
         + " AND a.owner_id IN (:favoriteStreams) AND ol.liker_id != :likerId"

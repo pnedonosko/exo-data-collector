@@ -57,8 +57,8 @@ public class UserInfluencers {
   public static final double    REACTIVITY_DAY_WEIGHT_GROW = 0.7;
 
   public static final double    INFLUENCE_DAY_WEIGHT_GROW  = 0.2;
-  
-  public static final int ACTIVITY_PARTICIPANTS_TOP = 5;
+
+  public static final int       ACTIVITY_PARTICIPANTS_TOP  = 5;
 
   public static final int       DAY_LENGTH_MILLIS          = 86400000;
 
@@ -166,7 +166,14 @@ public class UserInfluencers {
 
   private final Map<String, SpaceInfo> userSpaces;
 
-  public UserInfluencers(Identity userIdentity, List<Identity> userConnections, List<Space> userSpaces
+  /**
+   * Instantiates a new user influencers.
+   *
+   * @param userIdentity the user identity
+   * @param userConnections the user connections
+   * @param userSpaces the user spaces
+   */
+  public UserInfluencers(Identity userIdentity, Collection<Identity> userConnections, Collection<Space> userSpaces
   /*
    * OrganizationService organization, IdentityManager identityManager,
    * RelationshipManager relationshipManager, SpaceService spaceService
