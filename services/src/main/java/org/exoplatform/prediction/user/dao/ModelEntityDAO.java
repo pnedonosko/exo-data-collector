@@ -20,4 +20,15 @@ public class ModelEntityDAO extends GenericDAOJPAImpl<ModelEntity, ModelId> {
       return null;
     }
   }
+
+  public Long findLastModelVersion(String name) {
+    TypedQuery<Long> query = getEntityManager().createNamedQuery("PredictionModel.findLastModelVersion", Long.class)
+                                               .setParameter("name", name);
+    try {
+      return query.getSingleResult();
+    } catch (NoResultException e) {
+      return null;
+    }
+  }
+
 }

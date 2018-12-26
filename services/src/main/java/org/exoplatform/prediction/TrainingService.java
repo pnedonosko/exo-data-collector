@@ -18,10 +18,16 @@
  */
 package org.exoplatform.prediction;
 
+import java.io.File;
+
 import org.picocontainer.Startable;
 
 import org.exoplatform.prediction.user.dao.ModelEntityDAO;
+import org.exoplatform.prediction.user.domain.ModelEntity;
 import org.exoplatform.prediction.user.domain.ModelEntity.Status;
+import org.exoplatform.prediction.user.domain.ModelId;
+import org.exoplatform.services.log.ExoLogger;
+import org.exoplatform.services.log.Log;
 
 /**
  * Train ML models using users data and save them in the storage. Created by The
@@ -32,13 +38,18 @@ import org.exoplatform.prediction.user.domain.ModelEntity.Status;
  */
 public class TrainingService implements Startable {
 
-  private ModelEntityDAO modelEntityDAO;
+  /** Logger */
+  private static final Log       LOG = ExoLogger.getExoLogger(TrainingService.class);
+
+  /** ModelEntityDAO */
+  protected final ModelEntityDAO modelEntityDAO;
 
   /**
    * Instantiates a new training service.
    */
   public TrainingService(ModelEntityDAO modelEntityDAO) {
     this.modelEntityDAO = modelEntityDAO;
+
   }
 
   /**
@@ -48,6 +59,7 @@ public class TrainingService implements Startable {
    * @param datasetFile the dataset file
    */
   public void addModel(String userName, String datasetFile) {
+
     // TODO
     // 1) Submit a training task to a queue (DB: ModelEntity), using user name
     // to build a model name. The task is asynchronous.
@@ -55,6 +67,26 @@ public class TrainingService implements Startable {
     // 3) Respect current model status: if it's NEW - need cleanup it, if it's
     // PROCESSING - need cancel it, if it's READY - create a NEW version and
     // when will be processed mark as READY also.
+
+    ModelEntity modelEntity = new ModelEntity(userName, datasetFile);
+    Long lastVersion = modelEntityDAO.findLastModelVersion(userName);
+
+    if (lastVersion != null) {
+      ModelEntity currentModel = modelEntityDAO.find(new ModelId(userName, lastVersion));
+
+      if (currentModel.getStatus() == Status.NEW || currentModel.getStatus() == Status.PROCESSING) {
+        if (currentModel.getDatasetFile() != null) {
+          new File(currentModel.getDatasetFile()).delete();
+        }
+        if (currentModel.getModelFile() != null) {
+          new File(currentModel.getDatasetFile()).delete();
+        }
+
+        modelEntityDAO.delete(currentModel);
+      }
+    }
+
+    modelEntityDAO.create(modelEntity);
   }
 
   /**
