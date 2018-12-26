@@ -18,7 +18,7 @@
  */
 package org.exoplatform.datacollector.rest;
 
-import java.util.concurrent.Callable;
+import java.io.File;
 
 import javax.annotation.security.RolesAllowed;
 import javax.ws.rs.GET;
@@ -64,17 +64,44 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   public Response runCollect(@PathParam("bucketname") String bucketName) {
     try {
       // TODO do asynchronous
-      /*getExecutorService().submit(new Callable<Void>() {
-          @Override
-          public Void call() throws Exception {*/
+      /*
+       * getExecutorService().submit(new Callable<Void>() {
+       * @Override public Void call() throws Exception {
+       */
       String bucketPath = dataCollector.collectUsersActivities(bucketName);
-      String actualBucketName = bucketPath.substring(bucketPath.lastIndexOf('/'));
+      String actualBucketName = bucketPath.substring(bucketPath.lastIndexOf(File.separator));
       return Response.ok().entity("{\"bucketname\":\"" + actualBucketName + "\"}").build();
     } catch (Exception e) {
       LOG.error("Error collecting user activities into " + bucketName, e);
       return Response.serverError().entity("{\"error\":\"Error collecting user activities\"}").build();
     }
+  }
 
+  /**
+   * Start the user collector.
+   *
+   * @param bucketName the bucket name
+   * @param userName the user name
+   * @return response 200 which contains relevanceEntity or 404
+   */
+  @GET
+  // @RolesAllowed("administrators") // TODO only super users in PROD mode
+  @RolesAllowed("users")
+  @Path("/run/{bucketname}/{username}")
+  public Response runCollect(@PathParam("bucketname") String bucketName, @PathParam("username") String userName) {
+    try {
+      String filePath = dataCollector.collectUserActivities(bucketName, userName);
+      if (filePath != null) {
+        String actualFileName = filePath.substring(filePath.substring(0, filePath.lastIndexOf(File.separator + userName))
+                                                           .lastIndexOf(File.separator));
+        return Response.ok().entity("{\"filename\":\"" + actualFileName + "\"}").build();
+      } else {
+        return Response.status(Status.BAD_REQUEST).entity("{\"error\":\"Wrong parameters\"}").build();
+      }
+    } catch (Exception e) {
+      LOG.error("Error collecting user activities into " + bucketName, e);
+      return Response.serverError().entity("{\"error\":\"Error collecting user activities\"}").build();
+    }
   }
 
 }

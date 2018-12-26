@@ -23,7 +23,7 @@ import org.exoplatform.datacollector.domain.id.ActivityPostedId;
     @NamedNativeQuery(name = "ActivityPosted.findUserPosts", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, a.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date " //
-        + " FROM soc_activities a" //
+        + " FROM SOC_ACTIVITIES a" //
         + " WHERE a.owner_id IS NOT NULL AND a.poster_id = :posterId" //
         + " ORDER BY owner_id, updated_date", resultClass = ActivityPostedEntity.class),
     /* ===== Others do in the user favorite streams ===== */
@@ -31,7 +31,7 @@ import org.exoplatform.datacollector.domain.id.ActivityPostedId;
     @NamedNativeQuery(name = "ActivityPosted.findPartIsFavoriteStreamPoster", query = "SELECT a.activity_id AS post_id,"
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id AS poster_id, a.owner_id, a.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date" //
-        + " FROM soc_activities a, soc_identities si"
+        + " FROM SOC_ACTIVITIES a, SOC_IDENTITIES si"
         + " WHERE a.owner_id IS NOT NULL AND si.identity_id = a.poster_id AND si.provider_id = 'organization'"
         + " AND a.owner_id IN (:favoriteStreams) AND a.poster_id != :posterId"
         + " ORDER BY owner_id, post_id, poster_id", resultClass = ActivityPostedEntity.class)

@@ -21,6 +21,7 @@ package org.exoplatform.datacollector;
 import static org.exoplatform.datacollector.UserInfluencers.ACTIVITY_PARTICIPANTS_TOP;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -28,6 +29,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -35,11 +37,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
 import org.picocontainer.Startable;
 
 import org.exoplatform.commons.utils.ListAccess;
+import org.exoplatform.container.ExoContainer;
+import org.exoplatform.container.ExoContainerContext;
+import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.datacollector.dao.ActivityCommentedDAO;
 import org.exoplatform.datacollector.dao.ActivityLikedDAO;
 import org.exoplatform.datacollector.dao.ActivityMentionedDAO;
@@ -52,8 +64,9 @@ import org.exoplatform.services.jcr.ext.app.SessionProviderService;
 import org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
-import org.exoplatform.services.organization.Group;
+import org.exoplatform.services.organization.Membership;
 import org.exoplatform.services.organization.OrganizationService;
+import org.exoplatform.services.organization.User;
 import org.exoplatform.social.core.activity.model.ActivityStream;
 import org.exoplatform.social.core.activity.model.ActivityStream.Type;
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
@@ -65,7 +78,6 @@ import org.exoplatform.social.core.manager.ActivityManager;
 import org.exoplatform.social.core.manager.IdentityManager;
 import org.exoplatform.social.core.manager.RelationshipManager;
 import org.exoplatform.social.core.profile.ProfileFilter;
-import org.exoplatform.social.core.space.SpaceUtils;
 import org.exoplatform.social.core.space.model.Space;
 import org.exoplatform.social.core.space.spi.SpaceService;
 
@@ -78,6 +90,38 @@ public class SocialDataCollectorService implements Startable {
   private static final Log       LOG                   = ExoLogger.getExoLogger(SocialDataCollectorService.class);
 
   public static final int        BATCH_SIZE            = 200;
+
+  public static final String     DUMMY_ID              = "0".intern();
+
+  public static final String     EMPTY_STRING          = "".intern();
+
+  /**
+   * Base minimum number of threads for worker thread executors.
+   */
+  public static final int        MIN_THREADS           = 2;
+
+  /**
+   * Minimal number of threads maximum possible for worker thread executors.
+   */
+  public static final int        MIN_MAX_THREADS       = 4;
+
+  /** Thread idle time for thread executors (in seconds). */
+  public static final int        THREAD_IDLE_TIME      = 120;
+
+  /**
+   * Maximum threads per CPU for worker thread executors.
+   */
+  public static final int        WORKER_MAX_FACTOR     = 2;
+
+  /**
+   * Queue size per CPU for worker thread executors.
+   */
+  public static final int        WORKER_QUEUE_FACTOR   = WORKER_MAX_FACTOR * 20;
+
+  /**
+   * Thread name used for worker thread.
+   */
+  public static final String     WORKER_THREAD_PREFIX  = "datacollector-worker-thread-";
 
   protected static final Pattern ENGINEERING_PATTERN   =
                                                      Pattern.compile("^.*developer|architect|r&d|mobile|qa|fqa|tqa|test|quality|qualité|expert|integrator|designer|cwi|technical advisor|services delivery|software engineer.*$");
@@ -94,10 +138,10 @@ public class SocialDataCollectorService implements Startable {
   protected static final Pattern FINANCIAL_PATTERN     = Pattern.compile("^.*accountant|financial|investment|account manager.*$");
 
   /**
-   * The Constant EMPLOYEE_GROUPID - TODO better make it configurable. For
+   * The Constant EMPLOYEES_GROUPID - TODO better make it configurable. For
    * /Groups/spaces/exo_employees.
    */
-  protected static final String  EMPLOYEE_GROUPID      = "/spaces/exo_employees";
+  protected static final String  EMPLOYEES_GROUPID     = "/spaces/exo_employees";
 
   protected static final String  FILE_TIMESTAMP_FORMAT = "yyyy-MM-dd_HHmmss.SSSS";
 
@@ -150,6 +194,112 @@ public class SocialDataCollectorService implements Startable {
     public String toString() {
       return this.getClass().getSimpleName() + " [id=" + id + ", isConversed=" + isConversed.intValue() + ", isFavored="
           + isFavored.intValue() + "]";
+    }
+  }
+
+  /**
+   * Worker thread factory adapted from {@link Executors#DefaultThreadFactory}.
+   */
+  static class WorkerThreadFactory implements ThreadFactory {
+
+    /** The group. */
+    final ThreadGroup   group;
+
+    /** The thread number. */
+    final AtomicInteger threadNumber = new AtomicInteger(1);
+
+    /** The name prefix. */
+    final String        namePrefix;
+
+    /**
+     * Instantiates a new command thread factory.
+     *
+     * @param namePrefix the name prefix
+     */
+    WorkerThreadFactory(String namePrefix) {
+      SecurityManager s = System.getSecurityManager();
+      this.group = (s != null) ? s.getThreadGroup() : Thread.currentThread().getThreadGroup();
+      this.namePrefix = namePrefix;
+    }
+
+    public Thread newThread(Runnable r) {
+      Thread t = new Thread(group, r, namePrefix + threadNumber.getAndIncrement(), 0) {
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        protected void finalize() throws Throwable {
+          super.finalize();
+          threadNumber.decrementAndGet();
+        }
+
+      };
+      if (t.isDaemon()) {
+        t.setDaemon(false);
+      }
+      if (t.getPriority() != Thread.NORM_PRIORITY) {
+        t.setPriority(Thread.NORM_PRIORITY);
+      }
+      return t;
+    }
+  }
+
+  /**
+   * The Class ContainerCommand.
+   */
+  abstract class ContainerCommand implements Runnable {
+
+    /** The container name. */
+    final String containerName;
+
+    /**
+     * Instantiates a new container command.
+     *
+     * @param containerName the container name
+     */
+    ContainerCommand(String containerName) {
+      this.containerName = containerName;
+    }
+
+    /**
+     * Execute actual work of the commend (in extending class).
+     *
+     * @param exoContainer the exo container
+     */
+    abstract void execute(ExoContainer exoContainer);
+
+    /**
+     * Callback to execute on container error.
+     *
+     * @param error the error
+     */
+    abstract void onContainerError(String error);
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void run() {
+      // Do the work under eXo container context (for proper work of eXo apps
+      // and JPA storage)
+      ExoContainer exoContainer = ExoContainerContext.getContainerByName(containerName);
+      if (exoContainer != null) {
+        ExoContainer contextContainer = ExoContainerContext.getCurrentContainerIfPresent();
+        try {
+          // Container context
+          ExoContainerContext.setCurrentContainer(exoContainer);
+          RequestLifeCycle.begin(exoContainer);
+          // do the work here
+          execute(exoContainer);
+        } finally {
+          // Restore context
+          RequestLifeCycle.end();
+          ExoContainerContext.setCurrentContainer(contextContainer);
+        }
+      } else {
+        onContainerError("Container not found");
+      }
     }
   }
 
@@ -239,8 +389,10 @@ public class SocialDataCollectorService implements Startable {
             // reached actual end-of-data
             nextBatch = null;
           }
-        } catch (IllegalArgumentException | IndexOutOfBoundsException e) {
-          // faced with actual end-of-data
+        } catch (IndexOutOfBoundsException e) {
+          // faced with actual end-of-data, or already empty
+          nextBatch = null;
+        } catch (IllegalArgumentException e) {
           LOG.warn("Unexpected index/size error during loading access list:", e);
           nextBatch = null;
         } catch (Exception e) {
@@ -288,27 +440,94 @@ public class SocialDataCollectorService implements Startable {
     return res;
   }
 
-  protected final IdentityManager      identityManager;
+  @Deprecated
+  protected static class IdentityInfo {
 
-  protected final ActivityManager      activityManager;
+    public final String id;
 
-  protected final RelationshipManager  relationshipManager;
+    public final String userName;
 
-  protected final SpaceService         spaceService;
+    public final String gender;
 
-  protected final OrganizationService  organization;
+    public final String position;
 
-  protected final LoginHistoryService  loginHistory;
+    IdentityInfo(String id, String userName, String gender, String position) {
+      this.id = id;
+      this.userName = userName;
+      this.gender = gender;
+      this.position = position;
+    }
+  }
 
-  protected final UserACL              userACL;
+  /**
+   * The Class UserIdentity extends Social's {@link Identity} with required data
+   * from social profile.
+   */
+  protected static class UserIdentity extends Identity {
 
-  protected final ActivityCommentedDAO commentStorage;
+    private final String gender;
 
-  protected final ActivityPostedDAO    postStorage;
+    private final String position;
 
-  protected final ActivityLikedDAO     likeStorage;
+    UserIdentity(String id, String remoteId, String gender, String position) {
+      super(id);
+      this.setRemoteId(remoteId);
+      this.setProviderId(OrganizationIdentityProvider.NAME);
+      this.gender = gender;
+      this.position = position;
+    }
 
-  protected final ActivityMentionedDAO mentionStorage;
+    public String getGender() {
+      return gender;
+    }
+
+    public String getPosition() {
+      return position;
+    }
+  }
+
+  /**
+   * The Class SpaceIdentity extends Social's {@link Identity} with required
+   * data from social space.
+   */
+  protected static class SpaceIdentity extends Identity {
+    SpaceIdentity(String id, String remoteId) {
+      super(id);
+      this.setRemoteId(remoteId);
+      this.setProviderId(SpaceIdentityProvider.NAME);
+    }
+  }
+
+  protected final IdentityManager            identityManager;
+
+  protected final ActivityManager            activityManager;
+
+  protected final RelationshipManager        relationshipManager;
+
+  protected final SpaceService               spaceService;
+
+  protected final OrganizationService        organization;
+
+  protected final LoginHistoryService        loginHistory;
+
+  protected final UserACL                    userACL;
+
+  protected final ActivityCommentedDAO       commentStorage;
+
+  protected final ActivityPostedDAO          postStorage;
+
+  protected final ActivityLikedDAO           likeStorage;
+
+  protected final ActivityMentionedDAO       mentionStorage;
+
+  protected final Map<String, Set<String>>   focusGroups     = new HashMap<>();
+
+  // TODO clean this map time-from-time to do not consume the RAM
+  protected final Map<String, UserIdentity>  userIdentities  = new HashMap<>();
+
+  protected final Map<String, SpaceIdentity> spaceIdentities = new HashMap<>();
+
+  protected final ExecutorService            workers;
 
   /**
    * Instantiates a new data collector service.
@@ -355,6 +574,8 @@ public class SocialDataCollectorService implements Startable {
     this.commentStorage = commentStorage;
     this.likeStorage = likeStorage;
     this.mentionStorage = mentionStorage;
+
+    this.workers = createThreadExecutor(WORKER_THREAD_PREFIX, WORKER_MAX_FACTOR, WORKER_QUEUE_FACTOR);
   }
 
   /**
@@ -362,7 +583,12 @@ public class SocialDataCollectorService implements Startable {
    */
   @Override
   public void start() {
-    // Nothing
+    // Pre-read constant things
+    // TODO listen for updates in groups to update the mappings
+    Set<String> admins = getGroupMembers(userACL.getAdminGroups(), "manager", "member");
+    this.focusGroups.put(userACL.getAdminGroups(), admins);
+    Set<String> employees = getGroupMembers(EMPLOYEES_GROUPID);
+    this.focusGroups.put(EMPLOYEES_GROUPID, employees);
   }
 
   /**
@@ -373,40 +599,24 @@ public class SocialDataCollectorService implements Startable {
     // Nothing
   }
 
-  // **** internals
-
   /**
    * Collect users activities into files bucket in Platform data folder, each
    * file will have name of an user with <code>.csv</code> extension. If such
    * folder already exists, it will overwrite the files that match found users.
+   * In case of error during the work, all partial results will be deleted.
    *
    * @param bucketName the bucket name, can be <code>null</code> then a
    *          timestamped name will be created
-   * @return the string with a path to saved bucket folder
+   * @return the string with a path to saved bucket folder or <code>null</code>
+   *         if error occured
    * @throws Exception the exception
    */
   public String collectUsersActivities(String bucketName) throws Exception {
     // TODO go through all users in the organization and swap their datasets
     // into separate data stream, then feed them to the Training Service
 
-    // TODO Temporally spool all users datasets into a dedicated folder into
-    // ${gatein.data.dir}/data-collector/${bucketName}
-    String dataDirPath = System.getProperty("gatein.data.dir");
-    if (dataDirPath == null || dataDirPath.trim().length() == 0) {
-      dataDirPath = System.getProperty("exo.data.dir");
-      if (dataDirPath == null || dataDirPath.trim().length() == 0) {
-        dataDirPath = System.getProperty("java.io.tmpdir");
-        LOG.warn("Platoform data dir not defined. Will use: " + dataDirPath);
-      }
-    }
-    if (bucketName == null || bucketName.trim().length() == 0) {
-      bucketName = "bucket-" + new SimpleDateFormat(FILE_TIMESTAMP_FORMAT).format(new Date());
-    } /*
-       * else { bucketName += "-" + new
-       * SimpleDateFormat(FILE_TIMESTAMP_FORMAT).format(new Date()); }
-       */
-    File collectorDir = new File(dataDirPath + "/data-collector/" + bucketName);
-    collectorDir.mkdirs();
+    File bucketDir = openBuckerDir(bucketName);
+    LOG.info("Saving dataset into bucket folder: " + bucketDir.getAbsolutePath());
 
     // ProfileFilter filter = new ProfileFilter();
     // long idsCount =
@@ -415,19 +625,83 @@ public class SocialDataCollectorService implements Startable {
     Iterator<Identity> idIter = loadListIterator(identityManager.getIdentitiesByProfileFilter(OrganizationIdentityProvider.NAME,
                                                                                               new ProfileFilter(),
                                                                                               true));
-    while (idIter.hasNext()) {
-      Identity id = idIter.next();
-
-      File userFile = new File(collectorDir, id.getRemoteId() + ".csv");
-      PrintWriter writer = new PrintWriter(userFile);
-      try {
-        collectUserActivities(id, writer);
-      } finally {
-        writer.close();
-      }
+    while (idIter.hasNext() && !Thread.currentThread().isInterrupted()) {
+      final UserIdentity id = cacheUserIdentity(userIdentity(idIter.next()));
+      final File userFile = new File(bucketDir, id.getRemoteId() + ".csv");
+      submitCollectUserActivities(id, userFile);
     }
 
-    return collectorDir.getAbsolutePath();
+    if (Thread.currentThread().isInterrupted()) {
+      LOG.warn("Saving of dataset interrupted for bucket: " + bucketName);
+      workers.shutdownNow();
+      // Clean the bucket files
+      try {
+        Arrays.asList(bucketDir.listFiles()).stream().forEach(f -> f.delete());
+        bucketDir.delete();
+      } catch (Exception e) {
+        LOG.error("Error removing canceled bucket folder: " + bucketName);
+      }
+      return null;
+    } else {
+      LOG.info("Saved dataset successfully into bucket folder: " + bucketDir.getAbsolutePath());
+      return bucketDir.getAbsolutePath();
+    }
+  }
+
+  /**
+   * Collect user activities into given files bucket in Platform data folder.
+   *
+   * @param bucketName the bucket name
+   * @param userName the user name
+   * @return the string
+   */
+  public String collectUserActivities(String bucketName, String userName) {
+    File bucketDir = openBuckerDir(bucketName);
+    LOG.info("Saving user dataset into bucket folder: " + bucketDir.getAbsolutePath());
+
+    final UserIdentity id = getUserIdentityByName(userName);
+    if (id != null) {
+      final File userFile = new File(bucketDir, id.getRemoteId() + ".csv");
+      submitCollectUserActivities(id, userFile);
+      return userFile.getAbsolutePath();
+    } else {
+      LOG.warn("User social identity not found for " + userName);
+      return null;
+    }
+  }
+
+  // **** internals
+
+  protected void submitCollectUserActivities(UserIdentity id, File file) {
+    final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
+    workers.submit(new ContainerCommand(containerName) {
+      /**
+       * {@inheritDoc}
+       */
+      @Override
+      void execute(ExoContainer exoContainer) {
+        try {
+          PrintWriter writer = new PrintWriter(file);
+          try {
+            collectUserActivities(id, writer);
+          } catch (Exception e) {
+            LOG.error("User activities collector error for worker of " + id.getRemoteId(), e);
+          } finally {
+            writer.close();
+          }
+        } catch (IOException e) {
+          LOG.error("Error opening activities collector file for " + id.getRemoteId(), e);
+        }
+      }
+
+      /**
+       * {@inheritDoc}
+       */
+      @Override
+      void onContainerError(String error) {
+        LOG.error("Container error: " + error + " (" + containerName + ") for worker of " + id.getRemoteId());
+      }
+    });
   }
 
   /**
@@ -435,16 +709,17 @@ public class SocialDataCollectorService implements Startable {
    *
    * @param id the user identity in Social
    * @param out the writer where spool the user activities dataset
-   * @throws IllegalArgumentException the illegal argument exception
    * @throws Exception the exception
    */
-  protected void collectUserActivities(Identity id, PrintWriter out) throws IllegalArgumentException, Exception {
+  protected void collectUserActivities(UserIdentity id, PrintWriter out) throws Exception {
+    LOG.info("> Collecting user activities for " + id.getRemoteId());
     out.println(activityHeader());
 
     // Find this user favorite participants (influencers) and streams
-    List<Identity> idConnections = loadListAll(relationshipManager.getConnections(id));
+    LOG.info(">> Buidling user influencers for " + id.getRemoteId());
+    Collection<Identity> idConnections = loadListAll(relationshipManager.getConnections(id));
+    Collection<Space> userSpaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
 
-    List<Space> userSpaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
     UserInfluencers influencers = new UserInfluencers(id, idConnections, userSpaces);
 
     influencers.addCommentedPoster(commentStorage.findPartIsCommentedPoster(id.getId()));
@@ -482,6 +757,7 @@ public class SocialDataCollectorService implements Startable {
       influencers.addStreamPostLiker(likeStorage.findPartIsFavoriteStreamPostLiker(id.getId(), userStreams));
       influencers.addStreamCommentLiker(likeStorage.findPartIsFavoriteStreamCommentLiker(id.getId(), userStreams));
     }
+    LOG.info("<< Built user influencers for " + id.getRemoteId());
 
     //
     // RealtimeListAccess<ExoSocialActivity> spacesActivities =
@@ -497,20 +773,22 @@ public class SocialDataCollectorService implements Startable {
 
     // load identity's activities and collect its data
     Iterator<ExoSocialActivity> feedIter = loadListIterator(activityManager.getActivityFeedWithListAccess(id));
-    while (feedIter.hasNext()) {
+    while (feedIter.hasNext() && !Thread.currentThread().isInterrupted()) {
       ExoSocialActivity activity = feedIter.next();
-      try {
-        out.println(activityLine(influencers, activity));
-      } catch (ActivityDataException e) {
-        LOG.warn(e);
-      }
+      out.println(activityLine(influencers, activity));
+    }
+
+    if (Thread.currentThread().isInterrupted()) {
+      LOG.warn("< Interrupted collector of user activities for " + id.getRemoteId());
+    } else {
+      LOG.info("< Collected user activities for " + id.getRemoteId());
     }
   }
 
   protected String activityHeader() {
     StringBuilder aline = new StringBuilder();
     aline.append("id,")
-         .append("title,")
+         // .append("title,")
          .append("type_content,")
          .append("type_social,")
          .append("type_calendar,")
@@ -584,33 +862,40 @@ public class SocialDataCollectorService implements Startable {
     return aline.toString();
   }
 
-  protected String activityLine(UserInfluencers influencers, ExoSocialActivity activity) throws ActivityDataException {
+  protected String activityLine(UserInfluencers influencers, ExoSocialActivity activity) {
+    LOG.info(">> Adding user activity: " + influencers.getUserIdentity().getRemoteId() + "@" + activity.getId());
     // Activity identification & type
     StringBuilder aline = new StringBuilder();
     // ID
     aline.append(activity.getId()).append(',');
     // title: escape comma in the text to avoid problems with separator
-    aline.append(activity.getTitle().replace(',', '_')).append(',');
+    // aline.append(activity.getTitle().replace(',', '_')).append(',');
     // type: encoded
     encActivityType(aline, activity.getType()).append(',');
     // app ID: TODO need it?
     // aline.append(activity.getAppId()).append(',');
-    Identity ownerId;
+    String ownerName = activity.getStreamOwner();
+    LOG.info(">>> Get stream owner identity: " + ownerName);
+    Identity owner;
+    String ownerId;
     ActivityStream stream = activity.getActivityStream();
     boolean isSpace = Type.SPACE.equals(stream.getType());
     if (isSpace) {
-      ownerId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, activity.getStreamOwner(), false);
+      owner = getSpaceIdentityByName(ownerName);
     } else {
-      ownerId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, activity.getStreamOwner(), false);
+      owner = getUserIdentityByName(ownerName);
     }
     // owner_id
-    if (ownerId == null) {
-      throw new ActivityDataException("Cannot find social identity of stream owner: " + activity.getStreamOwner()
-          + ". Activity will be skipped: " + activity.getId());
+    if (owner != null) {
+      ownerId = owner.getId();
+    } else {
+      ownerId = DUMMY_ID;
+      LOG.warn("Cannot find social identity of stream owner: " + ownerName + ". Activity: " + activity.getId());
     }
-    aline.append(ownerId.getId()).append(',');
+    LOG.info("<<< Get stream owner identity: " + ownerName);
+    aline.append(ownerId).append(',');
     // owner_title
-    aline.append(ownerId.getRemoteId()).append(',');
+    aline.append(ownerName).append(',');
     // owner_type
     if (isSpace) {
       aline.append("0,1,");
@@ -621,7 +906,7 @@ public class SocialDataCollectorService implements Startable {
     // aline.append(findStreamFocus(stream.getPrettyId())).append(',');
     // owner influence
     // TODO format double/float with dot-delimiter for decimal part
-    aline.append(influencers.getStreamWeight(ownerId.getId())).append(',');
+    aline.append(influencers.getStreamWeight(ownerId)).append(',');
     // number_of_likes
     aline.append(activity.getNumberOfLikes()).append(',');
     // number_of_comments
@@ -650,33 +935,25 @@ public class SocialDataCollectorService implements Startable {
     // Poster (creator)
     String posterId = activity.getPosterId();
     aline.append(posterId).append(','); // poster ID
-    Identity poster = identityManager.getIdentity(posterId, false);
-    if (poster == null) {
-      throw new ActivityDataException("Cannot find social identity of activity poster: " + posterId
-          + ". Activity will be skipped: " + activity.getId());
-    }
-    Profile posterProfile = identityManager.getProfile(poster);
-    if (posterProfile == null) {
-      throw new ActivityDataException("Cannot find profile of activity poster: " + posterId + " (" + poster.getRemoteId() + ")"
-          + ". Activity will be skipped: " + activity.getId());
-    }
-    // TODO poster full name ?
+    UserIdentity poster = getUserIdentityById(posterId);
+    // TODO poster full name?
     // aline.append(posterProfile.getFullName()).append(',');
     // poster gender: encoded
-    encGender(aline, posterProfile.getGender()).append(',');
+    encGender(aline, poster).append(',');
     // poster_is_employee
-    aline.append(isEmployee(poster.getRemoteId()) ? '1' : '0').append(',');
+    aline.append(isEmployee(poster) ? '1' : '0').append(',');
     // TODO poster_is_lead
     aline.append('0').append(',');
     // poster_is_in_connections
     aline.append(myConns.contains(posterId) ? '1' : '0').append(',');
     // poster_focus_*: poster job position as team membership encoded
-    encPosition(aline, posterProfile.getPosition()).append(',');
+    encPosition(aline, poster).append(',');
     // poster_influence
-    aline.append(influencers.getParticipantWeight(posterId, ownerId.getId())).append(',');
+    aline.append(influencers.getParticipantWeight(posterId, ownerId)).append(',');
 
     // Find top 5 participants in this activity, we need not less than 5!
     for (ActivityParticipant p : findTopParticipants(activity, influencers, isSpace, ACTIVITY_PARTICIPANTS_TOP)) {
+      LOG.info(">>> Adding activity participant: " + p.id + "@" + activity.getId());
       // participantN_id
       aline.append(p.id).append(',');
       // participantN_conversed
@@ -684,59 +961,40 @@ public class SocialDataCollectorService implements Startable {
       // participantN_favored
       aline.append(p.isFavored).append(',');
       //
-      Profile partProfile;
-      Identity part = identityManager.getIdentity(p.id, false);
-      if (part == null) {
-        LOG.warn("Cannot find social identity of activity participant: " + p.id + ". Activity: " + activity.getId());
-        partProfile = null;
-      } else {
-        partProfile = identityManager.getProfile(part);
-        if (partProfile == null) {
-          LOG.warn("Cannot find profile of activity participant: " + p.id + " (" + part.getRemoteId() + "). Activity: "
-              + activity.getId());
-        }
-      }
-      if (part != null && partProfile != null) {
-        // participantN_gender: encoded
-        encGender(aline, partProfile.getGender()).append(',');
-        // participantN_is_employee
-        aline.append(isEmployee(part.getRemoteId()) ? '1' : '0').append(',');
-        // TODO participantN_is_lead
-        aline.append('0').append(',');
-        // participantN_is_in_connections
-        aline.append(myConns.contains(p.id) ? '1' : '0').append(',');
-        // participantN_focus_*: job position as team membership encoded
-        encPosition(aline, partProfile.getPosition()).append(',');
-        // participantN_influence
-        aline.append(influencers.getParticipantWeight(p.id, ownerId.getId())).append(',');
-      } else {
-        // add fake data
-        // participantN_gender: encoded
-        encGender(aline, null).append(',');
-        // participantN_is_employee
-        aline.append('0').append(',');
-        // participantN_is_lead
-        aline.append('0').append(',');
-        // participantN_is_in_connections
-        aline.append('0').append(',');
-        // participantN_focus_*: job position as team membership encoded
-        encPosition(aline, null).append(',');
-        // participantN_influence
-        aline.append("0.0").append(',');
-      }
+      UserIdentity part = getUserIdentityById(p.id);
+      // participantN_gender: encoded
+      encGender(aline, part).append(',');
+      // participantN_is_employee
+      // LOG.info(">>>> Encode participant isEmployee: " + p.id);
+      aline.append(isEmployee(part) ? '1' : '0').append(',');
+      // aline.append('0').append(','); // TODO
+      // LOG.info("<<<< Encode participant isEmployee: " + p.id);
+      // TODO participantN_is_lead
+      aline.append('0').append(',');
+      // participantN_is_in_connections
+      aline.append(myConns.contains(p.id) ? '1' : '0').append(',');
+      // participantN_focus_*: job position as team membership encoded
+      // LOG.info(">>>> Encode participant position: " + p.id);
+      encPosition(aline, part).append(',');
+      // LOG.info("<<<< Encode participant position: " + p.id);
+      // participantN_influence
+      // LOG.info(">>>> Get participant influence: " + p.id);
+      aline.append(influencers.getParticipantWeight(p.id, ownerId)).append(',');
+      LOG.info("<<< Added activity participant: " + p.id + "@" + activity.getId() + " <<<<");
     }
 
     // remove ending comma
     aline.deleteCharAt(aline.length() - 1);
 
+    LOG.info("<< Added activity: " + influencers.getUserIdentity().getRemoteId() + "@" + activity.getId());
     return aline.toString();
   }
 
-  protected StringBuilder encPosition(StringBuilder aline, String position) {
+  protected StringBuilder encPosition(StringBuilder aline, UserIdentity identity) {
     // Columns order: engineering, sales&support, marketing, management,
     // financial, other
-    if (position != null) {
-      position = position.toUpperCase().toLowerCase();
+    if (identity != null && identity.getPosition() != null) {
+      String position = identity.getPosition().toUpperCase().toLowerCase();
       if (ENGINEERING_PATTERN.matcher(position).matches()) {
         aline.append("1,0,0,0,0,0");
       } else if (SALES_PATTERN.matcher(position).matches()) {
@@ -756,10 +1014,10 @@ public class SocialDataCollectorService implements Startable {
     return aline;
   }
 
-  protected StringBuilder encGender(StringBuilder aline, String gender) {
+  protected StringBuilder encGender(StringBuilder aline, UserIdentity identity) {
     // Columns order: male, female
-    if (gender != null) {
-      if (gender.toUpperCase().toLowerCase().equals("female")) {
+    if (identity != null && identity.getGender() != null) {
+      if (identity.getGender().equals(Profile.FEMALE)) {
         aline.append("0,1");
       } else {
         aline.append("1,0");
@@ -803,18 +1061,13 @@ public class SocialDataCollectorService implements Startable {
     return aline;
   }
 
-  protected boolean isEmployee(String userName) {
-    try {
-      Collection<Group> userGroups = organization.getGroupHandler().findGroupsOfUser(userName);
-      for (Group g : userGroups) {
-        if (EMPLOYEE_GROUPID.equals(g.getId())) {
-          return true;
-        }
-      }
-    } catch (Exception e) {
-      LOG.warn("Error getting user group: " + userName + ". Error: " + e.getMessage());
+  protected boolean isEmployee(UserIdentity identity) {
+    if (identity != null && identity.getRemoteId() != null) {
+      Set<String> employees = focusGroups.get(EMPLOYEES_GROUPID);
+      return employees != null ? employees.contains(identity.getRemoteId()) : false;
+    } else {
+      return false;
     }
-    return false;
   }
 
   protected StringBuilder encContainsMeOthers(StringBuilder aline, String me, Collection<String> others, String[] target) {
@@ -871,29 +1124,32 @@ public class SocialDataCollectorService implements Startable {
       // ML to figure out 'leaders' in the intranet/spaces)
 
       // Count on user history for 30 days after the activity
-      long beforeTime = 15 * 60 * 1000; // 15min in ms
-      long activityDate = activity.getPostedTime();
-      long activityScopeTimeBegin = activityDate - beforeTime;
-      long activityScopeTimeEnd = activityScopeTimeBegin
-          + (UserInfluencers.DAY_LENGTH_MILLIS * UserInfluencers.REACTIVITY_DAYS_RANGE);
+      // long beforeTime = 15 * 60 * 1000; // 15min in ms
+      // long activityDate = activity.getPostedTime();
+      // long activityScopeTimeBegin = activityDate - beforeTime;
+      // long activityScopeTimeEnd = activityScopeTimeBegin
+      // + (UserInfluencers.DAY_LENGTH_MILLIS *
+      // UserInfluencers.REACTIVITY_DAYS_RANGE);
 
       if (isInSpace) {
         // Get space managers and members who were logged-in
         Space space = spaceService.getSpaceByGroupId(activity.getStreamOwner());
         if (space != null) {
-          Collection<String> smanagers = userNames(space.getManagers());
+          Collection<String> smanagers = userIds(space.getManagers());
           for (Iterator<String> miter = smanagers.iterator(); miter.hasNext() && top.size() < topLength;) {
             String mid = miter.next();
-            if (wasUserLoggedin(mid, activityScopeTimeBegin, activityScopeTimeEnd)) {
-              top.computeIfAbsent(mid, p -> new ActivityParticipant(p, false, false));
-            }
+            // if (wasUserLoggedin(mid, activityScopeTimeBegin,
+            // activityScopeTimeEnd)) {
+            top.computeIfAbsent(mid, p -> new ActivityParticipant(p, false, false));
+            // }
           }
-          Collection<String> smembers = userNames(space.getMembers());
+          Collection<String> smembers = userIds(space.getMembers());
           for (Iterator<String> miter = smembers.iterator(); miter.hasNext() && top.size() < topLength;) {
             String mid = miter.next();
-            if (wasUserLoggedin(mid, activityScopeTimeBegin, activityScopeTimeEnd)) {
-              top.computeIfAbsent(mid, p -> new ActivityParticipant(p, false, false));
-            }
+            // if (wasUserLoggedin(mid, activityScopeTimeBegin,
+            // activityScopeTimeEnd)) {
+            top.computeIfAbsent(mid, p -> new ActivityParticipant(p, false, false));
+            // }
           }
           // if top still not full, we add managers w/o login check
           for (Iterator<String> miter = smanagers.iterator(); miter.hasNext() && top.size() < topLength;) {
@@ -906,57 +1162,55 @@ public class SocialDataCollectorService implements Startable {
         // Add user connections who were logged-in
         Iterator<Identity> citer = influencers.getUserConnections().values().iterator();
         while (citer.hasNext() && top.size() < topLength) {
-          String cid = citer.next().getRemoteId();
-          if (wasUserLoggedin(cid, activityScopeTimeBegin, activityScopeTimeEnd)) {
-            top.computeIfAbsent(cid, p -> new ActivityParticipant(p, false, false));
-          }
+          String cid = citer.next().getId();
+          // if (wasUserLoggedin(cid, activityScopeTimeBegin,
+          // activityScopeTimeEnd)) {
+          top.computeIfAbsent(cid, p -> new ActivityParticipant(p, false, false));
+          // }
         }
       }
 
       if (top.size() < topLength) {
         // 4.2) Second and finally, if user has no spaces/connections,
-        // * then we choose user's group managers
-        // TODO first use Employees group (or similar)
-        Collection<Group> userGroups;
-        try {
-          userGroups = organization.getGroupHandler().findGroupsOfUser(influencers.getUserIdentity().getRemoteId());
-        } catch (Exception e) {
-          LOG.warn("Error reading user groups for " + influencers.getUserIdentity().getRemoteId(), e);
-          userGroups = null;
-        }
-        if (userGroups != null) {
-          for (Group ug : userGroups) {
-            String gid = ug.getId();
-            if (!gid.startsWith(SpaceUtils.SPACE_GROUP)) {
-              // Use non space groups
-              Iterator<String> miter = SpaceUtils.findMembershipUsersByGroupAndTypes(gid, "manager").iterator();
-              while (miter.hasNext() && top.size() < topLength) {
-                // String userId = gusers.next().getUserName();
-                String uname = miter.next();
-                Identity mid = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, uname, false);
-                if (mid != null) {
-                  top.computeIfAbsent(mid.getId(), p -> new ActivityParticipant(p, false, false));
-                } else {
-                  LOG.warn("Group '" + gid + "' manager identity cannot be found in Social: " + uname);
-                }
-              }
-            }
-          }
-        }
-        // * then we choose Root user and members of Admins group,
+        // // * then we choose user's group managers
+        // // TODO first use Employees group (or similar)
+        // Collection<Group> userGroups = influencers.getUserGroups();
+        // if (userGroups != null) {
+        // for (Group ug : userGroups) {
+        // String gid = ug.getId();
+        // if (!gid.startsWith(SpaceUtils.SPACE_GROUP) &&
+        // !gid.startsWith(SpaceUtils.PLATFORM_USERS_GROUP)) {
+        // // Use non space groups
+        // Iterator<String> miter = getGroupMembers(gid, "manager").iterator();
+        // while (miter.hasNext() && top.size() < topLength) {
+        // // String userId = gusers.next().getUserName();
+        // String uname = miter.next();
+        // Identity mid =
+        // identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME,
+        // uname, false);
+        // if (mid != null) {
+        // top.computeIfAbsent(mid.getId(), p -> new ActivityParticipant(p,
+        // false, false));
+        // } else {
+        // LOG.warn("Group '" + gid + "' manager identity cannot be found in
+        // Social: " + uname);
+        // }
+        // }
+        // }
+        // }
+        // }
+        // * choose Root user and members of Admins group as participants
         if (top.size() < topLength) {
-          Identity sid = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, userACL.getSuperUser(), false);
+          UserIdentity sid = getUserIdentityByName(userACL.getSuperUser());
           if (sid != null) {
             top.computeIfAbsent(sid.getId(), p -> new ActivityParticipant(p, false, false));
           } else {
             LOG.warn("Root user identity cannot be found in Social");
           }
-          Iterator<String> aiter = SpaceUtils.findMembershipUsersByGroupAndTypes(userACL.getAdminGroups(), "member", "manager")
-                                             .iterator();
+          Iterator<String> aiter = focusGroups.get(userACL.getAdminGroups()).iterator();
           while (aiter.hasNext() && top.size() < topLength) {
-            // String userId = gusers.next().getUserName();
             String aname = aiter.next();
-            Identity aid = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, aname, false);
+            UserIdentity aid = getUserIdentityByName(aname);
             if (aid != null) {
               top.computeIfAbsent(aid.getId(), p -> new ActivityParticipant(p, false, false));
             } else {
@@ -966,11 +1220,11 @@ public class SocialDataCollectorService implements Startable {
         }
         // * TODO if not enough in admins - then guess random from "similar"
         // users in the organization,
-        // * if no users - add "black" user with id=0.
+        // * if no users - add "blank" user with id=0.
         if (top.size() < topLength) {
           int needAdd = topLength - top.size();
           do {
-            top.computeIfAbsent("0", p -> new ActivityParticipant(p, false, false));
+            top.computeIfAbsent(DUMMY_ID, p -> new ActivityParticipant(p, false, false));
             needAdd--;
           } while (needAdd > 0);
         }
@@ -979,14 +1233,14 @@ public class SocialDataCollectorService implements Startable {
     return Collections.unmodifiableCollection(top.values());
   }
 
-  protected Collection<String> userNames(String... ids) {
+  protected Collection<String> userIds(String... names) {
     Set<String> res = new LinkedHashSet<>();
-    for (String id : ids) {
-      Identity socId = identityManager.getIdentity(id, false);
+    for (String name : names) {
+      UserIdentity socId = getUserIdentityByName(name);
       if (socId == null) {
-        LOG.error("Cannot find social identity: " + id);
+        LOG.error("Cannot find social identity (userIds): " + name);
       } else {
-        res.add(socId.getRemoteId());
+        res.add(socId.getId());
       }
     }
     return res;
@@ -1014,18 +1268,225 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Gets organizational membership name by its type name.
+   * Gets the group members Social IDs filtered optionally by given type(s). If
+   * no types given then all members will be returned. If types are given, then
+   * returned set will contain members sorted in order of given memberships.
+   * E.g. if types given ["manager", "member"], then the result will contain
+   * managers first, then members.
    *
-   * @param membershipType the membership type
-   * @return the membership name
+   * @param groupId the group ID
+   * @param membershipTypes the membership types or <code>null</code> if need
+   *          return all members
+   * @return the group members IDs in a set
    */
-  protected String getMembershipName(String membershipType) {
+  protected Set<String> getGroupMembers(String groupId, String... membershipTypes) {
+    // FYI: be careful with large groups, like /platform/users, this may work
+    // very slow as will read all the users.
     try {
-      return organization.getMembershipTypeHandler().findMembershipType(membershipType).getName();
+      Iterator<User> uiter = loadListIterator(organization.getUserHandler().findUsersByGroupId(groupId));
+      if (membershipTypes != null && membershipTypes.length > 0) {
+        Map<String, Set<String>> members = new LinkedHashMap<>();
+        while (uiter.hasNext()) {
+          String userName = uiter.next().getUserName();
+          UserIdentity mid = getUserIdentityByName(userName);
+          if (mid != null) {
+            for (Membership um : organization.getMembershipHandler().findMembershipsByUserAndGroup(userName, groupId)) {
+              for (String mt : membershipTypes) {
+                if (um.getMembershipType().equals(mt)) {
+                  members.computeIfAbsent(mt, m -> new LinkedHashSet<>()).add(mid.getId());
+                }
+              }
+            }
+          } else {
+            LOG.warn("Group member identity cannot be found in Social: " + userName);
+          }
+        }
+        return members.values().stream().collect(LinkedHashSet::new, Set::addAll, Set::addAll);
+      } else {
+        Set<String> members = new LinkedHashSet<>();
+        while (uiter.hasNext()) {
+          String userName = uiter.next().getUserName();
+          UserIdentity mid = getUserIdentityByName(userName);
+          if (mid != null) {
+            members.add(mid.getId());
+          } else {
+            LOG.warn("Group member identity cannot be found in Social: " + userName);
+          }
+        }
+        return members;
+      }
     } catch (Exception e) {
-      LOG.error("Error finding manager membership in organization service", e);
+      LOG.warn("Error reading group members for " + groupId + " of types " + membershipTypes, e);
       return null;
     }
+  }
+
+  protected SpaceIdentity getSpaceIdentityByName(String spaceName) {
+    if (spaceName != null) {// userIdentities.remove("peter")
+      return spaceIdentities.computeIfAbsent(spaceName, name -> {
+        LOG.info(">>> Get space identity by Name: " + name);
+        SpaceIdentity theIdentity;
+        Identity socId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, name, false);
+        if (socId != null) {
+          theIdentity = spaceIdentity(socId);
+          spaceIdentities.put(theIdentity.getId(), theIdentity); // map by ID
+        } else {
+          theIdentity = null;
+          LOG.warn("Cannot find space identity by Name: " + name);
+        }
+        LOG.info("<<< Get space identity by Name: " + name);
+        return theIdentity;
+      });
+    }
+    return null;
+  }
+
+  protected SpaceIdentity getSpaceIdentityById(String spaceId) {
+    if (!DUMMY_ID.equals(spaceId)) {
+      return spaceIdentities.computeIfAbsent(spaceId, id -> {
+        LOG.info(">>> Get space identity by ID: " + id);
+        SpaceIdentity theIdentity;
+        Identity socId = identityManager.getIdentity(id, false);
+        if (socId != null) {
+          theIdentity = spaceIdentity(socId);
+          spaceIdentities.put(socId.getRemoteId(), theIdentity); // map by Name
+        } else {
+          theIdentity = null;
+          LOG.warn("Cannot find space identity by ID: " + id);
+        }
+        LOG.info("<<< Get space identity by ID: " + id);
+        return theIdentity;
+      });
+    }
+    return null;
+  }
+
+  protected UserIdentity getUserIdentityByName(String userName) {
+    if (userName != null) {// userIdentities.remove("peter")
+      return userIdentities.computeIfAbsent(userName, name -> {
+        LOG.info(">>> Get user identity by Name: " + name);
+        UserIdentity theIdentity;
+        Identity socId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, name, false);
+        if (socId != null) {
+          theIdentity = userIdentity(socId);
+          userIdentities.put(socId.getId(), theIdentity); // map by ID
+        } else {
+          theIdentity = null;
+          LOG.warn("Cannot find user identity by Name: " + name);
+        }
+        LOG.info("<<< Get user identity by Name: " + name);
+        return theIdentity;
+      });
+    }
+    return null;
+  }
+
+  protected UserIdentity getUserIdentityById(String identityId) {
+    if (!DUMMY_ID.equals(identityId)) {
+      return userIdentities.computeIfAbsent(identityId, id -> {
+        LOG.info(">>> Get user identity by ID: " + id);
+        UserIdentity theIdentity;
+        Identity socId = identityManager.getIdentity(id, false);
+        if (socId != null) {
+          theIdentity = userIdentity(socId);
+          userIdentities.put(socId.getRemoteId(), theIdentity); // map by Name
+        } else {
+          theIdentity = null;
+          LOG.warn("Cannot find user identity by ID: " + id);
+        }
+        LOG.info("<<< Get user identity by ID: " + id);
+        return theIdentity;
+      });
+    }
+    return null;
+  }
+
+  protected UserIdentity cacheUserIdentity(UserIdentity id) {
+    userIdentities.put(id.getId(), id);
+    userIdentities.put(id.getRemoteId(), id);
+    return id;
+  }
+
+  protected SpaceIdentity cacheSpaceIdentity(SpaceIdentity id) {
+    spaceIdentities.put(id.getId(), id);
+    spaceIdentities.put(id.getRemoteId(), id);
+    return id;
+  }
+
+  protected UserIdentity userIdentity(Identity socId) {
+    String id = socId.getId();
+    String userName = socId.getRemoteId();
+    LOG.info(">>>> Get social profile: " + id + " (" + userName + ")");
+    Profile socProfile = identityManager.getProfile(socId);
+    if (socProfile != null) {
+      return new UserIdentity(id, userName, socProfile.getGender(), socProfile.getPosition());
+    } else {
+      // TODO add listener to check when user will fill his profile and
+      // then update the mapping
+      LOG.warn("Cannot find profile of social identity: " + id + " (" + userName + ")");
+      return new UserIdentity(id, userName, null, null);
+    }
+  }
+
+  protected SpaceIdentity spaceIdentity(Identity socId) {
+    return new SpaceIdentity(socId.getId(), socId.getRemoteId());
+  }
+
+  /**
+   * Create a new thread executor service.
+   *
+   * @param threadNamePrefix the thread name prefix
+   * @param maxFactor - max processes per CPU core
+   * @param queueFactor - queue size per CPU core
+   * @return the executor service
+   */
+  protected ExecutorService createThreadExecutor(String threadNamePrefix, int maxFactor, int queueFactor) {
+    // Executor will queue all commands and run them in maximum set of threads.
+    // Minimum set of threads will be
+    // maintained online even idle, other inactive will be stopped in two
+    // minutes.
+    final int cpus = Runtime.getRuntime().availableProcessors();
+    int poolThreads = cpus / 4;
+    poolThreads = poolThreads < MIN_THREADS ? MIN_THREADS : poolThreads;
+    int maxThreads = Math.round(cpus * 1f * maxFactor);
+    maxThreads = maxThreads > 0 ? maxThreads : 1;
+    maxThreads = maxThreads < MIN_MAX_THREADS ? MIN_MAX_THREADS : maxThreads;
+    int queueSize = cpus * queueFactor;
+    queueSize = queueSize < queueFactor ? queueFactor : queueSize;
+    // if (LOG.isDebugEnabled()) {
+    LOG.info("Creating thread executor " + threadNamePrefix + "* for " + poolThreads + ".." + maxThreads + " threads, queue size "
+        + queueSize);
+    // }
+    return new ThreadPoolExecutor(poolThreads,
+                                  maxThreads,
+                                  THREAD_IDLE_TIME,
+                                  TimeUnit.SECONDS,
+                                  new LinkedBlockingQueue<Runnable>(queueSize),
+                                  new WorkerThreadFactory(threadNamePrefix),
+                                  new ThreadPoolExecutor.CallerRunsPolicy());
+  }
+
+  protected File openBuckerDir(String bucketName) {
+    // TODO Temporally spool all users datasets into a dedicated folder into
+    // ${gatein.data.dir}/data-collector/${bucketName}
+    // String dataDirPath = System.getProperty("gatein.data.dir");
+
+    String dataDirPath = System.getProperty("java.io.tmpdir");
+    if (dataDirPath == null || dataDirPath.trim().length() == 0) {
+      dataDirPath = System.getProperty("exo.data.dir");
+      if (dataDirPath == null || dataDirPath.trim().length() == 0) {
+        dataDirPath = System.getProperty("java.io.tmpdir");
+        LOG.warn("Platoform data dir not defined. Will use: " + dataDirPath);
+      }
+    }
+    if (bucketName == null || bucketName.trim().length() == 0) {
+      bucketName = "bucket-" + new SimpleDateFormat(FILE_TIMESTAMP_FORMAT).format(new Date());
+    }
+
+    File bucketDir = new File(dataDirPath + "/data-collector/" + bucketName);
+    bucketDir.mkdirs();
+
+    return bucketDir;
   }
 
 }
