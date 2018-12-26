@@ -41,7 +41,7 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
   public static final String[]           INTEGER_COLUMNS = { "id", "owner_id", "poster_id", "participant1_id", "participant2_id",
       "participant3_id", "participant4_id", "participant5_id" };
 
-  private static final String[]          STRING_COLUMNS  = { "title", "owner_title" };
+  private static final String[]          STRING_COLUMNS  = {"owner_title" };
 
   private static final String[]          FLOAT_COLUMNS   = { "owner_influence", "number_of_likes", "number_of_comments",
       "reactivity", "poster_influence", "participant1_influence", "participant2_influence", "participant3_influence",
@@ -93,7 +93,7 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
 
   @Test
   public void testHeader() throws IOException {
-    String validHeader = "id,title,type_content,type_social,type_calendar,type_forum,type_wiki,type_poll,type_other,"
+    String validHeader = "id,type_content,type_social,type_calendar,type_forum,type_wiki,type_poll,type_other,"
         + "owner_id,owner_title,owner_type_organization,owner_type_space,owner_influence,number_of_likes,number_of_comments,"
         + "reactivity,is_mentions_me,is_mentions_connections,is_commented_by_me,is_commented_by_connetions,is_liked_by_me,is_liked_by_connections,"
         + "poster_id,poster_gender_male,poster_gender_female,poster_is_employee,poster_is_lead,"
@@ -111,7 +111,7 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
   public void testColumnsNumber() throws IOException {
     activitiesReader.lines().forEach(line -> {
       String[] array = line.split(",");
-      assertEquals(111, array.length);
+      assertEquals(110, array.length);
     });
   }
 

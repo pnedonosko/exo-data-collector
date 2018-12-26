@@ -18,8 +18,6 @@
  */
 package org.exoplatform.prediction;
 
-import java.io.InputStream;
-
 import org.picocontainer.Startable;
 
 import org.exoplatform.prediction.user.dao.ModelEntityDAO;
