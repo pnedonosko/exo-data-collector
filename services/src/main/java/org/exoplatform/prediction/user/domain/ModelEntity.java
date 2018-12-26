@@ -49,7 +49,9 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
 @NamedQueries({
     /* Get last named version */
     @NamedQuery(name = "PredictionModel.findLastModelVersion", query = "SELECT MAX(m.version) FROM PredictionModel m"
-        + " WHERE m.name = :name GROUP BY m.name, m.status, m.created, m.datasetFile, m.modelFile, m.activated, m.archived") })
+        + " WHERE m.name = :name GROUP BY m.name, m.status, m.created, m.datasetFile, m.modelFile, m.activated, m.archived"),
+    @NamedQuery(name = "PredictionModel.findStatusByNameAndVersion", query = "SELECT m.status FROM PredictionModel m"
+        + " WHERE m.name = :name AND m.version = :version")})
 public class ModelEntity implements Serializable {
 
   /**
@@ -94,13 +96,11 @@ public class ModelEntity implements Serializable {
 
   }
 
-  public ModelEntity(String name, Status status, String modelFile, String datasetFile) {
+  public ModelEntity(String name, String datasetFile) {
     super();
     this.name = name;
-    this.status = status;
-    this.modelFile = modelFile;
     this.datasetFile = datasetFile;
-
+    this.status = Status.NEW;
   }
 
   public String getName() {

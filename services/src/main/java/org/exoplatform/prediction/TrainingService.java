@@ -22,6 +22,7 @@ import java.io.InputStream;
 
 import org.picocontainer.Startable;
 
+import org.exoplatform.prediction.user.dao.ModelEntityDAO;
 import org.exoplatform.prediction.user.domain.ModelEntity.Status;
 
 /**
@@ -33,10 +34,13 @@ import org.exoplatform.prediction.user.domain.ModelEntity.Status;
  */
 public class TrainingService implements Startable {
 
+  private ModelEntityDAO modelEntityDAO;
+
   /**
    * Instantiates a new training service.
    */
-  public TrainingService() {
+  public TrainingService(ModelEntityDAO modelEntityDAO) {
+    this.modelEntityDAO = modelEntityDAO;
   }
 
   /**
@@ -60,8 +64,8 @@ public class TrainingService implements Startable {
    *
    * @return the model status
    */
-  public Status getModelStatus() {
-    return null; // TODO
+  public Status getModelStatus(String userName, Long version) {
+    return modelEntityDAO.findStatusByNameAndVersion(userName, version);
   }
 
   /**
