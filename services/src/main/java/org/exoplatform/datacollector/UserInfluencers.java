@@ -74,13 +74,13 @@ public class UserInfluencers {
     INFLUENCE_WEIGHTS[0] = 1;
     for (int i = 1; i < INFLUENCE_WEIGHTS.length; i++) {
       double prev = INFLUENCE_WEIGHTS[i - 1];
-      INFLUENCE_WEIGHTS[i] = prev - Math.pow(2, prev * INFLUENCE_DAY_WEIGHT_GROW);
+      INFLUENCE_WEIGHTS[i] = prev - Math.pow(prev * INFLUENCE_DAY_WEIGHT_GROW, 2);
     }
     // Reactivity table (same formula as for influence for beginning):
     REACTIVITY_WEIGHTS[0] = 1;
     for (int i = 1; i < REACTIVITY_WEIGHTS.length; i++) {
       double prev = REACTIVITY_WEIGHTS[i - 1];
-      REACTIVITY_WEIGHTS[i] = prev - Math.pow(2, prev * REACTIVITY_DAY_WEIGHT_GROW);
+      REACTIVITY_WEIGHTS[i] = prev - Math.pow(prev * REACTIVITY_DAY_WEIGHT_GROW, 2);
     }
   }
 

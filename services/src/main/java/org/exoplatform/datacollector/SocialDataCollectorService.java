@@ -23,6 +23,7 @@ import static org.exoplatform.datacollector.UserInfluencers.ACTIVITY_PARTICIPANT
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.ref.SoftReference;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -70,6 +71,7 @@ import org.exoplatform.services.organization.User;
 import org.exoplatform.social.core.activity.model.ActivityStream;
 import org.exoplatform.social.core.activity.model.ActivityStream.Type;
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
+import org.exoplatform.social.core.application.SpaceActivityPublisher;
 import org.exoplatform.social.core.identity.model.Identity;
 import org.exoplatform.social.core.identity.model.Profile;
 import org.exoplatform.social.core.identity.provider.OrganizationIdentityProvider;
@@ -498,36 +500,36 @@ public class SocialDataCollectorService implements Startable {
     }
   }
 
-  protected final IdentityManager            identityManager;
+  protected final IdentityManager                          identityManager;
 
-  protected final ActivityManager            activityManager;
+  protected final ActivityManager                          activityManager;
 
-  protected final RelationshipManager        relationshipManager;
+  protected final RelationshipManager                      relationshipManager;
 
-  protected final SpaceService               spaceService;
+  protected final SpaceService                             spaceService;
 
-  protected final OrganizationService        organization;
+  protected final OrganizationService                      organization;
 
-  protected final LoginHistoryService        loginHistory;
+  protected final LoginHistoryService                      loginHistory;
 
-  protected final UserACL                    userACL;
+  protected final UserACL                                  userACL;
 
-  protected final ActivityCommentedDAO       commentStorage;
+  protected final ActivityCommentedDAO                     commentStorage;
 
-  protected final ActivityPostedDAO          postStorage;
+  protected final ActivityPostedDAO                        postStorage;
 
-  protected final ActivityLikedDAO           likeStorage;
+  protected final ActivityLikedDAO                         likeStorage;
 
-  protected final ActivityMentionedDAO       mentionStorage;
+  protected final ActivityMentionedDAO                     mentionStorage;
 
-  protected final Map<String, Set<String>>   focusGroups     = new HashMap<>();
+  protected final Map<String, Set<String>>                 focusGroups     = new HashMap<>();
 
   // TODO clean this map time-from-time to do not consume the RAM
-  protected final Map<String, UserIdentity>  userIdentities  = new HashMap<>();
+  protected final Map<String, SoftReference<UserIdentity>> userIdentities  = new HashMap<>();
 
-  protected final Map<String, SpaceIdentity> spaceIdentities = new HashMap<>();
+  protected final Map<String, SpaceIdentity>               spaceIdentities = new HashMap<>();
 
-  protected final ExecutorService            workers;
+  protected final ExecutorService                          workers;
 
   /**
    * Instantiates a new data collector service.
@@ -585,10 +587,38 @@ public class SocialDataCollectorService implements Startable {
   public void start() {
     // Pre-read constant things
     // TODO listen for updates in groups to update the mappings
-    Set<String> admins = getGroupMembers(userACL.getAdminGroups(), "manager", "member");
+    Set<String> admins = getGroupMemberIds(userACL.getAdminGroups(), "manager", "member");
     this.focusGroups.put(userACL.getAdminGroups(), admins);
-    Set<String> employees = getGroupMembers(EMPLOYEES_GROUPID);
+    Set<String> employees = getGroupMemberIds(EMPLOYEES_GROUPID);
     this.focusGroups.put(EMPLOYEES_GROUPID, employees);
+
+    // TODO Brief description of dataset/model flow:
+    // 1) load currently active users from login history
+    // and collect datasets for those who outdated into a new bucket and train a
+    // model for it in TrainingService.
+    // 2) Then register login listener to for a new logins and collect/train
+    // models for them into a new buckter. Collect users for the bucket
+    // continously. Train new model only if active one is already outdated.
+    // Train collected models in a single bucket.
+    // 3) Model become outdated in 3hrs (will be configurable)
+    // 4) Collector maintains datasets and models in buckets: first bucket is of
+    // a first start (all active users in single bucket), second and following
+    // for listened logins. Runtime bucket name is based on "prod" prefix with
+    // incremented index.
+    // 5) After model was trained, we don't need a dataset file anymore and it
+    // should be removed
+    // 6) It's important to avoid creation of a garbage in buckets: all files
+    // not required should be removed. Buckets that not used - also removed.
+    // 7) We maintain a short history of archived models: an active one and last
+    // 20 (for about 3-4 days for daily active users), older models should be
+    // removed in DB and files.
+
+    // Tips:
+    // Login history: see LoginHistoryService dependency and how it was used in
+    // wasUserLoggedin().
+    // Login listener see in LoginHistoryListener of Platform's project gadget
+    // pack, we need register an own listener via configuration.
+
   }
 
   /**
@@ -658,11 +688,11 @@ public class SocialDataCollectorService implements Startable {
   public String collectUserActivities(String bucketName, String userName) {
     File bucketDir = openBuckerDir(bucketName);
     LOG.info("Saving user dataset into bucket folder: " + bucketDir.getAbsolutePath());
-
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
       final File userFile = new File(bucketDir, id.getRemoteId() + ".csv");
       submitCollectUserActivities(id, userFile);
+      LOG.info("Saved user dataset into bucket file: " + userFile.getAbsolutePath());
       return userFile.getAbsolutePath();
     } else {
       LOG.warn("User social identity not found for " + userName);
@@ -759,18 +789,6 @@ public class SocialDataCollectorService implements Startable {
     }
     LOG.info("<< Built user influencers for " + id.getRemoteId());
 
-    //
-    // RealtimeListAccess<ExoSocialActivity> spacesActivities =
-    // activityManager.getActivitiesOfUserSpacesWithListAccess(id);
-    //
-    // spacesActivities.loadNewer(sinceTime, limit);
-    // spacesActivities.getNumberOfNewer(sinceTime);
-    // RealtimeListAccess<ExoSocialActivity> connsActivities =
-    // activityManager.getActivitiesOfConnectionsWithListAccess(id);
-    //
-    // activityManager.getActivitiesWithListAccess(ownerIdentity,
-    // viewerIdentity)
-
     // load identity's activities and collect its data
     Iterator<ExoSocialActivity> feedIter = loadListIterator(activityManager.getActivityFeedWithListAccess(id));
     while (feedIter.hasNext() && !Thread.currentThread().isInterrupted()) {
@@ -863,7 +881,6 @@ public class SocialDataCollectorService implements Startable {
   }
 
   protected String activityLine(UserInfluencers influencers, ExoSocialActivity activity) {
-    LOG.info(">> Adding user activity: " + influencers.getUserIdentity().getRemoteId() + "@" + activity.getId());
     // Activity identification & type
     StringBuilder aline = new StringBuilder();
     // ID
@@ -875,7 +892,6 @@ public class SocialDataCollectorService implements Startable {
     // app ID: TODO need it?
     // aline.append(activity.getAppId()).append(',');
     String ownerName = activity.getStreamOwner();
-    LOG.info(">>> Get stream owner identity: " + ownerName);
     Identity owner;
     String ownerId;
     ActivityStream stream = activity.getActivityStream();
@@ -892,7 +908,6 @@ public class SocialDataCollectorService implements Startable {
       ownerId = DUMMY_ID;
       LOG.warn("Cannot find social identity of stream owner: " + ownerName + ". Activity: " + activity.getId());
     }
-    LOG.info("<<< Get stream owner identity: " + ownerName);
     aline.append(ownerId).append(',');
     // owner_title
     aline.append(ownerName).append(',');
@@ -935,25 +950,39 @@ public class SocialDataCollectorService implements Startable {
     // Poster (creator)
     String posterId = activity.getPosterId();
     aline.append(posterId).append(','); // poster ID
-    UserIdentity poster = getUserIdentityById(posterId);
-    // TODO poster full name?
-    // aline.append(posterProfile.getFullName()).append(',');
-    // poster gender: encoded
-    encGender(aline, poster).append(',');
-    // poster_is_employee
-    aline.append(isEmployee(poster) ? '1' : '0').append(',');
-    // TODO poster_is_lead
-    aline.append('0').append(',');
-    // poster_is_in_connections
-    aline.append(myConns.contains(posterId) ? '1' : '0').append(',');
-    // poster_focus_*: poster job position as team membership encoded
-    encPosition(aline, poster).append(',');
+    if (SpaceActivityPublisher.SPACE_PROFILE_ACTIVITY.equals(activity.getType()) && posterId.equals(ownerId)) {
+      // It's Space itself posted an update (e.g. member joined)
+      // Identity poster = getSpaceIdentityById(posterId);
+      encGender(aline, null).append(',');
+      // poster_is_employee
+      aline.append('0').append(',');
+      // TODO poster_is_lead
+      aline.append('0').append(',');
+      // poster_is_in_connections: 1 - as this user already a member
+      aline.append('1').append(',');
+      // poster_focus_*: poster job position as team membership encoded
+      // TODO may be we would provide a focus of this space regarding the user?
+      encPosition(aline, null).append(',');
+    } else {
+      UserIdentity poster = getUserIdentityById(posterId);
+      // TODO poster full name?
+      // aline.append(posterProfile.getFullName()).append(',');
+      // poster gender: encoded
+      encGender(aline, poster).append(',');
+      // poster_is_employee
+      aline.append(isEmployee(poster) ? '1' : '0').append(',');
+      // TODO poster_is_lead
+      aline.append('0').append(',');
+      // poster_is_in_connections
+      aline.append(myConns.contains(posterId) ? '1' : '0').append(',');
+      // poster_focus_*: poster job position as team membership encoded
+      encPosition(aline, poster).append(',');
+    }
     // poster_influence
     aline.append(influencers.getParticipantWeight(posterId, ownerId)).append(',');
 
     // Find top 5 participants in this activity, we need not less than 5!
     for (ActivityParticipant p : findTopParticipants(activity, influencers, isSpace, ACTIVITY_PARTICIPANTS_TOP)) {
-      LOG.info(">>> Adding activity participant: " + p.id + "@" + activity.getId());
       // participantN_id
       aline.append(p.id).append(',');
       // participantN_conversed
@@ -965,28 +994,25 @@ public class SocialDataCollectorService implements Startable {
       // participantN_gender: encoded
       encGender(aline, part).append(',');
       // participantN_is_employee
-      // LOG.info(">>>> Encode participant isEmployee: " + p.id);
       aline.append(isEmployee(part) ? '1' : '0').append(',');
       // aline.append('0').append(','); // TODO
-      // LOG.info("<<<< Encode participant isEmployee: " + p.id);
       // TODO participantN_is_lead
       aline.append('0').append(',');
       // participantN_is_in_connections
       aline.append(myConns.contains(p.id) ? '1' : '0').append(',');
       // participantN_focus_*: job position as team membership encoded
-      // LOG.info(">>>> Encode participant position: " + p.id);
       encPosition(aline, part).append(',');
-      // LOG.info("<<<< Encode participant position: " + p.id);
       // participantN_influence
-      // LOG.info(">>>> Get participant influence: " + p.id);
       aline.append(influencers.getParticipantWeight(p.id, ownerId)).append(',');
-      LOG.info("<<< Added activity participant: " + p.id + "@" + activity.getId() + " <<<<");
+      // LOG.info("<<< Added activity participant: " + p.id + "@" +
+      // activity.getId() + " <<<<");
     }
 
     // remove ending comma
     aline.deleteCharAt(aline.length() - 1);
 
-    LOG.info("<< Added activity: " + influencers.getUserIdentity().getRemoteId() + "@" + activity.getId());
+    // LOG.info("<< Added activity: " +
+    // influencers.getUserIdentity().getRemoteId() + "@" + activity.getId());
     return aline.toString();
   }
 
@@ -1062,9 +1088,9 @@ public class SocialDataCollectorService implements Startable {
   }
 
   protected boolean isEmployee(UserIdentity identity) {
-    if (identity != null && identity.getRemoteId() != null) {
+    if (identity != null && identity.getId() != null) {
       Set<String> employees = focusGroups.get(EMPLOYEES_GROUPID);
-      return employees != null ? employees.contains(identity.getRemoteId()) : false;
+      return employees != null ? employees.contains(identity.getId()) : false;
     } else {
       return false;
     }
@@ -1209,13 +1235,16 @@ public class SocialDataCollectorService implements Startable {
           }
           Iterator<String> aiter = focusGroups.get(userACL.getAdminGroups()).iterator();
           while (aiter.hasNext() && top.size() < topLength) {
-            String aname = aiter.next();
-            UserIdentity aid = getUserIdentityByName(aname);
-            if (aid != null) {
-              top.computeIfAbsent(aid.getId(), p -> new ActivityParticipant(p, false, false));
-            } else {
-              LOG.warn("Admin group member identity cannot be found in Social: " + aname);
-            }
+            top.computeIfAbsent(aiter.next(), p -> new ActivityParticipant(p, false, false));
+            // String aname = aiter.next();
+            // UserIdentity aid = getUserIdentityByName(aname);
+            // if (aid != null) {
+            // top.computeIfAbsent(aid.getId(), p -> new ActivityParticipant(p,
+            // false, false));
+            // } else {
+            // LOG.warn("Admin group member identity cannot be found in Social:
+            // " + aname);
+            // }
           }
         }
         // * TODO if not enough in admins - then guess random from "similar"
@@ -1279,7 +1308,7 @@ public class SocialDataCollectorService implements Startable {
    *          return all members
    * @return the group members IDs in a set
    */
-  protected Set<String> getGroupMembers(String groupId, String... membershipTypes) {
+  protected Set<String> getGroupMemberIds(String groupId, String... membershipTypes) {
     // FYI: be careful with large groups, like /platform/users, this may work
     // very slow as will read all the users.
     try {
@@ -1324,7 +1353,7 @@ public class SocialDataCollectorService implements Startable {
   protected SpaceIdentity getSpaceIdentityByName(String spaceName) {
     if (spaceName != null) {// userIdentities.remove("peter")
       return spaceIdentities.computeIfAbsent(spaceName, name -> {
-        LOG.info(">>> Get space identity by Name: " + name);
+        // LOG.info("> Get space identity by Name: " + name);
         SpaceIdentity theIdentity;
         Identity socId = identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, name, false);
         if (socId != null) {
@@ -1334,7 +1363,7 @@ public class SocialDataCollectorService implements Startable {
           theIdentity = null;
           LOG.warn("Cannot find space identity by Name: " + name);
         }
-        LOG.info("<<< Get space identity by Name: " + name);
+        // LOG.info("< Get space identity by Name: " + name);
         return theIdentity;
       });
     }
@@ -1344,7 +1373,7 @@ public class SocialDataCollectorService implements Startable {
   protected SpaceIdentity getSpaceIdentityById(String spaceId) {
     if (!DUMMY_ID.equals(spaceId)) {
       return spaceIdentities.computeIfAbsent(spaceId, id -> {
-        LOG.info(">>> Get space identity by ID: " + id);
+        // LOG.info("> Get space identity by ID: " + id);
         SpaceIdentity theIdentity;
         Identity socId = identityManager.getIdentity(id, false);
         if (socId != null) {
@@ -1354,7 +1383,7 @@ public class SocialDataCollectorService implements Startable {
           theIdentity = null;
           LOG.warn("Cannot find space identity by ID: " + id);
         }
-        LOG.info("<<< Get space identity by ID: " + id);
+        // LOG.info("< Get space identity by ID: " + id);
         return theIdentity;
       });
     }
@@ -1363,47 +1392,54 @@ public class SocialDataCollectorService implements Startable {
 
   protected UserIdentity getUserIdentityByName(String userName) {
     if (userName != null) {// userIdentities.remove("peter")
-      return userIdentities.computeIfAbsent(userName, name -> {
-        LOG.info(">>> Get user identity by Name: " + name);
-        UserIdentity theIdentity;
+      SoftReference<UserIdentity> ref = userIdentities.computeIfAbsent(userName, name -> {
+        // LOG.info("> Get user identity by Name: " + name);
+        SoftReference<UserIdentity> newRef;
         Identity socId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, name, false);
         if (socId != null) {
-          theIdentity = userIdentity(socId);
-          userIdentities.put(socId.getId(), theIdentity); // map by ID
+          newRef = new SoftReference<UserIdentity>(userIdentity(socId));
+          userIdentities.put(socId.getId(), newRef); // map by ID
         } else {
-          theIdentity = null;
+          newRef = null;
           LOG.warn("Cannot find user identity by Name: " + name);
         }
-        LOG.info("<<< Get user identity by Name: " + name);
-        return theIdentity;
+        // LOG.info("< Get user identity by Name: " + name);
+        return newRef;
       });
+      if (ref != null) {
+        return ref.get();
+      }
     }
     return null;
   }
 
   protected UserIdentity getUserIdentityById(String identityId) {
     if (!DUMMY_ID.equals(identityId)) {
-      return userIdentities.computeIfAbsent(identityId, id -> {
-        LOG.info(">>> Get user identity by ID: " + id);
-        UserIdentity theIdentity;
+      SoftReference<UserIdentity> ref = userIdentities.computeIfAbsent(identityId, id -> {
+        // LOG.info("> Get user identity by ID: " + id);
+        SoftReference<UserIdentity> newRef;
         Identity socId = identityManager.getIdentity(id, false);
         if (socId != null) {
-          theIdentity = userIdentity(socId);
-          userIdentities.put(socId.getRemoteId(), theIdentity); // map by Name
+          newRef = new SoftReference<UserIdentity>(userIdentity(socId));
+          userIdentities.put(socId.getRemoteId(), newRef); // map by Name
         } else {
-          theIdentity = null;
+          newRef = null;
           LOG.warn("Cannot find user identity by ID: " + id);
         }
-        LOG.info("<<< Get user identity by ID: " + id);
-        return theIdentity;
+        // LOG.info("< Get user identity by ID: " + id);
+        return newRef;
       });
+      if (ref != null) {
+        return ref.get();
+      }
     }
     return null;
   }
 
   protected UserIdentity cacheUserIdentity(UserIdentity id) {
-    userIdentities.put(id.getId(), id);
-    userIdentities.put(id.getRemoteId(), id);
+    SoftReference<UserIdentity> ref = new SoftReference<UserIdentity>(id);
+    userIdentities.put(id.getId(), ref);
+    userIdentities.put(id.getRemoteId(), ref);
     return id;
   }
 
@@ -1416,7 +1452,7 @@ public class SocialDataCollectorService implements Startable {
   protected UserIdentity userIdentity(Identity socId) {
     String id = socId.getId();
     String userName = socId.getRemoteId();
-    LOG.info(">>>> Get social profile: " + id + " (" + userName + ")");
+    LOG.info(">> Get social profile: " + id + " (" + userName + ") <<");
     Profile socProfile = identityManager.getProfile(socId);
     if (socProfile != null) {
       return new UserIdentity(id, userName, socProfile.getGender(), socProfile.getPosition());
