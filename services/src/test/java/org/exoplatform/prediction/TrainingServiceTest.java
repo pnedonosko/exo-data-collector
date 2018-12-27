@@ -48,6 +48,7 @@ public class TrainingServiceTest extends BaseCommonsTestCase {
 
   @Test
   public void testAddModel() {
+
     ModelEntity johnModel = modelEntityDAO.find(new ModelId("john", 1L));
     ModelEntity maryModel = modelEntityDAO.find(new ModelId("mary", 1L));
     ModelEntity jasonModel = modelEntityDAO.find(new ModelId("jason", 1L));
@@ -67,6 +68,7 @@ public class TrainingServiceTest extends BaseCommonsTestCase {
     // This should delete johnDatasetFile and create a new one,
     // delete maryDatasetFile and maryModelFile, and create new maryDatasetFile
     // create new jasonDatasetFile, not to delete existing ones
+    trainingService.addModel("jack", createTempFile("jack_dataset"));
     trainingService.addModel("john", createTempFile("john_dataset"));
     trainingService.addModel("mary", createTempFile("mary_dataset"));
     trainingService.addModel("jason", createTempFile("jason_dataset"));
@@ -76,7 +78,8 @@ public class TrainingServiceTest extends BaseCommonsTestCase {
     maryModel = modelEntityDAO.find(new ModelId("mary", 1L));
     jasonModel = modelEntityDAO.find(new ModelId("jason", 1L));
     ModelEntity jasonModelV2 = modelEntityDAO.find(new ModelId("jason", 2L));
-
+    ModelEntity jackModel = modelEntityDAO.find(new ModelId("jack", 1L));
+    
     assertTrue(Files.notExists(johnDatasetFile));
     assertTrue(Files.notExists(maryDatasetFile));
     assertTrue(Files.notExists(maryModelFile));
@@ -88,6 +91,7 @@ public class TrainingServiceTest extends BaseCommonsTestCase {
     assertTrue(jasonModel.getModelFile().equals(jasonModelFile.toString()));
     assertTrue(jasonModel.getDatasetFile().equals(jasonDatasetFile.toString()));
     assertTrue(jasonModelV2.getStatus() == Status.NEW && jasonModelV2.getModelFile() == null);
+    assertTrue(jackModel.getStatus() == Status.NEW && jackModel.getModelFile() == null);
 
   }
 

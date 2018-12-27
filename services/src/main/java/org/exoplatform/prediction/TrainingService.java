@@ -19,6 +19,7 @@
 package org.exoplatform.prediction;
 
 import java.io.File;
+import java.util.Date;
 
 import org.picocontainer.Startable;
 
@@ -96,6 +97,18 @@ public class TrainingService implements Startable {
    */
   public Status getModelStatus(String userName, Long version) {
     return modelEntityDAO.findStatusByNameAndVersion(userName, version);
+  }
+
+  public void activateModel(String userName, Long version, String modelFile) {
+    ModelEntity modelEntity = modelEntityDAO.find(new ModelId(userName, version));
+    if (modelEntity != null) {
+      modelEntity.setActivated(new Date());
+      modelEntity.setModelFile(modelFile);
+      modelEntityDAO.update(modelEntity);
+    } else {
+      LOG.warn("Cannot activate the model (name: " + userName + ", version: " + version + ") - the model not found");
+    }
+
   }
 
   /**
