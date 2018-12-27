@@ -79,7 +79,7 @@ public class TrainingService implements Startable {
           new File(currentModel.getDatasetFile()).delete();
         }
         if (currentModel.getModelFile() != null) {
-          new File(currentModel.getDatasetFile()).delete();
+          new File(currentModel.getModelFile()).delete();
         }
 
         modelEntityDAO.delete(currentModel);

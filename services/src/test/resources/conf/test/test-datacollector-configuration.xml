@@ -20,10 +20,14 @@
   <component>
     <type>org.exoplatform.datacollector.dao.ActivityLikedDAO</type>
   </component>
-  
+
   <component>
     <type>org.exoplatform.prediction.user.dao.ModelEntityDAO</type>
   </component>
 
-  
+  <component>
+    <type>org.exoplatform.prediction.TrainingService</type>
+  </component>
+
+
 </configuration>
