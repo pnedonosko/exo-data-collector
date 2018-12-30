@@ -38,6 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -305,6 +307,50 @@ public class SocialDataCollectorService implements Startable {
       }
     }
   }
+  
+  public class BucketWorker extends ContainerCommand {
+    
+    public BucketWorker(String containerName) {
+      super(containerName);
+    }
+
+    @Override
+    void execute(ExoContainer exoContainer) {
+      // TODO Auto-generated method stub
+      
+    }
+
+    @Override
+    void onContainerError(String error) {
+      LOG.error("Container error has occured: " + error);
+    }
+    
+    Map<String, Date> getTargetUsers(){
+      return globalBucket;
+    }   
+  }
+  
+  public class StartWorker extends BucketWorker{
+    public StartWorker(String containerName) {
+      super(containerName);
+    }
+    
+    @Override
+    void execute(ExoContainer exoContainer) {
+      super.execute(exoContainer);
+    }
+    
+    @Override
+    Map<String, Date> getTargetUsers(){
+      
+      Map<String, Date> recentLogins = new HashMap<>();
+      
+      
+      
+      return null; // TODO: fix
+    }
+    
+  }
 
   /**
    * The MembershipListener is used to keep the focusGroups up-to-date
@@ -314,21 +360,39 @@ public class SocialDataCollectorService implements Startable {
     @Override
     public void postSave(Membership m, boolean isNew) throws Exception {
       if (isNew) {
+        String userId = getUserIdentityByName(m.getUserName()).getId();
         if (m.getGroupId().equals(userACL.getAdminGroups())) {
-          focusGroups.get(userACL.getAdminGroups()).add(m.getUserName());
+          focusGroups.get(userACL.getAdminGroups()).add(userId);
+        /*  
+          LOG.info("Added new user - " + userId + " to "+ userACL.getAdminGroups());
+          LOG.info("-----ADMINS------");
+          focusGroups.get(userACL.getAdminGroups()).forEach(LOG::info);*/
         }
         if (m.getGroupId().equals(EMPLOYEES_GROUPID)) {
-          focusGroups.get(EMPLOYEES_GROUPID).add(m.getUserName());
+          focusGroups.get(EMPLOYEES_GROUPID).add(userId);
+          /*
+          LOG.info("Added new user - " + userId + " to "+ EMPLOYEES_GROUPID);
+          LOG.info("-----EMPLOYEES------");
+          focusGroups.get(EMPLOYEES_GROUPID).forEach(LOG::info);*/
         }
       }
     }
 
     public void postDelete(Membership m) throws Exception {
+      String userId = getUserIdentityByName(m.getUserName()).getId();
       if(m.getGroupId().equals(userACL.getAdminGroups())) {
-        focusGroups.get(userACL.getAdminGroups()).remove(m.getUserName());
+        focusGroups.get(userACL.getAdminGroups()).remove(userId);
+        /*
+        LOG.info("Removed user - " + userId + " from "+ userACL.getAdminGroups());
+        LOG.info("-----ADMINS------");
+        focusGroups.get(userACL.getAdminGroups()).forEach(LOG::info);*/
       }
       if(m.getGroupId().equals(EMPLOYEES_GROUPID)) {
-        focusGroups.get(EMPLOYEES_GROUPID).remove(m.getUserName());
+        focusGroups.get(EMPLOYEES_GROUPID).remove(userId);
+        /*
+        LOG.info("Removed user - " + userId + " from "+ EMPLOYEES_GROUPID);
+        LOG.info("-----EMPLOYEES------");
+        focusGroups.get(EMPLOYEES_GROUPID).forEach(LOG::info);*/
       }
     }
 
@@ -559,6 +623,12 @@ public class SocialDataCollectorService implements Startable {
   protected final Map<String, SpaceIdentity>               spaceIdentities = new HashMap<>();
 
   protected final ExecutorService                          workers;
+  
+  /** Contains pairs K - user id, V - date of login to be processed by BucketWorker */
+  protected final ConcurrentHashMap<String, Date> globalBucket = new ConcurrentHashMap<>();
+  
+  /** Contains users id ordered by the login time */
+  protected final ConcurrentLinkedQueue<String> loginsQueue = new ConcurrentLinkedQueue<>();
 
   /**
    * Instantiates a new data collector service.
@@ -619,6 +689,13 @@ public class SocialDataCollectorService implements Startable {
     this.focusGroups.put(userACL.getAdminGroups(), admins);
     Set<String> employees = getGroupMemberIds(EMPLOYEES_GROUPID);
     this.focusGroups.put(EMPLOYEES_GROUPID, employees);
+    
+    try {
+      organization.getGroupHandler().findGroupsOfUser("root").forEach(group -> LOG.info(group.getId() + " " + group.getGroupName()));
+    } catch (Exception e1) {
+      
+      e1.printStackTrace();
+    }
     
     try {
       organization.addListenerPlugin(new MembershipListener());
