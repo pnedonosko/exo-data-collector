@@ -66,6 +66,7 @@ import org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.services.organization.Membership;
+import org.exoplatform.services.organization.MembershipEventListener;
 import org.exoplatform.services.organization.OrganizationService;
 import org.exoplatform.services.organization.User;
 import org.exoplatform.social.core.activity.model.ActivityStream;
@@ -303,6 +304,34 @@ public class SocialDataCollectorService implements Startable {
         onContainerError("Container not found");
       }
     }
+  }
+
+  /**
+   * The MembershipListener is used to keep the focusGroups up-to-date
+   */
+  public class MembershipListener extends MembershipEventListener {
+
+    @Override
+    public void postSave(Membership m, boolean isNew) throws Exception {
+      if (isNew) {
+        if (m.getGroupId().equals(userACL.getAdminGroups())) {
+          focusGroups.get(userACL.getAdminGroups()).add(m.getUserName());
+        }
+        if (m.getGroupId().equals(EMPLOYEES_GROUPID)) {
+          focusGroups.get(EMPLOYEES_GROUPID).add(m.getUserName());
+        }
+      }
+    }
+
+    public void postDelete(Membership m) throws Exception {
+      if(m.getGroupId().equals(userACL.getAdminGroups())) {
+        focusGroups.get(userACL.getAdminGroups()).remove(m.getUserName());
+      }
+      if(m.getGroupId().equals(EMPLOYEES_GROUPID)) {
+        focusGroups.get(EMPLOYEES_GROUPID).remove(m.getUserName());
+      }
+    }
+
   }
 
   /**
@@ -586,12 +615,17 @@ public class SocialDataCollectorService implements Startable {
   @Override
   public void start() {
     // Pre-read constant things
-    // TODO listen for updates in groups to update the mappings
     Set<String> admins = getGroupMemberIds(userACL.getAdminGroups(), "manager", "member");
     this.focusGroups.put(userACL.getAdminGroups(), admins);
     Set<String> employees = getGroupMemberIds(EMPLOYEES_GROUPID);
     this.focusGroups.put(EMPLOYEES_GROUPID, employees);
-
+    
+    try {
+      organization.addListenerPlugin(new MembershipListener());
+    } catch (Exception e) {
+      LOG.error("Cannot add the MembershipListener: " + e.getMessage());
+    }
+ 
     // TODO Brief description of dataset/model flow:
     // 1) load currently active users from login history
     // and collect datasets for those who outdated into a new bucket and train a
