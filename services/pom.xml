@@ -246,11 +246,12 @@
             <java.security.auth.login.config>${project.build.directory}/test-classes/conf/jaas.conf</java.security.auth.login.config>
           </systemPropertyVariables>
           <includes>
-             <!-- include>**/**/ActivityDAOTest.java</include --> 
+            <!-- include>**/**/ActivityDAOTest.java</include --> 
             <!-- include>**/**/SocialDataCollectorServiceTest.java</include --> 
             <!-- include>**/**/*Test_.java</include -->
             <!-- <include>**/**/ModelEntityDAOTest.java</include -->
-            <include>**/**/TrainingServiceTest.java</include>
+            <!-- include>**/**/TrainingServiceTest.java</include -->
+            <include>**/**/_Test.java</include>
           </includes>
           <forkCount>0</forkCount>
         </configuration>

@@ -23,6 +23,7 @@ import java.util.Date;
 
 import org.picocontainer.Startable;
 
+import org.exoplatform.portal.pom.data.ModelData;
 import org.exoplatform.prediction.user.dao.ModelEntityDAO;
 import org.exoplatform.prediction.user.domain.ModelEntity;
 import org.exoplatform.prediction.user.domain.ModelEntity.Status;
@@ -100,6 +101,7 @@ public class TrainingService implements Startable {
   }
 
   public void activateModel(String userName, Long version, String modelFile) {
+    // TODO: archive old model
     ModelEntity modelEntity = modelEntityDAO.find(new ModelId(userName, version));
     if (modelEntity != null) {
       modelEntity.setActivated(new Date());
@@ -109,6 +111,15 @@ public class TrainingService implements Startable {
       LOG.warn("Cannot activate the model (name: " + userName + ", version: " + version + ") - the model not found");
     }
 
+  }
+  
+  public ModelEntity getLastModel(String userName) {
+    Long lastVersion = modelEntityDAO.findLastModelVersion(userName);
+    if(lastVersion == null) {
+      return null;
+    }
+    
+    return modelEntityDAO.find(new ModelId(userName, lastVersion));
   }
 
   /**

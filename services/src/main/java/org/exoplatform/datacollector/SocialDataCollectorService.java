@@ -38,6 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -51,6 +53,8 @@ import java.util.regex.Pattern;
 
 import org.picocontainer.Startable;
 
+import com.google.common.collect.Lists;
+
 import org.exoplatform.commons.utils.ListAccess;
 import org.exoplatform.container.ExoContainer;
 import org.exoplatform.container.ExoContainerContext;
@@ -59,18 +63,27 @@ import org.exoplatform.datacollector.dao.ActivityCommentedDAO;
 import org.exoplatform.datacollector.dao.ActivityLikedDAO;
 import org.exoplatform.datacollector.dao.ActivityMentionedDAO;
 import org.exoplatform.datacollector.dao.ActivityPostedDAO;
+import org.exoplatform.platform.gadget.services.LoginHistory.LastLoginBean;
 import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryBean;
 import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryService;
 import org.exoplatform.portal.config.UserACL;
+import org.exoplatform.prediction.TrainingService;
+import org.exoplatform.prediction.user.domain.ModelEntity;
+import org.exoplatform.prediction.user.domain.ModelEntity.Status;
 import org.exoplatform.services.jcr.RepositoryService;
 import org.exoplatform.services.jcr.ext.app.SessionProviderService;
 import org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator;
+import org.exoplatform.services.listener.Event;
+import org.exoplatform.services.listener.Listener;
+import org.exoplatform.services.listener.ListenerService;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.services.organization.Membership;
 import org.exoplatform.services.organization.MembershipEventListener;
 import org.exoplatform.services.organization.OrganizationService;
 import org.exoplatform.services.organization.User;
+import org.exoplatform.services.security.ConversationRegistry;
+import org.exoplatform.services.security.ConversationState;
 import org.exoplatform.social.core.activity.model.ActivityStream;
 import org.exoplatform.social.core.activity.model.ActivityStream.Type;
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
@@ -149,6 +162,14 @@ public class SocialDataCollectorService implements Startable {
   protected static final String  EMPLOYEES_GROUPID     = "/spaces/exo_employees";
 
   protected static final String  FILE_TIMESTAMP_FORMAT = "yyyy-MM-dd_HHmmss.SSSS";
+
+  // 3 hours - 3 * 3600000L (3 min for testing purposes)
+  protected static final Long    RECENT_LOGINS_PERIOD  = 3 * 60000L;                                                                                                                                                              // 3600000L;
+
+  // 3 hours - 3 * 3600000L (3 min for testing purposes)
+  protected static final Long    TRAIN_PERIOD          = 3 * 60000L;                                                                                                                                                              // 3600000L;
+
+  protected static final String  BUCKET_PREFIX         = "prod-";
 
   /**
    * The Class ActivityParticipant.
@@ -253,7 +274,7 @@ public class SocialDataCollectorService implements Startable {
   /**
    * The Class ContainerCommand.
    */
-  abstract class ContainerCommand implements Runnable {
+  abstract class ContainerCommand extends TimerTask {
 
     /** The container name. */
     final String containerName;
@@ -307,49 +328,113 @@ public class SocialDataCollectorService implements Startable {
       }
     }
   }
-  
+
+  /**
+   * The BucketWorker gets target users from login history or bucketRecords
+   * and processes them in loginsQueue order. Collects a new dataset and sends it to TrainingService, if the user's model needs training.
+   * Schedules next execution in TRAIN_PERIOD ms.
+   */
   public class BucketWorker extends ContainerCommand {
-    
+
     public BucketWorker(String containerName) {
       super(containerName);
     }
 
     @Override
     void execute(ExoContainer exoContainer) {
-      // TODO Auto-generated method stub
-      
+      LOG.info("Bucket processing time! Current bucketRecords: prod-" + currentBucketIndex);
+      Map<String, Date> targetUsers = getTargetUsers();
+
+      while (!loginsQueue.isEmpty()) {
+        String userName = loginsQueue.poll();
+        Date loginDate = targetUsers.get(userName);
+        LOG.info("Processing " + userName + " loginTime " + loginDate.getTime());
+
+        ModelEntity existingModel = trainingService.getLastModel(userName);
+
+        if (modelNeedsTraining(existingModel, loginDate)) {
+          String datasetFile = collectUserActivities(BUCKET_PREFIX + currentBucketIndex, userName);
+          trainingService.addModel(userName, datasetFile);
+          LOG.info("Collected a new dataset and added model for user " + userName);
+        }
+
+        targetUsers.remove(userName);
+      }
+      currentBucketIndex++;
+      timer.schedule(new BucketWorker(containerName), TRAIN_PERIOD);
     }
 
     @Override
     void onContainerError(String error) {
       LOG.error("Container error has occured: " + error);
     }
-    
-    Map<String, Date> getTargetUsers(){
-      return globalBucket;
-    }   
+
+    /**
+     * Returns bucketRecords
+     * @return bucketRecords
+     */
+    Map<String, Date> getTargetUsers() {
+      return bucketRecords;
+    }
+
+    /**
+     * Checks if the model needs (re)training
+     * @param model to be checked
+     * @param loginDate login date
+     * @return true, if model needs (re)training, otherwise - false
+     */
+    boolean modelNeedsTraining(ModelEntity model, Date loginDate) {
+      if (model == null) {
+        return true;
+      }
+      if (model.getActivated() != null && Math.abs(model.getActivated().getTime() - loginDate.getTime()) > TRAIN_PERIOD) {
+        return true;
+      }
+      // If the model isn't activated, but exists, than it has NEW or PROCESSING
+      // status and
+      // we shouldn't collect a new dataset.
+      return false;
+    }
+
   }
-  
-  public class StartWorker extends BucketWorker{
+
+  /**
+   * The StartWorker is used to perform first processing based on login history.
+   * Registers loginListener
+   */
+  public class StartWorker extends BucketWorker {
     public StartWorker(String containerName) {
       super(containerName);
     }
-    
+
     @Override
     void execute(ExoContainer exoContainer) {
       super.execute(exoContainer);
+      listenerService.addListener(new LoginListener());
     }
-    
+
+    /**
+     * Returns last logins from login history
+     */
     @Override
-    Map<String, Date> getTargetUsers(){
-      
+    Map<String, Date> getTargetUsers() {
       Map<String, Date> recentLogins = new HashMap<>();
-      
-      
-      
-      return null; // TODO: fix
+      try {
+        // Last 20 logins
+        List<LastLoginBean> lastLogins = loginHistory.getLastLogins(20, EMPTY_STRING);
+        lastLogins.forEach(entity -> recentLogins.put(entity.getUserId(), new Date(entity.getLastLogin())));
+        // From older to newer logins
+        Lists.reverse(lastLogins).forEach(login -> loginsQueue.add(login.getUserId()));
+
+        LOG.info("Users from login history to be processed: ");
+        loginsQueue.forEach(LOG::info);
+
+      } catch (Exception e) {
+        LOG.error("Cannot get last users login: " + e.getMessage());
+      }
+      return recentLogins;
     }
-    
+
   }
 
   /**
@@ -363,39 +448,46 @@ public class SocialDataCollectorService implements Startable {
         String userId = getUserIdentityByName(m.getUserName()).getId();
         if (m.getGroupId().equals(userACL.getAdminGroups())) {
           focusGroups.get(userACL.getAdminGroups()).add(userId);
-        /*  
-          LOG.info("Added new user - " + userId + " to "+ userACL.getAdminGroups());
-          LOG.info("-----ADMINS------");
-          focusGroups.get(userACL.getAdminGroups()).forEach(LOG::info);*/
         }
         if (m.getGroupId().equals(EMPLOYEES_GROUPID)) {
           focusGroups.get(EMPLOYEES_GROUPID).add(userId);
-          /*
-          LOG.info("Added new user - " + userId + " to "+ EMPLOYEES_GROUPID);
-          LOG.info("-----EMPLOYEES------");
-          focusGroups.get(EMPLOYEES_GROUPID).forEach(LOG::info);*/
+
         }
       }
     }
 
     public void postDelete(Membership m) throws Exception {
       String userId = getUserIdentityByName(m.getUserName()).getId();
-      if(m.getGroupId().equals(userACL.getAdminGroups())) {
+      if (m.getGroupId().equals(userACL.getAdminGroups())) {
         focusGroups.get(userACL.getAdminGroups()).remove(userId);
-        /*
-        LOG.info("Removed user - " + userId + " from "+ userACL.getAdminGroups());
-        LOG.info("-----ADMINS------");
-        focusGroups.get(userACL.getAdminGroups()).forEach(LOG::info);*/
       }
-      if(m.getGroupId().equals(EMPLOYEES_GROUPID)) {
+      if (m.getGroupId().equals(EMPLOYEES_GROUPID)) {
         focusGroups.get(EMPLOYEES_GROUPID).remove(userId);
-        /*
-        LOG.info("Removed user - " + userId + " from "+ EMPLOYEES_GROUPID);
-        LOG.info("-----EMPLOYEES------");
-        focusGroups.get(EMPLOYEES_GROUPID).forEach(LOG::info);*/
       }
     }
 
+  }
+
+  /**
+   * The LoginListener add new logins to the bucketRecords
+   */
+  public class LoginListener extends Listener<ConversationRegistry, ConversationState> {
+
+    public LoginListener() {
+      this.name = "exo.core.security.ConversationRegistry.register";
+    }
+
+    @Override
+    public void onEvent(Event<ConversationRegistry, ConversationState> event) throws Exception {
+      String userId = event.getData().getIdentity().getUserId();
+
+      if (!bucketRecords.containsKey(userId)) {
+        loginsQueue.add(userId);
+        bucketRecords.put(userId, new Date());
+        LOG.info("User " + event.getData().getIdentity().getUserId() + " has logged in and added to bucketRecords");
+      }
+
+    }
   }
 
   /**
@@ -535,25 +627,6 @@ public class SocialDataCollectorService implements Startable {
     return res;
   }
 
-  @Deprecated
-  protected static class IdentityInfo {
-
-    public final String id;
-
-    public final String userName;
-
-    public final String gender;
-
-    public final String position;
-
-    IdentityInfo(String id, String userName, String gender, String position) {
-      this.id = id;
-      this.userName = userName;
-      this.gender = gender;
-      this.position = position;
-    }
-  }
-
   /**
    * The Class UserIdentity extends Social's {@link Identity} with required data
    * from social profile.
@@ -615,20 +688,29 @@ public class SocialDataCollectorService implements Startable {
 
   protected final ActivityMentionedDAO                     mentionStorage;
 
-  protected final Map<String, Set<String>>                 focusGroups     = new HashMap<>();
+  protected final ListenerService                          listenerService;
+
+  protected final TrainingService                          trainingService;
+
+  protected final Map<String, Set<String>>                 focusGroups        = new HashMap<>();
 
   // TODO clean this map time-from-time to do not consume the RAM
-  protected final Map<String, SoftReference<UserIdentity>> userIdentities  = new HashMap<>();
+  protected final Map<String, SoftReference<UserIdentity>> userIdentities     = new HashMap<>();
 
-  protected final Map<String, SpaceIdentity>               spaceIdentities = new HashMap<>();
+  protected final Map<String, SpaceIdentity>               spaceIdentities    = new HashMap<>();
 
   protected final ExecutorService                          workers;
-  
+
   /** Contains pairs K - user id, V - date of login to be processed by BucketWorker */
-  protected final ConcurrentHashMap<String, Date> globalBucket = new ConcurrentHashMap<>();
-  
+  protected final ConcurrentHashMap<String, Date>          bucketRecords      = new ConcurrentHashMap<>();
+
   /** Contains users id ordered by the login time */
-  protected final ConcurrentLinkedQueue<String> loginsQueue = new ConcurrentLinkedQueue<>();
+  protected final ConcurrentLinkedQueue<String>            loginsQueue        = new ConcurrentLinkedQueue<>();
+
+  protected Integer                                        currentBucketIndex = 0;
+
+  /** The timer for scheduled tasks execution */
+  protected final Timer                                    timer              = new Timer();
 
   /**
    * Instantiates a new data collector service.
@@ -657,11 +739,13 @@ public class SocialDataCollectorService implements Startable {
                                     RelationshipManager relationshipManager,
                                     SpaceService spaceService,
                                     LoginHistoryService loginHistory,
+                                    ListenerService listenerService,
                                     UserACL userACL,
                                     ActivityPostedDAO postStorage,
                                     ActivityCommentedDAO commentStorage,
                                     ActivityLikedDAO likeStorage,
-                                    ActivityMentionedDAO mentionStorage) {
+                                    ActivityMentionedDAO mentionStorage,
+                                    TrainingService trainingService) {
     super();
     this.identityManager = identityManager;
     this.activityManager = activityManager;
@@ -670,11 +754,12 @@ public class SocialDataCollectorService implements Startable {
     this.spaceService = spaceService;
     this.loginHistory = loginHistory;
     this.userACL = userACL;
-
+    this.listenerService = listenerService;
     this.postStorage = postStorage;
     this.commentStorage = commentStorage;
     this.likeStorage = likeStorage;
     this.mentionStorage = mentionStorage;
+    this.trainingService = trainingService;
 
     this.workers = createThreadExecutor(WORKER_THREAD_PREFIX, WORKER_MAX_FACTOR, WORKER_QUEUE_FACTOR);
   }
@@ -689,32 +774,32 @@ public class SocialDataCollectorService implements Startable {
     this.focusGroups.put(userACL.getAdminGroups(), admins);
     Set<String> employees = getGroupMemberIds(EMPLOYEES_GROUPID);
     this.focusGroups.put(EMPLOYEES_GROUPID, employees);
-    
-    try {
-      organization.getGroupHandler().findGroupsOfUser("root").forEach(group -> LOG.info(group.getId() + " " + group.getGroupName()));
-    } catch (Exception e1) {
-      
-      e1.printStackTrace();
-    }
-    
+
     try {
       organization.addListenerPlugin(new MembershipListener());
     } catch (Exception e) {
       LOG.error("Cannot add the MembershipListener: " + e.getMessage());
     }
- 
+
+    final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
+    workers.submit(new StartWorker(containerName));
+
     // TODO Brief description of dataset/model flow:
     // 1) load currently active users from login history
-    // and collect datasets for those who outdated into a new bucket and train a
+    // and collect datasets for those who outdated into a new bucketRecords and
+    // train a
     // model for it in TrainingService.
     // 2) Then register login listener to for a new logins and collect/train
-    // models for them into a new buckter. Collect users for the bucket
+    // models for them into a new buckter. Collect users for the bucketRecords
     // continously. Train new model only if active one is already outdated.
-    // Train collected models in a single bucket.
+    // Train collected models in a single bucketRecords.
     // 3) Model become outdated in 3hrs (will be configurable)
-    // 4) Collector maintains datasets and models in buckets: first bucket is of
-    // a first start (all active users in single bucket), second and following
-    // for listened logins. Runtime bucket name is based on "prod" prefix with
+    // 4) Collector maintains datasets and models in buckets: first
+    // bucketRecords is of
+    // a first start (all active users in single bucketRecords), second and
+    // following
+    // for listened logins. Runtime bucketRecords name is based on "prod" prefix
+    // with
     // incremented index.
     // 5) After model was trained, we don't need a dataset file anymore and it
     // should be removed
@@ -741,14 +826,14 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Collect users activities into files bucket in Platform data folder, each
+   * Collect users activities into files bucketRecords in Platform data folder, each
    * file will have name of an user with <code>.csv</code> extension. If such
    * folder already exists, it will overwrite the files that match found users.
    * In case of error during the work, all partial results will be deleted.
    *
-   * @param bucketName the bucket name, can be <code>null</code> then a
+   * @param bucketName the bucketRecords name, can be <code>null</code> then a
    *          timestamped name will be created
-   * @return the string with a path to saved bucket folder or <code>null</code>
+   * @return the string with a path to saved bucketRecords folder or <code>null</code>
    *         if error occured
    * @throws Exception the exception
    */
@@ -757,7 +842,7 @@ public class SocialDataCollectorService implements Startable {
     // into separate data stream, then feed them to the Training Service
 
     File bucketDir = openBuckerDir(bucketName);
-    LOG.info("Saving dataset into bucket folder: " + bucketDir.getAbsolutePath());
+    LOG.info("Saving dataset into bucketRecords folder: " + bucketDir.getAbsolutePath());
 
     // ProfileFilter filter = new ProfileFilter();
     // long idsCount =
@@ -773,37 +858,37 @@ public class SocialDataCollectorService implements Startable {
     }
 
     if (Thread.currentThread().isInterrupted()) {
-      LOG.warn("Saving of dataset interrupted for bucket: " + bucketName);
+      LOG.warn("Saving of dataset interrupted for bucketRecords: " + bucketName);
       workers.shutdownNow();
-      // Clean the bucket files
+      // Clean the bucketRecords files
       try {
         Arrays.asList(bucketDir.listFiles()).stream().forEach(f -> f.delete());
         bucketDir.delete();
       } catch (Exception e) {
-        LOG.error("Error removing canceled bucket folder: " + bucketName);
+        LOG.error("Error removing canceled bucketRecords folder: " + bucketName);
       }
       return null;
     } else {
-      LOG.info("Saved dataset successfully into bucket folder: " + bucketDir.getAbsolutePath());
+      LOG.info("Saved dataset successfully into bucketRecords folder: " + bucketDir.getAbsolutePath());
       return bucketDir.getAbsolutePath();
     }
   }
 
   /**
-   * Collect user activities into given files bucket in Platform data folder.
+   * Collect user activities into given files bucketRecords in Platform data folder.
    *
-   * @param bucketName the bucket name
+   * @param bucketName the bucketRecords name
    * @param userName the user name
-   * @return the string
+   * @return the path of created dataset file
    */
   public String collectUserActivities(String bucketName, String userName) {
     File bucketDir = openBuckerDir(bucketName);
-    LOG.info("Saving user dataset into bucket folder: " + bucketDir.getAbsolutePath());
+    LOG.info("Saving user dataset into bucketRecords folder: " + bucketDir.getAbsolutePath());
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
       final File userFile = new File(bucketDir, id.getRemoteId() + ".csv");
       submitCollectUserActivities(id, userFile);
-      LOG.info("Saved user dataset into bucket file: " + userFile.getAbsolutePath());
+      LOG.info("Saved user dataset into bucketRecords file: " + userFile.getAbsolutePath());
       return userFile.getAbsolutePath();
     } else {
       LOG.warn("User social identity not found for " + userName);
@@ -1627,7 +1712,7 @@ public class SocialDataCollectorService implements Startable {
       }
     }
     if (bucketName == null || bucketName.trim().length() == 0) {
-      bucketName = "bucket-" + new SimpleDateFormat(FILE_TIMESTAMP_FORMAT).format(new Date());
+      bucketName = "bucketRecords-" + new SimpleDateFormat(FILE_TIMESTAMP_FORMAT).format(new Date());
     }
 
     File bucketDir = new File(dataDirPath + "/data-collector/" + bucketName);
