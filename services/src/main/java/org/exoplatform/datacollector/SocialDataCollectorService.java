@@ -69,7 +69,6 @@ import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryService
 import org.exoplatform.portal.config.UserACL;
 import org.exoplatform.prediction.TrainingService;
 import org.exoplatform.prediction.user.domain.ModelEntity;
-import org.exoplatform.prediction.user.domain.ModelEntity.Status;
 import org.exoplatform.services.jcr.RepositoryService;
 import org.exoplatform.services.jcr.ext.app.SessionProviderService;
 import org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator;
@@ -163,8 +162,7 @@ public class SocialDataCollectorService implements Startable {
 
   protected static final String  FILE_TIMESTAMP_FORMAT = "yyyy-MM-dd_HHmmss.SSSS";
 
-  // 3 hours - 3 * 3600000L (3 min for testing purposes)
-  protected static final Long    RECENT_LOGINS_PERIOD  = 3 * 60000L;                                                                                                                                                              // 3600000L;
+  protected static final Integer RECENT_LOGINS_COUNT   = 20;                                                                                                                                                                      // 3600000L;
 
   // 3 hours - 3 * 3600000L (3 min for testing purposes)
   protected static final Long    TRAIN_PERIOD          = 3 * 60000L;                                                                                                                                                              // 3600000L;
@@ -420,8 +418,8 @@ public class SocialDataCollectorService implements Startable {
     Map<String, Date> getTargetUsers() {
       Map<String, Date> recentLogins = new HashMap<>();
       try {
-        // Last 20 logins
-        List<LastLoginBean> lastLogins = loginHistory.getLastLogins(20, EMPTY_STRING);
+        // Last RECENT_LOGINS_COUNT logins
+        List<LastLoginBean> lastLogins = loginHistory.getLastLogins(RECENT_LOGINS_COUNT, EMPTY_STRING);
         lastLogins.forEach(entity -> recentLogins.put(entity.getUserId(), new Date(entity.getLastLogin())));
         // From older to newer logins
         Lists.reverse(lastLogins).forEach(login -> loginsQueue.add(login.getUserId()));

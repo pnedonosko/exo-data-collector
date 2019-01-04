@@ -23,7 +23,6 @@ import java.util.Date;
 
 import org.picocontainer.Startable;
 
-import org.exoplatform.portal.pom.data.ModelData;
 import org.exoplatform.prediction.user.dao.ModelEntityDAO;
 import org.exoplatform.prediction.user.domain.ModelEntity;
 import org.exoplatform.prediction.user.domain.ModelEntity.Status;
@@ -55,27 +54,16 @@ public class TrainingService implements Startable {
   }
 
   /**
-   * Submit a new model to train in the training service.
-   *
+   * Submits a new model to train in the training service.
+   * Respects current model status:
+   * If NEW or PROCESSING - cleans up it
+   * If READY - creates a NEW version
    * @param userName the user name
    * @param datasetFile the dataset file
    */
   public void addModel(String userName, String datasetFile) {
-
-    // TODO
-    // 1) Submit a training task to a queue (DB: ModelEntity), using user name
-    // to build a model name. The task is asynchronous.
-    // 2) Later, it should be possible to find a status of the model
-    // 3) Respect current model status: if it's NEW - need cleanup it, if it's
-    // PROCESSING - need cancel it, if it's READY - create a NEW version and
-    // when will be processed mark as READY also.
-
-    ModelEntity modelEntity = new ModelEntity(userName, datasetFile);
-    Long lastVersion = modelEntityDAO.findLastModelVersion(userName);
-
-    if (lastVersion != null) {
-      ModelEntity currentModel = modelEntityDAO.find(new ModelId(userName, lastVersion));
-
+    ModelEntity currentModel = getLastModel(userName);
+    if (currentModel != null) {
       if (currentModel.getStatus() == Status.NEW || currentModel.getStatus() == Status.PROCESSING) {
         if (currentModel.getDatasetFile() != null) {
           new File(currentModel.getDatasetFile()).delete();
@@ -83,12 +71,12 @@ public class TrainingService implements Startable {
         if (currentModel.getModelFile() != null) {
           new File(currentModel.getModelFile()).delete();
         }
-
         modelEntityDAO.delete(currentModel);
       }
     }
 
-    modelEntityDAO.create(modelEntity);
+    ModelEntity newModel = new ModelEntity(userName, datasetFile);
+    modelEntityDAO.create(newModel);
   }
 
   /**
@@ -100,25 +88,64 @@ public class TrainingService implements Startable {
     return modelEntityDAO.findStatusByNameAndVersion(userName, version);
   }
 
+  /**
+   * Activates model by setting the modelFile, activatedDate, READY status
+   * Archives the old version of model, if exists.
+   * Deletes the dataset file.
+   * @param userName of the model
+   * @param version of the model
+   * @param modelFile to be set up
+   */
   public void activateModel(String userName, Long version, String modelFile) {
-    // TODO: archive old model
     ModelEntity modelEntity = modelEntityDAO.find(new ModelId(userName, version));
     if (modelEntity != null) {
+      String dataset = modelEntity.getDatasetFile();
       modelEntity.setActivated(new Date());
       modelEntity.setModelFile(modelFile);
+      modelEntity.setDatasetFile(null);
+      modelEntity.setStatus(Status.READY);
       modelEntityDAO.update(modelEntity);
+      // Archive old version
+      if (version != 1L) {
+        archiveModel(userName, version - 1L);
+      }
+      // Delete the dataset file
+      if (dataset != null) {
+        new File(dataset).delete();
+      }
     } else {
       LOG.warn("Cannot activate the model (name: " + userName + ", version: " + version + ") - the model not found");
     }
 
   }
-  
+
+  /**
+   * Archives a model by setting archived date.
+   * @param userName of the model
+   * @param version of the model
+   */
+  public void archiveModel(String userName, Long version) {
+    ModelEntity model = modelEntityDAO.find(new ModelId(userName, version));
+    if (model != null) {
+      model.setArchived(new Date());
+      modelEntityDAO.update(model);
+      LOG.info("Model (name: " + userName + ", version: " + version + ") archived");
+    } else {
+      LOG.info("Cannot archive model (name: " + userName + ", version: " + version + ") - the model not found");
+    }
+  }
+
+  /**
+   * Gets the model with latest version
+   * @param userName
+   * @return modelEntity or null
+   */
   public ModelEntity getLastModel(String userName) {
     Long lastVersion = modelEntityDAO.findLastModelVersion(userName);
-    if(lastVersion == null) {
+    if (lastVersion == null) {
       return null;
     }
-    
+
     return modelEntityDAO.find(new ModelId(userName, lastVersion));
   }
 
