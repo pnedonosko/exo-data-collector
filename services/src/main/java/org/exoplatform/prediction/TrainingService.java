@@ -40,7 +40,10 @@ import org.exoplatform.services.log.Log;
 public class TrainingService implements Startable {
 
   /** Logger */
-  private static final Log       LOG = ExoLogger.getExoLogger(TrainingService.class);
+  private static final Log       LOG               = ExoLogger.getExoLogger(TrainingService.class);
+
+  /** Max count of archived models in DB  */
+  private static final Integer   MAX_STORED_MODELS = 20;
 
   /** ModelEntityDAO */
   protected final ModelEntityDAO modelEntityDAO;
@@ -65,13 +68,7 @@ public class TrainingService implements Startable {
     ModelEntity currentModel = getLastModel(userName);
     if (currentModel != null) {
       if (currentModel.getStatus() == Status.NEW || currentModel.getStatus() == Status.PROCESSING) {
-        if (currentModel.getDatasetFile() != null) {
-          new File(currentModel.getDatasetFile()).delete();
-        }
-        if (currentModel.getModelFile() != null) {
-          new File(currentModel.getModelFile()).delete();
-        }
-        modelEntityDAO.delete(currentModel);
+        deleteModel(currentModel);
       }
     }
 
@@ -80,7 +77,7 @@ public class TrainingService implements Startable {
   }
 
   /**
-   * Gets the model's last actual status.
+   * Gets the model's actual status.
    *
    * @return the model status
    */
@@ -130,6 +127,10 @@ public class TrainingService implements Startable {
       model.setArchived(new Date());
       modelEntityDAO.update(model);
       LOG.info("Model (name: " + userName + ", version: " + version + ") archived");
+
+      // Delete old models (version = current version - MAX_STORED_MODELS to be deleted)
+      ModelEntity oldModel = modelEntityDAO.find(new ModelId(userName, version - MAX_STORED_MODELS));
+      deleteModel(oldModel);
     } else {
       LOG.info("Cannot archive model (name: " + userName + ", version: " + version + ") - the model not found");
     }
@@ -162,7 +163,23 @@ public class TrainingService implements Startable {
    */
   @Override
   public void stop() {
+    
+  }
 
+  /**
+   * Deletes a model from DB and clears its files
+   * @param model
+   */
+  private void deleteModel(ModelEntity model) {
+    if (model != null) {
+      if (model.getDatasetFile() != null) {
+        new File(model.getDatasetFile()).delete();
+      }
+      if (model.getModelFile() != null) {
+        new File(model.getModelFile()).delete();
+      }
+      modelEntityDAO.delete(model);
+    }
   }
 
 }
