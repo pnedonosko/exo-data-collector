@@ -382,16 +382,8 @@ public class SocialDataCollectorService implements Startable {
      * @return true, if model needs (re)training, otherwise - false
      */
     boolean modelNeedsTraining(ModelEntity model, Date loginDate) {
-      if (model == null) {
-        return true;
-      }
-      if (model.getActivated() != null && Math.abs(model.getActivated().getTime() - loginDate.getTime()) > TRAIN_PERIOD) {
-        return true;
-      }
-      // If the model isn't activated, but exists, than it has NEW or PROCESSING
-      // status and
-      // we shouldn't collect a new dataset.
-      return false;
+      return model == null
+          || model.getActivated() != null && Math.abs(model.getActivated().getTime() - loginDate.getTime()) > TRAIN_PERIOD;
     }
 
   }

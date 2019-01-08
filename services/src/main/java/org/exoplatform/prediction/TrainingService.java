@@ -118,6 +118,7 @@ public class TrainingService implements Startable {
 
   /**
    * Archives a model by setting archived date.
+   * Deletes old models
    * @param userName of the model
    * @param version of the model
    */
@@ -128,7 +129,8 @@ public class TrainingService implements Startable {
       modelEntityDAO.update(model);
       LOG.info("Model (name: " + userName + ", version: " + version + ") archived");
 
-      // Delete old models (version = current version - MAX_STORED_MODELS to be deleted)
+      // Delete old models (version = current version - MAX_STORED_MODELS to be
+      // deleted)
       ModelEntity oldModel = modelEntityDAO.find(new ModelId(userName, version - MAX_STORED_MODELS));
       deleteModel(oldModel);
     } else {
@@ -163,7 +165,7 @@ public class TrainingService implements Startable {
    */
   @Override
   public void stop() {
-    
+
   }
 
   /**
