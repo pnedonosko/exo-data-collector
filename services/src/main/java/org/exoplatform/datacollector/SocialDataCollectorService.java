@@ -467,12 +467,9 @@ public class SocialDataCollectorService implements Startable {
     // Train collected models in a single bucketRecords.
     // 3) Model become outdated in 3hrs (will be configurable)
     // 4) Collector maintains datasets and models in buckets: first
-    // bucketRecords is of
-    // a first start (all active users in single bucketRecords), second and
-    // following
-    // for listened logins. Runtime bucketRecords name is based on "prod" prefix
-    // with
-    // incremented index.
+    // bucketRecords is of a first start (all active users in single
+    // bucketRecords), second and following for listened logins. Runtime
+    // bucketRecords name is based on "prod" prefix with incremented index.
     // 5) After model was trained, we don't need a dataset file anymore and it
     // should be removed
     // 6) It's important to avoid creation of a garbage in buckets: all files
@@ -486,7 +483,6 @@ public class SocialDataCollectorService implements Startable {
     // wasUserLoggedin().
     // Login listener see in LoginHistoryListener of Platform's project gadget
     // pack, we need register an own listener via configuration.
-
   }
 
   /**
