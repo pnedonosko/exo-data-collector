@@ -12,23 +12,25 @@ import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
 
 public class ActivityCommentedDAO extends GenericDAOJPAImpl<ActivityCommentedEntity, String> {
 
-  public List<ActivityCommentedEntity> findPartIsCommentedPoster(String commenterId) {
+  public List<ActivityCommentedEntity> findPartIsCommentedPoster(String commenterId, long sinceTime) {
     try {
       TypedQuery<ActivityCommentedEntity> query =
                                                 getEntityManager().createNamedQuery("ActivityCommented.findPartIsCommentedPoster",
                                                                                     ActivityCommentedEntity.class)
-                                                                  .setParameter("commenterId", commenterId);
+                                                                  .setParameter("commenterId", commenterId)
+                                                                  .setParameter("sinceTime", sinceTime);
       return query.getResultList();
     } catch (NoResultException e) {
       return Collections.emptyList();
     }
   }
 
-  public List<ActivityCommentedEntity> findPartIsCommentedCommenter(String commenterId) {
+  public List<ActivityCommentedEntity> findPartIsCommentedCommenter(String commenterId, long sinceTime) {
     TypedQuery<ActivityCommentedEntity> query =
                                               getEntityManager().createNamedQuery("ActivityCommented.findPartIsCommentedCommenter",
                                                                                   ActivityCommentedEntity.class)
-                                                                .setParameter("commenterId", commenterId);
+                                                                .setParameter("commenterId", commenterId)
+                                                                .setParameter("sinceTime", sinceTime);
     try {
       return query.getResultList();
     } catch (NoResultException e) {
@@ -36,11 +38,12 @@ public class ActivityCommentedDAO extends GenericDAOJPAImpl<ActivityCommentedEnt
     }
   }
 
-  public List<ActivityCommentedEntity> findPartIsCommentedConvoPoster(String commenterId) {
+  public List<ActivityCommentedEntity> findPartIsCommentedConvoPoster(String commenterId, long sinceTime) {
     TypedQuery<ActivityCommentedEntity> query =
                                               getEntityManager().createNamedQuery("ActivityCommented.findPartIsCommentedConvoPoster",
                                                                                   ActivityCommentedEntity.class)
-                                                                .setParameter("commenterId", commenterId);
+                                                                .setParameter("commenterId", commenterId)
+                                                                .setParameter("sinceTime", sinceTime);
     try {
       return query.getResultList();
     } catch (NoResultException e) {
@@ -48,11 +51,12 @@ public class ActivityCommentedDAO extends GenericDAOJPAImpl<ActivityCommentedEnt
     }
   }
 
-  public List<ActivityCommentedEntity> findPartIsPostCommenter(String posterId) {
+  public List<ActivityCommentedEntity> findPartIsPostCommenter(String posterId, long sinceTime) {
     TypedQuery<ActivityCommentedEntity> query = getEntityManager()
                                                                   .createNamedQuery("ActivityCommented.findPartIsPostCommenter",
                                                                                     ActivityCommentedEntity.class)
-                                                                  .setParameter("posterId", posterId);
+                                                                  .setParameter("posterId", posterId)
+                                                                  .setParameter("sinceTime", sinceTime);
     try {
       return query.getResultList();
     } catch (NoResultException e) {
@@ -60,11 +64,12 @@ public class ActivityCommentedDAO extends GenericDAOJPAImpl<ActivityCommentedEnt
     }
   }
 
-  public List<ActivityCommentedEntity> findPartIsCommentCommenter(String commenterId) {
+  public List<ActivityCommentedEntity> findPartIsCommentCommenter(String commenterId, long sinceTime) {
     TypedQuery<ActivityCommentedEntity> query =
                                               getEntityManager().createNamedQuery("ActivityCommented.findPartIsCommentCommenter",
                                                                                   ActivityCommentedEntity.class)
-                                                                .setParameter("commenterId", commenterId);
+                                                                .setParameter("commenterId", commenterId)
+                                                                .setParameter("sinceTime", sinceTime);
     try {
       return query.getResultList();
     } catch (NoResultException e) {
@@ -72,11 +77,12 @@ public class ActivityCommentedDAO extends GenericDAOJPAImpl<ActivityCommentedEnt
     }
   }
 
-  public List<ActivityCommentedEntity> findPartIsConvoCommenter(String posterId) {
+  public List<ActivityCommentedEntity> findPartIsConvoCommenter(String posterId, long sinceTime) {
     TypedQuery<ActivityCommentedEntity> query = getEntityManager()
                                                                   .createNamedQuery("ActivityCommented.findPartIsConvoCommenter",
                                                                                     ActivityCommentedEntity.class)
-                                                                  .setParameter("posterId", posterId);
+                                                                  .setParameter("posterId", posterId)
+                                                                  .setParameter("sinceTime", sinceTime);
     try {
       return query.getResultList();
     } catch (NoResultException e) {
@@ -84,12 +90,15 @@ public class ActivityCommentedDAO extends GenericDAOJPAImpl<ActivityCommentedEnt
     }
   }
 
-  public List<ActivityCommentedEntity> findPartIsFavoriteStreamCommenter(String posterId, Collection<String> favoriteStreams) {
+  public List<ActivityCommentedEntity> findPartIsFavoriteStreamCommenter(String posterId,
+                                                                         long sinceTime,
+                                                                         Collection<String> favoriteStreams) {
 
     TypedQuery<ActivityCommentedEntity> query =
                                               getEntityManager().createNamedQuery("ActivityCommented.findPartIsFavoriteStreamCommenter",
                                                                                   ActivityCommentedEntity.class)
                                                                 .setParameter("posterId", posterId)
+                                                                .setParameter("sinceTime", sinceTime)
                                                                 .setParameter("favoriteStreams", favoriteStreams);
     try {
       return query.getResultList();

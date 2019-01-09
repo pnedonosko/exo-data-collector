@@ -1,6 +1,7 @@
 package org.exoplatform.datacollector;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -8,6 +9,8 @@ import java.util.NoSuchElementException;
 import org.exoplatform.commons.utils.ListAccess;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.social.common.RealtimeListAccess;
+import org.exoplatform.social.core.activity.model.ExoSocialActivity;
 
 public class ListAccessUtil {
 
@@ -152,4 +155,82 @@ public class ListAccessUtil {
     };
     return res;
   }
+
+  /**
+   * Wrap given access real-time list of activities into an {@link Iterator}
+   * instance.
+   *
+   * @param list the real-time list of activities
+   * @param sinceTime the since time
+   * @return the iterator
+   * @throws Exception the exception
+   */
+  public static Iterator<ExoSocialActivity> loadActivitiesListIterator(RealtimeListAccess<ExoSocialActivity> list,
+                                                                       long sinceTime) throws Exception {
+    Iterator<ExoSocialActivity> res = new Iterator<ExoSocialActivity>() {
+
+      Iterator<ExoSocialActivity> nextBatch;
+
+      ExoSocialActivity           next, prev;
+
+      private void loadNextBatch() {
+        List<ExoSocialActivity> nextList;
+        try {
+          if (prev != null) {
+            nextList = list.loadNewer(prev, BATCH_SIZE);
+          } else {
+            nextList = list.loadNewer(sinceTime, BATCH_SIZE);
+          }
+        } catch (IllegalArgumentException e) {
+          LOG.warn("Unexpected time/length error during real-time loading access list:", e);
+          nextList = Collections.emptyList();
+        } catch (Exception e) {
+          // Here can be DB or network error
+          LOG.error("Unexpected error during loading real-time access list:", e);
+          nextList = Collections.emptyList();
+        }
+        if (nextList.isEmpty()) {
+          // reached actual end-of-data
+          nextBatch = null;
+        } else {
+          nextBatch = nextList.iterator();
+        }
+      }
+
+      private void loadNext() {
+        if (nextBatch == null) {
+          loadNextBatch();
+        }
+        if (nextBatch != null && nextBatch.hasNext()) {
+          next = nextBatch.next();
+          if (!nextBatch.hasNext()) {
+            nextBatch = null;
+          }
+        } else {
+          next = null;
+          nextBatch = null;
+        }
+      }
+
+      @Override
+      public boolean hasNext() {
+        if (next == null) {
+          loadNext();
+        }
+        return next != null;
+      }
+
+      @Override
+      public ExoSocialActivity next() {
+        if (hasNext()) {
+          prev = next;
+          next = null;
+          return prev;
+        }
+        throw new NoSuchElementException("No more elements");
+      }
+    };
+    return res;
+  }
+
 }

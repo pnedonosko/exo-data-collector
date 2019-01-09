@@ -22,14 +22,14 @@ import org.exoplatform.datacollector.domain.id.ActivityMentionedId;
         + "  a.hidden, a.posted AS posted_date, a.updated_date, m.mentioner_id AS mentioned_id"
         + " FROM SOC_ACTIVITIES a, SOC_MENTIONS m" //
         + " WHERE a.activity_id = m.activity_id AND m.mentioner_id != a.poster_id AND a.owner_id IS NOT NULL"
-        + " AND a.poster_id = :posterId" //
+        + " AND a.poster_id = :posterId AND a.posted >= :sinceTime" //
         + " UNION ALL" //
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  c.poster_id, a.owner_id, c.parent_id, a.hidden,"
         + "  a.posted AS posted_date, a.updated_date, m.mentioner_id AS mentioned_id"
         + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES c, SOC_MENTIONS m"
         + " WHERE a.activity_id = c.parent_id AND c.activity_id = m.activity_id AND m.mentioner_id != c.poster_id"
-        + " AND a.owner_id IS NOT NULL AND c.owner_id IS NULL AND c.poster_id = :posterId" //
+        + " AND a.owner_id IS NOT NULL AND c.owner_id IS NULL AND c.poster_id = :posterId AND a.posted >= :sinceTime" //
         + " UNION ALL" //
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  c.poster_id, a.owner_id, c.parent_id, a.hidden,"
@@ -37,7 +37,7 @@ import org.exoplatform.datacollector.domain.id.ActivityMentionedId;
         + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES cp, SOC_ACTIVITIES c, SOC_MENTIONS m"
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = c.parent_id AND c.activity_id = m.activity_id"
         + " AND m.mentioner_id != c.poster_id AND a.owner_id IS NOT NULL AND cp.owner_id IS NULL AND c.owner_id IS NULL"
-        + " AND c.poster_id = :posterId" //
+        + " AND c.poster_id = :posterId AND a.posted >= :sinceTime" //
         + " ORDER BY post_id, parent_id, mentioned_id", resultClass = ActivityMentionedEntity.class),
     /* Others often mention the user (find mentioners) */
     @NamedNativeQuery(name = "ActivityMentioned.findPartIsMentioner", query = "SELECT a.activity_id AS post_id,"
@@ -45,14 +45,14 @@ import org.exoplatform.datacollector.domain.id.ActivityMentionedId;
         + "  a.hidden, a.posted AS posted_date, a.updated_date, m.mentioner_id AS mentioned_id"
         + " FROM SOC_ACTIVITIES a, SOC_MENTIONS m" //
         + " WHERE a.activity_id = m.activity_id AND m.mentioner_id != a.poster_id AND a.owner_id IS NOT NULL"
-        + " AND m.mentioner_id = :mentionerId" //
+        + " AND m.mentioner_id = :mentionerId AND a.posted >= :sinceTime" //
         + " UNION ALL" //
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  c.poster_id, a.owner_id, c.parent_id, a.hidden,"
         + "  a.posted AS posted_date, a.updated_date, m.mentioner_id AS mentioned_id"
         + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES c, SOC_MENTIONS m"
         + " WHERE a.activity_id = c.parent_id AND c.activity_id = m.activity_id AND m.mentioner_id != c.poster_id"
-        + " AND a.owner_id IS NOT NULL AND c.owner_id IS NULL AND m.mentioner_id = :mentionerId" //
+        + " AND a.owner_id IS NOT NULL AND c.owner_id IS NULL AND m.mentioner_id = :mentionerId AND a.posted >= :sinceTime" //
         + " UNION ALL" //
         + " SELECT a.activity_id AS post_id, a.provider_id AS post_provider_id, a.type AS post_type,"
         + "  c.poster_id, a.owner_id, c.parent_id, a.hidden,"
@@ -60,7 +60,7 @@ import org.exoplatform.datacollector.domain.id.ActivityMentionedId;
         + " FROM SOC_ACTIVITIES a, SOC_ACTIVITIES cp, SOC_ACTIVITIES c, SOC_MENTIONS m"
         + " WHERE a.activity_id = cp.parent_id AND cp.activity_id = c.parent_id AND c.activity_id = m.activity_id"
         + " AND m.mentioner_id != c.poster_id AND a.owner_id IS NOT NULL AND cp.owner_id IS NULL AND c.owner_id IS NULL"
-        + " AND m.mentioner_id = :mentionerId" //
+        + " AND m.mentioner_id = :mentionerId AND a.posted >= :sinceTime" //
         + " ORDER BY post_id, parent_id, poster_id", resultClass = ActivityMentionedEntity.class) })
 @IdClass(ActivityMentionedId.class)
 public class ActivityMentionedEntity extends AbstractActivityEntity implements Serializable {
