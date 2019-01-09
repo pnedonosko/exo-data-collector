@@ -340,20 +340,20 @@ public class SocialDataCollectorService implements Startable {
 
     @Override
     void execute(ExoContainer exoContainer) {
-      LOG.info("Bucket processing time! Current bucketRecords: prod-" + currentBucketIndex);
+      LOG.info("Bucket processing time! Current bucketRecords: prod-{}", currentBucketIndex);
       Map<String, Date> targetUsers = getTargetUsers();
 
       while (!loginsQueue.isEmpty()) {
         String userName = loginsQueue.poll();
         Date loginDate = targetUsers.get(userName);
-        LOG.info("Processing " + userName + " loginTime " + loginDate.getTime());
+        LOG.info("Processing user: {} loginTime: {}", userName, loginDate.getTime());
 
         ModelEntity existingModel = trainingService.getLastModel(userName);
 
         if (modelNeedsTraining(existingModel, loginDate)) {
           String datasetFile = collectUserActivities(BUCKET_PREFIX + currentBucketIndex, userName);
           trainingService.addModel(userName, datasetFile);
-          LOG.info("Collected a new dataset and added model for user " + userName);
+          LOG.info("Collected a new dataset and added model for user {}", userName);
         }
 
         targetUsers.remove(userName);
@@ -364,7 +364,7 @@ public class SocialDataCollectorService implements Startable {
 
     @Override
     void onContainerError(String error) {
-      LOG.error("Container error has occured: " + error);
+      LOG.error("Container error has occured: {}", error);
     }
 
     /**
@@ -420,7 +420,7 @@ public class SocialDataCollectorService implements Startable {
         loginsQueue.forEach(LOG::info);
 
       } catch (Exception e) {
-        LOG.error("Cannot get last users login: " + e.getMessage());
+        LOG.error("Cannot get last users login: {}", e.getMessage());
       }
       return recentLogins;
     }
@@ -474,7 +474,7 @@ public class SocialDataCollectorService implements Startable {
       if (!bucketRecords.containsKey(userId)) {
         loginsQueue.add(userId);
         bucketRecords.put(userId, new Date());
-        LOG.info("User " + event.getData().getIdentity().getUserId() + " has logged in and added to bucketRecords");
+        LOG.info("User {} has logged in and added to bucketRecords", event.getData().getIdentity().getUserId());
       }
 
     }
@@ -518,7 +518,7 @@ public class SocialDataCollectorService implements Startable {
         }
       } catch (IllegalArgumentException | IndexOutOfBoundsException e) {
         // faced with actual end-of-data
-        LOG.warn("Unexpected index/size error in the batch:", e);
+        LOG.warn("Unexpected index/size error in the batch: {}", e);
         break;
       }
     }
@@ -570,11 +570,11 @@ public class SocialDataCollectorService implements Startable {
           // faced with actual end-of-data, or already empty
           nextBatch = null;
         } catch (IllegalArgumentException e) {
-          LOG.warn("Unexpected index/size error during loading access list:", e);
+          LOG.warn("Unexpected index/size error during loading access list: {}", e);
           nextBatch = null;
         } catch (Exception e) {
           // Here can be DB or network error
-          LOG.error("Unexpected error during loading access list:", e);
+          LOG.error("Unexpected error during loading access list: {}", e);
           nextBatch = null;
         }
       }
@@ -768,7 +768,7 @@ public class SocialDataCollectorService implements Startable {
     try {
       organization.addListenerPlugin(new MembershipListener());
     } catch (Exception e) {
-      LOG.error("Cannot add the MembershipListener: " + e.getMessage());
+      LOG.error("Cannot add the MembershipListener: {}", e.getMessage());
     }
 
     final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
@@ -832,7 +832,7 @@ public class SocialDataCollectorService implements Startable {
     // into separate data stream, then feed them to the Training Service
 
     File bucketDir = openBuckerDir(bucketName);
-    LOG.info("Saving dataset into bucketRecords folder: " + bucketDir.getAbsolutePath());
+    LOG.info("Saving dataset into bucketRecords folder: {}", bucketDir.getAbsolutePath());
 
     // ProfileFilter filter = new ProfileFilter();
     // long idsCount =
@@ -848,18 +848,18 @@ public class SocialDataCollectorService implements Startable {
     }
 
     if (Thread.currentThread().isInterrupted()) {
-      LOG.warn("Saving of dataset interrupted for bucketRecords: " + bucketName);
+      LOG.warn("Saving of dataset interrupted for bucketRecords: {}", bucketName);
       workers.shutdownNow();
       // Clean the bucketRecords files
       try {
         Arrays.asList(bucketDir.listFiles()).stream().forEach(f -> f.delete());
         bucketDir.delete();
       } catch (Exception e) {
-        LOG.error("Error removing canceled bucketRecords folder: " + bucketName);
+        LOG.error("Error removing canceled bucketRecords folder: {}", bucketName);
       }
       return null;
     } else {
-      LOG.info("Saved dataset successfully into bucketRecords folder: " + bucketDir.getAbsolutePath());
+      LOG.info("Saved dataset successfully into bucketRecords folder: {}", bucketDir.getAbsolutePath());
       return bucketDir.getAbsolutePath();
     }
   }
@@ -873,15 +873,15 @@ public class SocialDataCollectorService implements Startable {
    */
   public String collectUserActivities(String bucketName, String userName) {
     File bucketDir = openBuckerDir(bucketName);
-    LOG.info("Saving user dataset into bucketRecords folder: " + bucketDir.getAbsolutePath());
+    LOG.info("Saving user dataset into bucketRecords folder: {}", bucketDir.getAbsolutePath());
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
       final File userFile = new File(bucketDir, id.getRemoteId() + ".csv");
       submitCollectUserActivities(id, userFile);
-      LOG.info("Saved user dataset into bucketRecords file: " + userFile.getAbsolutePath());
+      LOG.info("Saved user dataset into bucketRecords file: {}", userFile.getAbsolutePath());
       return userFile.getAbsolutePath();
     } else {
-      LOG.warn("User social identity not found for " + userName);
+      LOG.warn("User social identity not found for {}", userName);
       return null;
     }
   }
@@ -901,12 +901,12 @@ public class SocialDataCollectorService implements Startable {
           try {
             collectUserActivities(id, writer);
           } catch (Exception e) {
-            LOG.error("User activities collector error for worker of " + id.getRemoteId(), e);
+            LOG.error("User activities collector error for worker of {} : {}", id.getRemoteId(), e);
           } finally {
             writer.close();
           }
         } catch (IOException e) {
-          LOG.error("Error opening activities collector file for " + id.getRemoteId(), e);
+          LOG.error("Error opening activities collector file for {} : {}", id.getRemoteId(), e);
         }
       }
 
@@ -915,7 +915,7 @@ public class SocialDataCollectorService implements Startable {
        */
       @Override
       void onContainerError(String error) {
-        LOG.error("Container error: " + error + " (" + containerName + ") for worker of " + id.getRemoteId());
+        LOG.error("Container error: ( {} ) for worker of {} : {}", containerName, id.getRemoteId(), error);
       }
     });
   }
@@ -928,11 +928,11 @@ public class SocialDataCollectorService implements Startable {
    * @throws Exception the exception
    */
   protected void collectUserActivities(UserIdentity id, PrintWriter out) throws Exception {
-    LOG.info("> Collecting user activities for " + id.getRemoteId());
+    LOG.info("> Collecting user activities for {}", id.getRemoteId());
     out.println(activityHeader());
 
     // Find this user favorite participants (influencers) and streams
-    LOG.info(">> Buidling user influencers for " + id.getRemoteId());
+    LOG.info(">> Buidling user influencers for {}", id.getRemoteId());
     Collection<Identity> idConnections = loadListAll(relationshipManager.getConnections(id));
     Collection<Space> userSpaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
 
@@ -973,7 +973,7 @@ public class SocialDataCollectorService implements Startable {
       influencers.addStreamPostLiker(likeStorage.findPartIsFavoriteStreamPostLiker(id.getId(), userStreams));
       influencers.addStreamCommentLiker(likeStorage.findPartIsFavoriteStreamCommentLiker(id.getId(), userStreams));
     }
-    LOG.info("<< Built user influencers for " + id.getRemoteId());
+    LOG.info("<< Built user influencers for {}", id.getRemoteId());
 
     // load identity's activities and collect its data
     Iterator<ExoSocialActivity> feedIter = loadListIterator(activityManager.getActivityFeedWithListAccess(id));
@@ -983,9 +983,9 @@ public class SocialDataCollectorService implements Startable {
     }
 
     if (Thread.currentThread().isInterrupted()) {
-      LOG.warn("< Interrupted collector of user activities for " + id.getRemoteId());
+      LOG.warn("< Interrupted collector of user activities for {}",  id.getRemoteId());
     } else {
-      LOG.info("< Collected user activities for " + id.getRemoteId());
+      LOG.info("< Collected user activities for {}", id.getRemoteId());
     }
   }
 
@@ -1092,7 +1092,7 @@ public class SocialDataCollectorService implements Startable {
       ownerId = owner.getId();
     } else {
       ownerId = DUMMY_ID;
-      LOG.warn("Cannot find social identity of stream owner: " + ownerName + ". Activity: " + activity.getId());
+      LOG.warn("Cannot find social identity of stream owner: {} Activity: {}", ownerName, activity.getId());
     }
     aline.append(ownerId).append(',');
     // owner_title
@@ -1453,7 +1453,7 @@ public class SocialDataCollectorService implements Startable {
     for (String name : names) {
       UserIdentity socId = getUserIdentityByName(name);
       if (socId == null) {
-        LOG.error("Cannot find social identity (userIds): " + name);
+        LOG.error("Cannot find social identity (userIds): {}", name);
       } else {
         res.add(socId.getId());
       }
@@ -1477,7 +1477,7 @@ public class SocialDataCollectorService implements Startable {
       // return false;
       return phistory.size() > 0;
     } catch (Exception e) {
-      LOG.warn("Error reading login history for " + userId);
+      LOG.warn("Error reading login history for {}", userId);
       return false;
     }
   }
@@ -1513,7 +1513,7 @@ public class SocialDataCollectorService implements Startable {
               }
             }
           } else {
-            LOG.warn("Group member identity cannot be found in Social: " + userName);
+            LOG.warn("Group member identity cannot be found in Social: {}", userName);
           }
         }
         return members.values().stream().collect(LinkedHashSet::new, Set::addAll, Set::addAll);
@@ -1525,13 +1525,13 @@ public class SocialDataCollectorService implements Startable {
           if (mid != null) {
             members.add(mid.getId());
           } else {
-            LOG.warn("Group member identity cannot be found in Social: " + userName);
+            LOG.warn("Group member identity cannot be found in Social: {}",  userName);
           }
         }
         return members;
       }
     } catch (Exception e) {
-      LOG.warn("Error reading group members for " + groupId + " of types " + membershipTypes, e);
+      LOG.warn("Error reading group members for {} of types {} : {}", groupId, membershipTypes, e);
       return null;
     }
   }
@@ -1547,7 +1547,7 @@ public class SocialDataCollectorService implements Startable {
           spaceIdentities.put(theIdentity.getId(), theIdentity); // map by ID
         } else {
           theIdentity = null;
-          LOG.warn("Cannot find space identity by Name: " + name);
+          LOG.warn("Cannot find space identity by Name: {}",  name);
         }
         // LOG.info("< Get space identity by Name: " + name);
         return theIdentity;
@@ -1567,7 +1567,7 @@ public class SocialDataCollectorService implements Startable {
           spaceIdentities.put(socId.getRemoteId(), theIdentity); // map by Name
         } else {
           theIdentity = null;
-          LOG.warn("Cannot find space identity by ID: " + id);
+          LOG.warn("Cannot find space identity by ID: {}", id);
         }
         // LOG.info("< Get space identity by ID: " + id);
         return theIdentity;
@@ -1587,7 +1587,7 @@ public class SocialDataCollectorService implements Startable {
           userIdentities.put(socId.getId(), newRef); // map by ID
         } else {
           newRef = null;
-          LOG.warn("Cannot find user identity by Name: " + name);
+          LOG.warn("Cannot find user identity by Name: {}", name);
         }
         // LOG.info("< Get user identity by Name: " + name);
         return newRef;
@@ -1610,7 +1610,7 @@ public class SocialDataCollectorService implements Startable {
           userIdentities.put(socId.getRemoteId(), newRef); // map by Name
         } else {
           newRef = null;
-          LOG.warn("Cannot find user identity by ID: " + id);
+          LOG.warn("Cannot find user identity by ID: {}", id);
         }
         // LOG.info("< Get user identity by ID: " + id);
         return newRef;
@@ -1638,14 +1638,14 @@ public class SocialDataCollectorService implements Startable {
   protected UserIdentity userIdentity(Identity socId) {
     String id = socId.getId();
     String userName = socId.getRemoteId();
-    LOG.info(">> Get social profile: " + id + " (" + userName + ") <<");
+    LOG.info(">> Get social profile: {} ( {} ) <<", id, userName);
     Profile socProfile = identityManager.getProfile(socId);
     if (socProfile != null) {
       return new UserIdentity(id, userName, socProfile.getGender(), socProfile.getPosition());
     } else {
       // TODO add listener to check when user will fill his profile and
       // then update the mapping
-      LOG.warn("Cannot find profile of social identity: " + id + " (" + userName + ")");
+      LOG.warn("Cannot find profile of social identity: {} ( {} )", id, userName);
       return new UserIdentity(id, userName, null, null);
     }
   }
@@ -1676,8 +1676,7 @@ public class SocialDataCollectorService implements Startable {
     int queueSize = cpus * queueFactor;
     queueSize = queueSize < queueFactor ? queueFactor : queueSize;
     // if (LOG.isDebugEnabled()) {
-    LOG.info("Creating thread executor " + threadNamePrefix + "* for " + poolThreads + ".." + maxThreads + " threads, queue size "
-        + queueSize);
+    LOG.info("Creating thread executor {}* for {}..{} threads, queue size {}", threadNamePrefix, poolThreads, maxThreads, queueSize);
     // }
     return new ThreadPoolExecutor(poolThreads,
                                   maxThreads,
@@ -1698,7 +1697,7 @@ public class SocialDataCollectorService implements Startable {
       dataDirPath = System.getProperty("exo.data.dir");
       if (dataDirPath == null || dataDirPath.trim().length() == 0) {
         dataDirPath = System.getProperty("java.io.tmpdir");
-        LOG.warn("Platoform data dir not defined. Will use: " + dataDirPath);
+        LOG.warn("Platoform data dir not defined. Will use: {}", dataDirPath);
       }
     }
     if (bucketName == null || bucketName.trim().length() == 0) {
