@@ -613,7 +613,6 @@ public class SocialDataCollectorService implements Startable {
 
     // Find this user favorite participants (influencers) and streams
     LOG.info(">> Buidling user influencers for {}", id.getRemoteId());
-    LOG.info(">> Buidling user influencers for " + id.getRemoteId());
     Collection<Identity> idConnections = loadListAll(relationshipManager.getConnections(id));
     Collection<Space> userSpaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
     final long sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
