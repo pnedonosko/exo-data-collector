@@ -2,6 +2,7 @@ package org.exoplatform.datacollector;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import org.junit.Assert;

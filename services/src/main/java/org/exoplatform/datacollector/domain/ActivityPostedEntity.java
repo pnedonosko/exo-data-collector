@@ -24,7 +24,7 @@ import org.exoplatform.datacollector.domain.id.ActivityPostedId;
         + "  a.provider_id AS post_provider_id, a.type AS post_type, a.poster_id, a.owner_id, a.parent_id,"
         + "  a.hidden, a.posted AS posted_date, a.updated_date " //
         + " FROM SOC_ACTIVITIES a" //
-        + " WHERE a.owner_id IS NOT NULL AND a.poster_id = :posterId" //
+        + " WHERE a.owner_id IS NOT NULL AND a.poster_id = :posterId AND a.posted >= :sinceTime" //
         + " ORDER BY owner_id, updated_date", resultClass = ActivityPostedEntity.class),
     /* ===== Others do in the user favorite streams ===== */
     /* Others often post in the user favorite streams (find posters) */
@@ -33,7 +33,7 @@ import org.exoplatform.datacollector.domain.id.ActivityPostedId;
         + "  a.hidden, a.posted AS posted_date, a.updated_date" //
         + " FROM SOC_ACTIVITIES a, SOC_IDENTITIES si"
         + " WHERE a.owner_id IS NOT NULL AND si.identity_id = a.poster_id AND si.provider_id = 'organization'"
-        + " AND a.owner_id IN (:favoriteStreams) AND a.poster_id != :posterId"
+        + " AND a.owner_id IN (:favoriteStreams) AND a.poster_id != :posterId AND a.posted >= :sinceTime"
         + " ORDER BY owner_id, post_id, poster_id", resultClass = ActivityPostedEntity.class)
 
 })

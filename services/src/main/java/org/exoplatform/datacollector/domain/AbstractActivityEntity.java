@@ -57,21 +57,12 @@ public abstract class AbstractActivityEntity {
    */
   public abstract Date getPostedDate();
 
-  /*
-   * public Date getPostedDate() { return posted != null && posted > 0 ? new
-   * Date(posted) : null; }
-   */
-
   /**
    * Gets the updated date.
    *
    * @return the updated date
    */
   public abstract Date getUpdatedDate();
-  /*
-   * public Date getUpdatedDate() { return updated != null && updated > 0 ? new
-   * Date(updated) : null; }
-   */
 
   /**
    * Gets the updated time in milliseconds.

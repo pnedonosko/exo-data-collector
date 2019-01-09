@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,6 +35,8 @@ import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
 import org.exoplatform.datacollector.domain.ActivityLikedEntity;
 import org.exoplatform.datacollector.domain.ActivityMentionedEntity;
 import org.exoplatform.datacollector.domain.ActivityPostedEntity;
+import org.exoplatform.services.log.ExoLogger;
+import org.exoplatform.services.log.Log;
 import org.exoplatform.social.core.identity.model.Identity;
 import org.exoplatform.social.core.space.model.Space;
 
@@ -45,14 +48,30 @@ import org.exoplatform.social.core.space.model.Space;
  */
 public class UserInfluencers {
 
+  /** The Logger. */
+  private static final Log      LOG                        = ExoLogger.getExoLogger(UserInfluencers.class);
+
+  public static final long      DAY_LENGTH_MILLIS          = 86400000;
+
   /** Default or uncertain weight constant. */
   public static final double    DEFAULT_WEIGHT             = 0.1;
+
+  /**
+   * The Constant WIDELY_LIKES_MAX - 30, number taken from observations at eXo
+   * Tribe.
+   */
+  public static final int       WIDELY_LIKES_MAX           = 30;
 
   public static final int       WEIGHT_PRECISION           = 100000;
 
   public static final int       REACTIVITY_DAYS_RANGE      = 30;
 
   public static final int       INFLUENCE_DAYS_RANGE       = 90;
+  
+  /** The Constant FEED_DAYS_RANGE = 2 years long. */
+  public static final int       FEED_DAYS_RANGE            = 731;
+
+  public static final long      FEED_MILLIS_RANGE          = FEED_DAYS_RANGE * DAY_LENGTH_MILLIS;
 
   public static final double    REACTIVITY_DAY_WEIGHT_GROW = 0.7;
 
@@ -60,7 +79,11 @@ public class UserInfluencers {
 
   public static final int       ACTIVITY_PARTICIPANTS_TOP  = 5;
 
-  public static final int       DAY_LENGTH_MILLIS          = 86400000;
+  /** The Constant ACTIVITY_EXPIRATION_L0 (30 min). */
+  public static final long      ACTIVITY_EXPIRATION_L0     = 1000 * 60 * 30;
+
+  /** The Constant ACTIVITY_EXPIRATION_L1 (2 hours). */
+  public static final long      ACTIVITY_EXPIRATION_L1     = 1000 * 60 * 60 * 2;
 
   private static final double[] REACTIVITY_WEIGHTS         = new double[REACTIVITY_DAYS_RANGE];
 
@@ -102,12 +125,9 @@ public class UserInfluencers {
   class ActivityInfo {
     final String id;
 
-    // final String ownerId;
-    // final String posterId;
-
     final Long   created;
 
-    // Long updated;
+    Boolean      posted = Boolean.FALSE;
 
     Long         lastLiked;
 
@@ -126,11 +146,15 @@ public class UserInfluencers {
      * @return the double
      */
     double reactivity() {
-      Long lastActive = lastCommented != null ? lastCommented : (lastLiked != null ? lastLiked : null);
+      Long lastActive = posted ? created : (lastCommented != null ? lastCommented : (lastLiked != null ? lastLiked : null));
       if (lastActive != null) {
-        return getDateReactivityWeight(lastActive, created);
+        return getDateReactivityWeight(created, lastActive);
       }
       return 0d;
+    }
+
+    void posted() {
+      posted = true;
     }
 
     void liked(Long likedTime) {
@@ -152,14 +176,6 @@ public class UserInfluencers {
 
   private Map<String, ActivityInfo>    activities   = new HashMap<>();
 
-//  private final OrganizationService           organization;
-//
-//  private final IdentityManager               identityManager;
-//
-//  private final RelationshipManager           relationshipManager;
-
-//  private final SpaceService                  spaceService;
-
   private final Identity               userIdentity;
 
   private final Map<String, Identity>  userConnections;
@@ -173,42 +189,41 @@ public class UserInfluencers {
    * @param userConnections the user connections
    * @param userSpaces the user spaces
    */
-  public UserInfluencers(Identity userIdentity, Collection<Identity> userConnections, Collection<Space> userSpaces
-  /*
-   * OrganizationService organization, IdentityManager identityManager,
-   * RelationshipManager relationshipManager, SpaceService spaceService
-   */) {
+  public UserInfluencers(Identity userIdentity, Collection<Identity> userConnections, Collection<Space> userSpaces) {
     this.userIdentity = userIdentity;
-//    this.organization = organization;
-//    this.identityManager = identityManager;
-//    this.relationshipManager = relationshipManager;
-//    this.spaceService = spaceService;
-
     // Preload some common info
-    this.userConnections = userConnections.stream().collect(Collectors.toMap(c -> c.getId(), c -> c));
-    this.userSpaces = userSpaces.stream().collect(Collectors.toMap(s -> s.getId(), s -> new SpaceInfo(s)));
+    // Collector with merge function to solve duplicates in source collections
+    // (may have place for connections)
+    this.userConnections = userConnections.stream().collect(Collectors.toMap(c -> c.getId(), c -> c, (c1, c2) -> c1));
+    this.userSpaces = userSpaces.stream().collect(Collectors.toMap(s -> s.getId(), s -> new SpaceInfo(s), (s1, s2) -> s1));
   }
 
   public Map<String, Identity> getUserConnections() {
-    return userConnections;
+    return Collections.unmodifiableMap(userConnections);
   }
 
   public Map<String, SpaceInfo> getUserSpaces() {
-    return userSpaces;
+    return Collections.unmodifiableMap(userSpaces);
   }
 
   public Identity getUserIdentity() {
     return userIdentity;
   }
 
+  public boolean isWidelyLiked(int likes) {
+    return likes >= WIDELY_LIKES_MAX;
+  }
+
   private static double dayWeight(double[] table, long from, long to, boolean olderIsZero) {
-    long diff = from - to;
-    Long d = Math.round(Math.floor(diff / DAY_LENGTH_MILLIS));
-    int day = d.intValue();
+    long diff = to - from;
+    int day = Long.valueOf(Math.round(Math.floor(diff / DAY_LENGTH_MILLIS))).intValue();
     if (day == 0) {
       return 1d;
     } else if (day >= table.length) {
       return olderIsZero ? 0d : table[table.length - 1];
+    } else if (day < 0) {
+      LOG.warn("Negative day found: " + day + ". Return zero weight for it.");
+      return 0d;
     } else {
       return table[day];
     }
@@ -241,11 +256,30 @@ public class UserInfluencers {
 
   public static double sigmoid(double value) {
     // 1/(1+EXP(-LN(value)*2)) TODO *1.5 may produce a bit smaller values
-    return round(1 / (1 + Math.exp(-2 * Math.log(value))), WEIGHT_PRECISION);
+    if (value != 0) {
+      return round(1 / (1 + Math.exp(-2 * Math.log(value))), WEIGHT_PRECISION);
+    }
+    return 0d;
   }
 
   protected void addStream(String id, double weight) {
     streams.computeIfAbsent(id, k -> new ArrayList<Double>()).add(weight);
+  }
+
+  private Map<String, Double> aggregateWeight(Map<String, List<Double>> mapOfWeights) {
+    return mapOfWeights.entrySet()
+                       .stream()
+                       .collect(Collectors.toMap(e -> e.getKey(),
+                                                 e -> sigmoid(e.getValue()
+                                                               .stream()
+                                                               .collect(Collectors.summingDouble(w -> w.doubleValue())))));
+  }
+
+  private Map<String, Double> orderWeights(Map<String, Double> weights) {
+    return weights.entrySet()
+                  .stream()
+                  .sorted((e1, e2) -> (int) Math.round((e2.getValue() - e1.getValue()) * WEIGHT_PRECISION))
+                  .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
   }
 
   public Map<String, Double> getFavoriteStreamsWeight() {
@@ -253,13 +287,7 @@ public class UserInfluencers {
     // will be added
 
     // First get calculated stream weight
-    Map<String, Double> weights =
-                                streams.entrySet()
-                                       .stream()
-                                       .collect(Collectors.toMap(e -> e.getKey(),
-                                                                 e -> sigmoid(e.getValue()
-                                                                               .stream()
-                                                                               .collect(Collectors.summingDouble(w -> w.doubleValue())))));
+    Map<String, Double> weights = aggregateWeight(streams);
     return weights;
   }
 
@@ -281,19 +309,27 @@ public class UserInfluencers {
 
     // First get calculated streams weight, then order by weight
     Map<String, Double> weights = getFavoriteStreamsWeight();
-    Map<String, Double> ordered = weights.entrySet()
-                                         .stream()
-                                         .sorted((e1, e2) -> (int) Math.round((e2.getValue() - e1.getValue()) * WEIGHT_PRECISION))
-                                         .collect(Collectors.toMap(Map.Entry::getKey,
-                                                                   Map.Entry::getValue,
-                                                                   (e1, e2) -> e1,
-                                                                   LinkedHashMap::new));
+    Map<String, Double> ordered = orderWeights(weights);
 
+    // TODO test it to ensure order
     return Collections.unmodifiableCollection(ordered.keySet());
   }
 
   public Collection<String> getFavoriteStreamsTop(int top) {
-    return getFavoriteStreams().stream().limit(top).collect(Collectors.toList());
+    // TODO test it to ensure order
+    return getFavoriteStreams().stream().limit(top).collect(Collectors.toCollection(LinkedHashSet::new));
+  }
+
+  public boolean isFavoriteStreams(String streamId) {
+    return streams.containsKey(streamId);
+  }
+
+  public boolean isParticipant(String partId) {
+    return participants.containsKey(partId);
+  }
+
+  public Collection<String> getAllParticipants() {
+    return Collections.unmodifiableSet(participants.keySet());
   }
 
   protected void addParticipant(String id, double weight) {
@@ -301,6 +337,35 @@ public class UserInfluencers {
     // different queries, like as commenter and favorite stream commenter, same
     // for commenters and likers.
     participants.computeIfAbsent(id, k -> new ArrayList<Double>()).add(weight);
+  }
+
+  public Map<String, Double> getParticipantsWeight() {
+    // TODO consider for caching of the calculated below until a new part, will
+    // be added
+
+    // First get calculated part weight
+    Map<String, Double> weights = aggregateWeight(participants);
+    return weights;
+  }
+
+  public Collection<String> getParticipants() {
+    // TODO filter all the parts to only ones that have weight higher of some
+    // trendy value (e.g. 0.75)
+
+    // TODO may be collect directly to a collection of keys, w/o transitioning
+    // through a map instance - if we don't this map in other places.
+
+    // First get calculated parts weight, then order by weight
+    Map<String, Double> weights = getParticipantsWeight();
+    Map<String, Double> ordered = orderWeights(weights);
+
+    // TODO test it to ensure order
+    return Collections.unmodifiableCollection(ordered.keySet());
+  }
+
+  public Collection<String> getParticipantsTop(int top) {
+    // TODO test it to ensure order
+    return getParticipants().stream().limit(top).collect(Collectors.toCollection(LinkedHashSet::new));
   }
 
   public double getParticipantWeight(String id, String streamId) {
@@ -349,16 +414,21 @@ public class UserInfluencers {
     return sigmoid(weightSum);
   }
 
-  protected void addPost(ActivityPostedEntity p) {
-    // Note: AbstractActivityEntity has only a post ID, even if it tells about a
-    // comment or like on the post or its comments.
-    activities.computeIfAbsent(p.getId(), id -> new ActivityInfo(p.getId(), p.getPosted()));
+  public double getPostReactivity(String postId) {
+    ActivityInfo a = activities.get(postId);
+    return a != null ? a.reactivity() : 0d;
   }
 
-  protected void addComment(ActivityCommentedEntity c) {
+  protected ActivityInfo addPost(ActivityPostedEntity p) {
+    // Note: AbstractActivityEntity has only a post ID, even if it tells about a
+    // comment or like on the post or its comments.
+    return activities.computeIfAbsent(p.getId(), id -> new ActivityInfo(p.getId(), p.getPosted()));
+  }
+
+  protected ActivityInfo addComment(ActivityCommentedEntity c) {
     // Note: AbstractActivityEntity has only a post ID, even if it tells about a
     // comment or like on the post on its comments
-    activities.compute(c.getId(), (id, p) -> {
+    return activities.compute(c.getId(), (id, p) -> {
       if (p == null) {
         p = new ActivityInfo(c.getId(), c.getPosted());
       }
@@ -367,15 +437,15 @@ public class UserInfluencers {
     });
   }
 
-  protected void addMention(ActivityMentionedEntity m) {
+  protected ActivityInfo addMention(ActivityMentionedEntity m) {
     // here it has no difference with posted
-    activities.computeIfAbsent(m.getId(), id -> new ActivityInfo(m.getId(), m.getPosted()));
+    return activities.computeIfAbsent(m.getId(), id -> new ActivityInfo(m.getId(), m.getPosted()));
   }
 
-  protected void addLike(ActivityLikedEntity l) {
+  protected ActivityInfo addLike(ActivityLikedEntity l) {
     // Note: AbstractActivityEntity has only a post ID, even if it tells about a
     // comment or like on the post on its comments
-    activities.compute(l.getId(), (id, p) -> {
+    return activities.compute(l.getId(), (id, p) -> {
       if (p == null) {
         p = new ActivityInfo(l.getId(), l.getPosted());
       }
@@ -384,12 +454,18 @@ public class UserInfluencers {
     });
   }
 
-  public double getPostReactivity(String postId) {
-    ActivityInfo a = activities.get(postId);
-    return a != null ? a.reactivity() : 0d;
-  }
-
   // *********************************
+
+  public void addUserPosts(List<ActivityPostedEntity> posted) {
+    for (ActivityPostedEntity p : posted) {
+      double w = 1.0;
+      // We don't add participants here, if any found they'll be added via
+      // addCommented/liked/mentioned etc.
+      // addParticipant(p.getPosterId(), w);
+      addStream(p.getOwnerId(), w);
+      addPost(p).posted(); // mark as posted by the user
+    }
+  }
 
   public void addCommentedPoster(List<ActivityCommentedEntity> commented) {
     for (ActivityCommentedEntity c : commented) {
