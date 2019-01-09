@@ -63,11 +63,6 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   @Path("/run/{bucketname}")
   public Response runCollect(@PathParam("bucketname") String bucketName) {
     try {
-      // TODO do asynchronous
-      /*
-       * getExecutorService().submit(new Callable<Void>() {
-       * @Override public Void call() throws Exception {
-       */
       String bucketPath = dataCollector.collectUsersActivities(bucketName);
       String actualBucketName = bucketPath.substring(bucketPath.lastIndexOf(File.separator));
       return Response.ok().entity("{\"bucketname\":\"" + actualBucketName + "\"}").build();
