@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.ref.SoftReference;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -36,33 +35,28 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
 import org.picocontainer.Startable;
 
 import com.google.common.collect.Lists;
 
-import org.exoplatform.commons.utils.ListAccess;
 import org.exoplatform.container.ExoContainer;
 import org.exoplatform.container.ExoContainerContext;
-import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.datacollector.dao.ActivityCommentedDAO;
 import org.exoplatform.datacollector.dao.ActivityLikedDAO;
 import org.exoplatform.datacollector.dao.ActivityMentionedDAO;
 import org.exoplatform.datacollector.dao.ActivityPostedDAO;
+import org.exoplatform.datacollector.identity.SpaceIdentity;
+import org.exoplatform.datacollector.identity.UserIdentity;
 import org.exoplatform.platform.gadget.services.LoginHistory.LastLoginBean;
 import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryBean;
 import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryService;
@@ -105,8 +99,6 @@ public class SocialDataCollectorService implements Startable {
 
   /** Logger */
   private static final Log       LOG                   = ExoLogger.getExoLogger(SocialDataCollectorService.class);
-
-  public static final int        BATCH_SIZE            = 200;
 
   public static final String     DUMMY_ID              = "0".intern();
 
@@ -170,164 +162,6 @@ public class SocialDataCollectorService implements Startable {
   protected static final String  BUCKET_PREFIX         = "prod-";
 
   /**
-   * The Class ActivityParticipant.
-   */
-  protected static class ActivityParticipant {
-    final String  id;
-
-    final Integer isConversed;
-
-    final Integer isFavored;
-
-    ActivityParticipant(String id, Boolean isConversed, Boolean isFavored) {
-      super();
-      if (id == null) {
-        throw new NullPointerException("id should be not null");
-      }
-      this.id = id;
-      if (isConversed == null) {
-        throw new NullPointerException("isConversed should be not null");
-      }
-      this.isConversed = isConversed ? 1 : 0;
-      if (isFavored == null) {
-        throw new NullPointerException("isFavored should be not null");
-      }
-      this.isFavored = isFavored ? 1 : 0;
-    }
-
-    @Override
-    public int hashCode() {
-      int hc = 7 + id.hashCode() * 31;
-      hc = hc * 31 + isConversed.hashCode();
-      hc = hc * 31 + isFavored.hashCode();
-      return hc;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (o != null) {
-        if (this.getClass().isAssignableFrom(o.getClass())) {
-          ActivityParticipant other = this.getClass().cast(o);
-          return id.equals(other.id) && isConversed.equals(other.isConversed) && isFavored.equals(other.isFavored);
-        }
-      }
-      return false;
-    }
-
-    @Override
-    public String toString() {
-      return this.getClass().getSimpleName() + " [id=" + id + ", isConversed=" + isConversed.intValue() + ", isFavored="
-          + isFavored.intValue() + "]";
-    }
-  }
-
-  /**
-   * Worker thread factory adapted from {@link Executors#DefaultThreadFactory}.
-   */
-  static class WorkerThreadFactory implements ThreadFactory {
-
-    /** The group. */
-    final ThreadGroup   group;
-
-    /** The thread number. */
-    final AtomicInteger threadNumber = new AtomicInteger(1);
-
-    /** The name prefix. */
-    final String        namePrefix;
-
-    /**
-     * Instantiates a new command thread factory.
-     *
-     * @param namePrefix the name prefix
-     */
-    WorkerThreadFactory(String namePrefix) {
-      SecurityManager s = System.getSecurityManager();
-      this.group = (s != null) ? s.getThreadGroup() : Thread.currentThread().getThreadGroup();
-      this.namePrefix = namePrefix;
-    }
-
-    public Thread newThread(Runnable r) {
-      Thread t = new Thread(group, r, namePrefix + threadNumber.getAndIncrement(), 0) {
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        protected void finalize() throws Throwable {
-          super.finalize();
-          threadNumber.decrementAndGet();
-        }
-
-      };
-      if (t.isDaemon()) {
-        t.setDaemon(false);
-      }
-      if (t.getPriority() != Thread.NORM_PRIORITY) {
-        t.setPriority(Thread.NORM_PRIORITY);
-      }
-      return t;
-    }
-  }
-
-  /**
-   * The Class ContainerCommand.
-   */
-  abstract class ContainerCommand extends TimerTask {
-
-    /** The container name. */
-    final String containerName;
-
-    /**
-     * Instantiates a new container command.
-     *
-     * @param containerName the container name
-     */
-    ContainerCommand(String containerName) {
-      this.containerName = containerName;
-    }
-
-    /**
-     * Execute actual work of the commend (in extending class).
-     *
-     * @param exoContainer the exo container
-     */
-    abstract void execute(ExoContainer exoContainer);
-
-    /**
-     * Callback to execute on container error.
-     *
-     * @param error the error
-     */
-    abstract void onContainerError(String error);
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void run() {
-      // Do the work under eXo container context (for proper work of eXo apps
-      // and JPA storage)
-      ExoContainer exoContainer = ExoContainerContext.getContainerByName(containerName);
-      if (exoContainer != null) {
-        ExoContainer contextContainer = ExoContainerContext.getCurrentContainerIfPresent();
-        try {
-          // Container context
-          ExoContainerContext.setCurrentContainer(exoContainer);
-          RequestLifeCycle.begin(exoContainer);
-          // do the work here
-          execute(exoContainer);
-        } finally {
-          // Restore context
-          RequestLifeCycle.end();
-          ExoContainerContext.setCurrentContainer(contextContainer);
-        }
-      } else {
-        onContainerError("Container not found");
-      }
-    }
-  }
-
-  /**
    * The BucketWorker gets target users from login history or bucketRecords
    * and processes them in loginsQueue order. Collects a new dataset and sends it to TrainingService, if the user's model needs training.
    * Schedules next execution in TRAIN_PERIOD ms.
@@ -340,13 +174,13 @@ public class SocialDataCollectorService implements Startable {
 
     @Override
     void execute(ExoContainer exoContainer) {
-      LOG.info("Bucket processing time! Current bucketRecords: prod-{}", currentBucketIndex);
+      LOG.info("Bucket processing time! Current bucket: prod-{}", currentBucketIndex);
       Map<String, Date> targetUsers = getTargetUsers();
 
       while (!loginsQueue.isEmpty()) {
         String userName = loginsQueue.poll();
         Date loginDate = targetUsers.get(userName);
-        LOG.info("Processing user: {} loginTime: {}", userName, loginDate.getTime());
+        LOG.info("Processing user from bucket: {} loginTime: {}", userName, loginDate.getTime());
 
         ModelEntity existingModel = trainingService.getLastModel(userName);
 
@@ -354,6 +188,9 @@ public class SocialDataCollectorService implements Startable {
           String datasetFile = collectUserActivities(BUCKET_PREFIX + currentBucketIndex, userName);
           trainingService.addModel(userName, datasetFile);
           LOG.info("Collected a new dataset and added model for user {}", userName);
+        }
+        else {
+          LOG.info("User's {} model doesn't need training ", userName);
         }
 
         targetUsers.remove(userName);
@@ -383,7 +220,7 @@ public class SocialDataCollectorService implements Startable {
      */
     boolean modelNeedsTraining(ModelEntity model, Date loginDate) {
       return model == null
-          || model.getActivated() != null && Math.abs(model.getActivated().getTime() - loginDate.getTime()) > TRAIN_PERIOD;
+          || model.getActivated() == null || Math.abs(model.getActivated().getTime() - loginDate.getTime()) > TRAIN_PERIOD;
     }
 
   }
@@ -477,182 +314,6 @@ public class SocialDataCollectorService implements Startable {
         LOG.info("User {} has logged in and added to bucketRecords", event.getData().getIdentity().getUserId());
       }
 
-    }
-  }
-
-  /**
-   * Load all given access list to a {@link List} instance. Use carefully for
-   * larger data or prefer using {@link #loadListIterator(ListAccess)} instead.
-   *
-   * @param <E> the element type
-   * @param list the {@link ListAccess} instance
-   * @return the {@link List} instance
-   * @throws Exception the exception
-   */
-  public static <E> List<E> loadListAll(ListAccess<E> list) throws Exception {
-    List<E> res = new ArrayList<>();
-    int size = list.getSize();
-    if (size == 0) {
-      // here we assume that load() below will raise an error on end-of-data
-      size = 1;
-    }
-    int batches = size / BATCH_SIZE;
-    if (batches == 0) {
-      batches = 1;
-    }
-    int batchIndex = 0;
-    for (int fi = 0; fi < batches; fi++) {
-      try {
-        int batchSize = size - batchIndex;
-        if (batchSize > 0) {
-          if (batchSize >= BATCH_SIZE) {
-            batchSize = BATCH_SIZE;
-          }
-          for (E e : list.load(batchIndex, batchSize)) {
-            res.add(e);
-          }
-          batchIndex += batchSize;
-        } else {
-          // reached actual end-of-data
-          break;
-        }
-      } catch (IllegalArgumentException | IndexOutOfBoundsException e) {
-        // faced with actual end-of-data
-        LOG.warn("Unexpected index/size error in the batch: {}", e);
-        break;
-      }
-    }
-    return res;
-  }
-
-  /**
-   * Wrap given access list into an {@link Iterator} instance.
-   *
-   * @param <E> the element type
-   * @param list the list
-   * @return the iterator
-   * @throws Exception the exception
-   */
-  public static <E> Iterator<E> loadListIterator(ListAccess<E> list) throws Exception {
-    final int size;
-    int listSize = list.getSize();
-    if (listSize == 0) {
-      // here we assume that load() below will raise an error on end-of-data
-      size = 1;
-    } else {
-      size = listSize;
-    }
-
-    Iterator<E> res = new Iterator<E>() {
-
-      int batchIndex = 0;
-
-      int index      = 0;
-
-      E[] nextBatch;
-
-      E   next;
-
-      private void loadNextBatch() {
-        try {
-          int batchSize = size - batchIndex;
-          if (batchSize > 0) {
-            if (batchSize >= BATCH_SIZE) {
-              batchSize = BATCH_SIZE;
-            }
-            nextBatch = list.load(batchIndex, batchSize);
-            batchIndex += batchSize;
-          } else {
-            // reached actual end-of-data
-            nextBatch = null;
-          }
-        } catch (IndexOutOfBoundsException e) {
-          // faced with actual end-of-data, or already empty
-          nextBatch = null;
-        } catch (IllegalArgumentException e) {
-          LOG.warn("Unexpected index/size error during loading access list: {}", e);
-          nextBatch = null;
-        } catch (Exception e) {
-          // Here can be DB or network error
-          LOG.error("Unexpected error during loading access list: {}", e);
-          nextBatch = null;
-        }
-      }
-
-      private void loadNext() {
-        if (nextBatch == null) {
-          loadNextBatch();
-          index = 0;
-        }
-        if (nextBatch != null && nextBatch.length > 0) {
-          next = nextBatch[index++];
-          if (nextBatch.length == index) {
-            nextBatch = null;
-          }
-        } else {
-          next = null;
-          nextBatch = null;
-          index = 0;
-        }
-      }
-
-      @Override
-      public boolean hasNext() {
-        if (next == null) {
-          loadNext();
-        }
-        return next != null;
-      }
-
-      @Override
-      public E next() {
-        if (hasNext()) {
-          E theNext = next;
-          next = null;
-          return theNext;
-        }
-        throw new NoSuchElementException("No more elements");
-      }
-    };
-    return res;
-  }
-
-  /**
-   * The Class UserIdentity extends Social's {@link Identity} with required data
-   * from social profile.
-   */
-  protected static class UserIdentity extends Identity {
-
-    private final String gender;
-
-    private final String position;
-
-    UserIdentity(String id, String remoteId, String gender, String position) {
-      super(id);
-      this.setRemoteId(remoteId);
-      this.setProviderId(OrganizationIdentityProvider.NAME);
-      this.gender = gender;
-      this.position = position;
-    }
-
-    public String getGender() {
-      return gender;
-    }
-
-    public String getPosition() {
-      return position;
-    }
-  }
-
-  /**
-   * The Class SpaceIdentity extends Social's {@link Identity} with required
-   * data from social space.
-   */
-  protected static class SpaceIdentity extends Identity {
-    SpaceIdentity(String id, String remoteId) {
-      super(id);
-      this.setRemoteId(remoteId);
-      this.setProviderId(SpaceIdentityProvider.NAME);
     }
   }
 
@@ -838,9 +499,10 @@ public class SocialDataCollectorService implements Startable {
     // long idsCount =
     // identityStorage.getIdentitiesByProfileFilterCount(OrganizationIdentityProvider.NAME,
     // filter);
-    Iterator<Identity> idIter = loadListIterator(identityManager.getIdentitiesByProfileFilter(OrganizationIdentityProvider.NAME,
-                                                                                              new ProfileFilter(),
-                                                                                              true));
+    Iterator<Identity> idIter =
+                              ListAccessUtil.loadListIterator(identityManager.getIdentitiesByProfileFilter(OrganizationIdentityProvider.NAME,
+                                                                                                           new ProfileFilter(),
+                                                                                                           true));
     while (idIter.hasNext() && !Thread.currentThread().isInterrupted()) {
       final UserIdentity id = cacheUserIdentity(userIdentity(idIter.next()));
       final File userFile = new File(bucketDir, id.getRemoteId() + ".csv");
@@ -933,8 +595,8 @@ public class SocialDataCollectorService implements Startable {
 
     // Find this user favorite participants (influencers) and streams
     LOG.info(">> Buidling user influencers for {}", id.getRemoteId());
-    Collection<Identity> idConnections = loadListAll(relationshipManager.getConnections(id));
-    Collection<Space> userSpaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
+    Collection<Identity> idConnections = ListAccessUtil.loadListAll(relationshipManager.getConnections(id));
+    Collection<Space> userSpaces = ListAccessUtil.loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
 
     UserInfluencers influencers = new UserInfluencers(id, idConnections, userSpaces);
 
@@ -976,14 +638,14 @@ public class SocialDataCollectorService implements Startable {
     LOG.info("<< Built user influencers for {}", id.getRemoteId());
 
     // load identity's activities and collect its data
-    Iterator<ExoSocialActivity> feedIter = loadListIterator(activityManager.getActivityFeedWithListAccess(id));
+    Iterator<ExoSocialActivity> feedIter = ListAccessUtil.loadListIterator(activityManager.getActivityFeedWithListAccess(id));
     while (feedIter.hasNext() && !Thread.currentThread().isInterrupted()) {
       ExoSocialActivity activity = feedIter.next();
       out.println(activityLine(influencers, activity));
     }
 
     if (Thread.currentThread().isInterrupted()) {
-      LOG.warn("< Interrupted collector of user activities for {}",  id.getRemoteId());
+      LOG.warn("< Interrupted collector of user activities for {}", id.getRemoteId());
     } else {
       LOG.info("< Collected user activities for {}", id.getRemoteId());
     }
@@ -1498,7 +1160,7 @@ public class SocialDataCollectorService implements Startable {
     // FYI: be careful with large groups, like /platform/users, this may work
     // very slow as will read all the users.
     try {
-      Iterator<User> uiter = loadListIterator(organization.getUserHandler().findUsersByGroupId(groupId));
+      Iterator<User> uiter = ListAccessUtil.loadListIterator(organization.getUserHandler().findUsersByGroupId(groupId));
       if (membershipTypes != null && membershipTypes.length > 0) {
         Map<String, Set<String>> members = new LinkedHashMap<>();
         while (uiter.hasNext()) {
@@ -1525,7 +1187,7 @@ public class SocialDataCollectorService implements Startable {
           if (mid != null) {
             members.add(mid.getId());
           } else {
-            LOG.warn("Group member identity cannot be found in Social: {}",  userName);
+            LOG.warn("Group member identity cannot be found in Social: {}", userName);
           }
         }
         return members;
@@ -1547,7 +1209,7 @@ public class SocialDataCollectorService implements Startable {
           spaceIdentities.put(theIdentity.getId(), theIdentity); // map by ID
         } else {
           theIdentity = null;
-          LOG.warn("Cannot find space identity by Name: {}",  name);
+          LOG.warn("Cannot find space identity by Name: {}", name);
         }
         // LOG.info("< Get space identity by Name: " + name);
         return theIdentity;
@@ -1676,7 +1338,11 @@ public class SocialDataCollectorService implements Startable {
     int queueSize = cpus * queueFactor;
     queueSize = queueSize < queueFactor ? queueFactor : queueSize;
     // if (LOG.isDebugEnabled()) {
-    LOG.info("Creating thread executor {}* for {}..{} threads, queue size {}", threadNamePrefix, poolThreads, maxThreads, queueSize);
+    LOG.info("Creating thread executor {}* for {}..{} threads, queue size {}",
+             threadNamePrefix,
+             poolThreads,
+             maxThreads,
+             queueSize);
     // }
     return new ThreadPoolExecutor(poolThreads,
                                   maxThreads,

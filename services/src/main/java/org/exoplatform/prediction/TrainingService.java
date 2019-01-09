@@ -111,7 +111,7 @@ public class TrainingService implements Startable {
         new File(dataset).delete();
       }
     } else {
-      LOG.warn("Cannot activate the model (name: " + userName + ", version: " + version + ") - the model not found");
+      LOG.warn("Cannot activate model (name: {}, version: {}) - the model not found", userName, version);
     }
 
   }
@@ -134,7 +134,7 @@ public class TrainingService implements Startable {
       ModelEntity oldModel = modelEntityDAO.find(new ModelId(userName, version - MAX_STORED_MODELS));
       deleteModel(oldModel);
     } else {
-      LOG.info("Cannot archive model (name: " + userName + ", version: " + version + ") - the model not found");
+      LOG.warn("Cannot archive model (name: {}, version: {}) - the model not found", userName, version);
     }
   }
 
