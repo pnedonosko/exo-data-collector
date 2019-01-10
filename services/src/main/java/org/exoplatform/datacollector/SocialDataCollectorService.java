@@ -51,6 +51,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
+import org.apache.commons.io.FileUtils;
 import org.picocontainer.Startable;
 
 import com.google.common.collect.Lists;
@@ -69,6 +70,7 @@ import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryService
 import org.exoplatform.portal.config.UserACL;
 import org.exoplatform.prediction.TrainingService;
 import org.exoplatform.prediction.user.domain.ModelEntity;
+import org.exoplatform.prediction.user.domain.ModelEntity.Status;
 import org.exoplatform.services.jcr.RepositoryService;
 import org.exoplatform.services.jcr.ext.app.SessionProviderService;
 import org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator;
@@ -456,33 +458,6 @@ public class SocialDataCollectorService implements Startable {
     final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
     workers.submit(new StartWorker(containerName));
 
-    // TODO Brief description of dataset/model flow:
-    // 1) load currently active users from login history
-    // and collect datasets for those who outdated into a new bucketRecords and
-    // train a
-    // model for it in TrainingService.
-    // 2) Then register login listener to for a new logins and collect/train
-    // models for them into a new buckter. Collect users for the bucketRecords
-    // continously. Train new model only if active one is already outdated.
-    // Train collected models in a single bucketRecords.
-    // 3) Model become outdated in 3hrs (will be configurable)
-    // 4) Collector maintains datasets and models in buckets: first
-    // bucketRecords is of a first start (all active users in single
-    // bucketRecords), second and following for listened logins. Runtime
-    // bucketRecords name is based on "prod" prefix with incremented index.
-    // 5) After model was trained, we don't need a dataset file anymore and it
-    // should be removed
-    // 6) It's important to avoid creation of a garbage in buckets: all files
-    // not required should be removed. Buckets that not used - also removed.
-    // 7) We maintain a short history of archived models: an active one and last
-    // 20 (for about 3-4 days for daily active users), older models should be
-    // removed in DB and files.
-
-    // Tips:
-    // Login history: see LoginHistoryService dependency and how it was used in
-    // wasUserLoggedin().
-    // Login listener see in LoginHistoryListener of Platform's project gadget
-    // pack, we need register an own listener via configuration.
   }
 
   /**
@@ -510,15 +485,16 @@ public class SocialDataCollectorService implements Startable {
     // Go through all users in the organization and swap their datasets
     // into separate data stream, then feed them to the Training Service
 
-    File bucketDir = openBuckerDir(bucketName);
-    LOG.info("Saving dataset into bucketRecords folder: {}", bucketDir.getAbsolutePath());
+    File bucketDir = openBucketDir(bucketName);
+    LOG.info("Saving dataset into bucket folder: {}", bucketDir.getAbsolutePath());
 
     Iterator<Identity> idIter = loadListIterator(identityManager.getIdentitiesByProfileFilter(OrganizationIdentityProvider.NAME,
                                                                                               new ProfileFilter(),
                                                                                               true));
     while (idIter.hasNext() && !Thread.currentThread().isInterrupted()) {
       final UserIdentity id = cacheUserIdentity(userIdentity(idIter.next()));
-      final File userFile = new File(bucketDir, id.getRemoteId() + ".csv");
+      final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/" + id.getRemoteId() + ".csv");
+      userFile.getParentFile().mkdirs();
       submitCollectUserActivities(id, userFile);
     }
 
@@ -548,13 +524,25 @@ public class SocialDataCollectorService implements Startable {
    * @return the path of created dataset file
    */
   public String collectUserActivities(String bucketName, String userName) {
-    File bucketDir = openBuckerDir(bucketName);
-    LOG.info("Saving user dataset into bucketRecords folder: {}", bucketDir.getAbsolutePath());
+    File bucketDir = openBucketDir(bucketName);
+    LOG.info("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
-      final File userFile = new File(bucketDir, id.getRemoteId() + ".csv");
+      final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/" + id.getRemoteId() + ".csv");
+      userFile.getParentFile().mkdirs();
+      // Copy old model file
+      ModelEntity oldModel = trainingService.getLastModel(userName);
+      if(oldModel != null && oldModel.getModelFile() != null && oldModel.getStatus().equals(Status.READY)) {
+        try {
+          FileUtils.copyDirectoryToDirectory(new File(oldModel.getModelFile()), userFile.getParentFile());
+          LOG.info("Directory copied for " + userName);
+        } catch (IOException e) {
+          LOG.info("Failed to copy directory {}", e.getMessage());
+        }
+      }
+      
       submitCollectUserActivities(id, userFile);
-      LOG.info("Saved user dataset into bucketRecords file: {}", userFile.getAbsolutePath());
+      LOG.info("Saved user dataset into bucket file: {}", userFile.getAbsolutePath());
       return userFile.getAbsolutePath();
     } else {
       LOG.warn("User social identity not found for {}", userName);
@@ -573,9 +561,15 @@ public class SocialDataCollectorService implements Startable {
       @Override
       void execute(ExoContainer exoContainer) {
         try {
+          
           PrintWriter writer = new PrintWriter(file);
           try {
             collectUserActivities(id, writer);
+            
+           // TODO: call training service to start training
+           LOG.info("Python script called");
+            
+            
           } catch (Exception e) {
             LOG.error("User activities collector error for worker of {} : {}", id.getRemoteId(), e);
           } finally {
@@ -1394,7 +1388,7 @@ public class SocialDataCollectorService implements Startable {
                                   new ThreadPoolExecutor.CallerRunsPolicy());
   }
 
-  protected File openBuckerDir(String bucketName) {
+  protected File openBucketDir(String bucketName) {
     // TODO Temporally spool all users datasets into a dedicated folder into
     // ${gatein.data.dir}/data-collector/${bucketName}
     // String dataDirPath = System.getProperty("gatein.data.dir");
@@ -1408,7 +1402,7 @@ public class SocialDataCollectorService implements Startable {
       }
     }
     if (bucketName == null || bucketName.trim().length() == 0) {
-      bucketName = "bucketRecords-" + new SimpleDateFormat(FILE_TIMESTAMP_FORMAT).format(new Date());
+      bucketName = "bucket-" + new SimpleDateFormat(FILE_TIMESTAMP_FORMAT).format(new Date());
     }
 
     File bucketDir = new File(dataDirPath + "/data-collector/" + bucketName);

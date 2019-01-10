@@ -19,8 +19,10 @@
 package org.exoplatform.prediction;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Date;
 
+import org.apache.commons.io.FileUtils;
 import org.picocontainer.Startable;
 
 import org.exoplatform.prediction.user.dao.ModelEntityDAO;
@@ -178,10 +180,14 @@ public class TrainingService implements Startable {
         new File(model.getDatasetFile()).delete();
       }
       if (model.getModelFile() != null) {
-        new File(model.getModelFile()).delete();
+        try {
+          FileUtils.deleteDirectory(new File(model.getModelFile()));
+        } catch (IOException e) {
+          LOG.warn("Cannot delete model folder: " + model.getModelFile());
+        }
       }
+
       modelEntityDAO.delete(model);
     }
   }
-
 }

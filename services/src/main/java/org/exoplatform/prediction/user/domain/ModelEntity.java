@@ -49,7 +49,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
 @NamedQueries({
     /* Get last named version */
     @NamedQuery(name = "PredictionModel.findLastModelVersion", query = "SELECT MAX(m.version) FROM PredictionModel m"
-        + " WHERE m.name = :name GROUP BY m.name, m.status, m.created, m.datasetFile, m.modelFile, m.activated, m.archived"),
+        + " WHERE m.name = :name GROUP BY m.name"),
     @NamedQuery(name = "PredictionModel.findStatusByNameAndVersion", query = "SELECT m.status FROM PredictionModel m"
         + " WHERE m.name = :name AND m.version = :version"),
     @NamedQuery(name = "PredictionModel.findByName", query = "SELECT m FROM PredictionModel m"
