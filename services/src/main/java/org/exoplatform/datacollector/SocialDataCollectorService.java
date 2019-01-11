@@ -201,8 +201,7 @@ public class SocialDataCollectorService implements Startable {
         ModelEntity existingModel = trainingService.getLastModel(userName);
 
         if (modelNeedsTraining(existingModel, loginDate)) {
-          String datasetFile = collectUserActivities(BUCKET_PREFIX + currentBucketIndex, userName);
-          trainingService.addModel(userName, datasetFile);
+          collectUserActivities(BUCKET_PREFIX + currentBucketIndex, userName);
           LOG.info("Collected a new dataset and added model for user {}", userName);
         } else {
           LOG.info("User's {} model doesn't need training ", userName);
@@ -517,7 +516,7 @@ public class SocialDataCollectorService implements Startable {
 
   /**
    * Collect user activities into given files bucketRecords in Platform data
-   * folder.
+   * folder. Moves old model directory to a new one. Adds new model to DB
    *
    * @param bucketName the bucketRecords name
    * @param userName the user name
@@ -530,7 +529,11 @@ public class SocialDataCollectorService implements Startable {
     if (id != null) {
       final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/" + id.getRemoteId() + ".csv");
       userFile.getParentFile().mkdirs();
+      
+      
       // Copy old model file
+      // TODO: move it to another place. Now it's required to copy old model directory before submitCollectUserActivities is called
+      // because submitCollectUserActivities calls the training service to execute the training script
       ModelEntity oldModel = trainingService.getLastModel(userName);
       if(oldModel != null && oldModel.getModelFile() != null && oldModel.getStatus().equals(Status.READY)) {
         try {
@@ -540,7 +543,9 @@ public class SocialDataCollectorService implements Startable {
           LOG.info("Failed to copy directory {}", e.getMessage());
         }
       }
-      
+      // Add new model to DB
+      trainingService.addModel(userName, userFile.getAbsolutePath());
+ 
       submitCollectUserActivities(id, userFile);
       LOG.info("Saved user dataset into bucket file: {}", userFile.getAbsolutePath());
       return userFile.getAbsolutePath();
@@ -565,11 +570,8 @@ public class SocialDataCollectorService implements Startable {
           PrintWriter writer = new PrintWriter(file);
           try {
             collectUserActivities(id, writer);
-            
-           // TODO: call training service to start training
-           LOG.info("Python script called");
-            
-            
+            writer.close();
+            trainingService.trainModel(file, id.getRemoteId());
           } catch (Exception e) {
             LOG.error("User activities collector error for worker of {} : {}", id.getRemoteId(), e);
           } finally {

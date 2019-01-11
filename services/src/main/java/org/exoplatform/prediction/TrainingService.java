@@ -42,10 +42,12 @@ import org.exoplatform.services.log.Log;
 public class TrainingService implements Startable {
 
   /** Logger */
-  private static final Log       LOG               = ExoLogger.getExoLogger(TrainingService.class);
+  private static final Log       LOG                  = ExoLogger.getExoLogger(TrainingService.class);
 
   /** Max count of archived models in DB  */
-  private static final Integer   MAX_STORED_MODELS = 20;
+  private static final Integer   MAX_STORED_MODELS    = 20;
+
+  private static final String    TRAINING_SCRIPT_PATH = "/tmp/train.sh";
 
   /** ModelEntityDAO */
   protected final ModelEntityDAO modelEntityDAO;
@@ -188,6 +190,30 @@ public class TrainingService implements Startable {
       }
 
       modelEntityDAO.delete(model);
+    }
+  }
+
+  public void trainModel(File dataset, String userName) {
+    File modelFolder = new File(dataset.getParentFile().getAbsolutePath() + "/model");
+    modelFolder.mkdirs();
+
+    String[] cmd = { "python", TRAINING_SCRIPT_PATH, dataset.getAbsolutePath(), modelFolder.getAbsolutePath() };
+    try {
+      LOG.info("Running Python script....");
+      Process trainingProcess = Runtime.getRuntime().exec(cmd);
+      trainingProcess.waitFor();
+      LOG.info("Model successfuly trained");
+
+      // TODO check if model trained without errors
+      ModelEntity model = getLastModel(userName);
+      if (model != null) {
+        activateModel(userName, model.getVersion(), modelFolder.getAbsolutePath());
+      }
+
+    } catch (IOException e) {
+      LOG.error("Cannot execure external training script: ", e.getMessage());
+    } catch (InterruptedException e) {
+      LOG.warn("Training process has been interrupted");
     }
   }
 }
