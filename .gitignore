@@ -59,3 +59,6 @@ dependency-reduced-pom.xml
 transaction.log
 rebel.xml
 /.metadata/
+/models/developer_data/model*
+/models/developer_data/model/*
+__pycache__
