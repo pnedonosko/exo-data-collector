@@ -1297,6 +1297,7 @@ public class SocialDataCollectorService implements Startable {
     return getMapped(userIdentities, userName, name -> {
       // TODO read IdentityProfileEntity by name first, and if not found read
       // from Social API below
+      //UserIdentity persisted = storage.getByName();
       Identity socId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, name, false);
       if (socId != null) {
         UserIdentity uid = userIdentity(socId);
@@ -1321,6 +1322,7 @@ public class SocialDataCollectorService implements Startable {
     return getMapped(userIdentities, identityId, id -> {
       // TODO read IdentityProfileEntity by ID first, and if not found read from
       // Social API below
+      //UserIdentity persisted = storage.getById();
       Identity socId = identityManager.getIdentity(id, false);
       if (socId != null) {
         UserIdentity uid = userIdentity(socId);
