@@ -73,7 +73,8 @@ def train_model(learning_rate, steps, batch_size, input_feature):
   plt.title("Learned Line by Period")
   plt.ylabel(my_label)
   plt.xlabel(my_feature)
-  sample = feed_dataframe.sample(n=1000)
+  # Change n to 1000 in prod mode
+  sample = feed_dataframe.sample(n=10)
   plt.scatter(sample[my_feature], sample[my_label])
   colors = [cm.coolwarm(x) for x in np.linspace(-1, 1, periods)]
 
@@ -191,8 +192,8 @@ try :
 
   # Display all graphs.
   #plt.show()
-except OSError as e:
-  print("Error: %s - %s." % (e.filename, e.strerror))
+except (OSError, ValueError) as e:
+  #print("Error: %s - %s." % (e.filename, e.strerror))
   metadata = {
     "status": "ERROR",
     "dataset": my_dataset_file,

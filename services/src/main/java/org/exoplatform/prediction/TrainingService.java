@@ -19,10 +19,15 @@
 package org.exoplatform.prediction;
 
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
+import java.net.URL;
 import java.util.Date;
 
 import org.apache.commons.io.FileUtils;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 import org.picocontainer.Startable;
 
 import org.exoplatform.prediction.user.dao.ModelEntityDAO;
@@ -42,12 +47,12 @@ import org.exoplatform.services.log.Log;
 public class TrainingService implements Startable {
 
   /** Logger */
-  private static final Log       LOG                  = ExoLogger.getExoLogger(TrainingService.class);
+  private static final Log       LOG                = ExoLogger.getExoLogger(TrainingService.class);
 
   /** Max count of archived models in DB  */
-  private static final Integer   MAX_STORED_MODELS    = 20;
+  private static final Integer   MAX_STORED_MODELS  = 20;
 
-  private static final String    TRAINING_SCRIPT_PATH = "/tmp/train.sh";
+  private String                 trainingScriptPath = null;
 
   /** ModelEntityDAO */
   protected final ModelEntityDAO modelEntityDAO;
@@ -161,7 +166,22 @@ public class TrainingService implements Startable {
    */
   @Override
   public void start() {
+    URL trainingScript = this.getClass().getClassLoader().getResource("scripts/user_feed_train.py");
+    URL datasetutils = this.getClass().getClassLoader().getResource("scripts/datasetutils.py");
 
+    try {
+      File localTrainingScript = new File(System.getProperty("java.io.tmpdir") + "/user_feed_train.py");
+      File localDatasetutils = new File(System.getProperty("java.io.tmpdir") + "/datasetutils.py");
+      FileUtils.copyURLToFile(trainingScript, localTrainingScript);
+      FileUtils.copyURLToFile(datasetutils, localDatasetutils);
+      localTrainingScript.deleteOnExit();
+      localDatasetutils.deleteOnExit();
+
+      trainingScriptPath = localTrainingScript.getAbsolutePath();
+    } catch (IOException e) {
+      LOG.error("Couldn't unpack the training scripts: " + e.getMessage());
+    }
+    LOG.info("Unpacked training script to: " + System.getProperty("java.io.tmpdir"));
   }
 
   /**
@@ -183,7 +203,8 @@ public class TrainingService implements Startable {
       }
       if (model.getModelFile() != null) {
         try {
-          FileUtils.deleteDirectory(new File(model.getModelFile()));
+          // Delete user's folder
+          FileUtils.deleteDirectory(new File(model.getModelFile()).getParentFile());
         } catch (IOException e) {
           LOG.warn("Cannot delete model folder: " + model.getModelFile());
         }
@@ -194,20 +215,33 @@ public class TrainingService implements Startable {
   }
 
   public void trainModel(File dataset, String userName) {
+    // TODO: set PROCESSING status before training model
     File modelFolder = new File(dataset.getParentFile().getAbsolutePath() + "/model");
     modelFolder.mkdirs();
 
-    String[] cmd = { "python", TRAINING_SCRIPT_PATH, dataset.getAbsolutePath(), modelFolder.getAbsolutePath() };
+    String[] cmd = { "python", trainingScriptPath, dataset.getAbsolutePath(), modelFolder.getAbsolutePath() };
     try {
       LOG.info("Running Python script....");
       Process trainingProcess = Runtime.getRuntime().exec(cmd);
       trainingProcess.waitFor();
-      LOG.info("Model successfuly trained");
 
-      // TODO check if model trained without errors
-      ModelEntity model = getLastModel(userName);
-      if (model != null) {
-        activateModel(userName, model.getVersion(), modelFolder.getAbsolutePath());
+      // Check if model trained without errors
+      File modelFile = new File(dataset.getParentFile() + "/model.json");
+      if (modelFile.exists()) {
+        JSONParser parser = new JSONParser();
+        try {
+          JSONObject resultModel = (JSONObject) parser.parse(new FileReader(modelFile));
+          String result = (String) resultModel.get("status");
+          if (Status.READY.equals(result)) {
+            LOG.info("Model {} successfuly trained", userName);
+            ModelEntity model = getLastModel(userName);
+            activateModel(userName, model.getVersion(), modelFolder.getAbsolutePath());
+          } else {
+            LOG.warn("Model {} failed in training", userName);
+          }
+        } catch (ParseException e) {
+          LOG.warn("Model {} failed in training. Couldn't parse the model.json file");
+        }
       }
 
     } catch (IOException e) {

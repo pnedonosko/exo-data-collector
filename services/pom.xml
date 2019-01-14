@@ -226,6 +226,7 @@
           <include>**/*.gif</include>
           <include>**/*.jpg</include>
           <include>**/*.png</include>
+          <include>**/*.py</include>
         </includes>
       </resource>
     </resources>
