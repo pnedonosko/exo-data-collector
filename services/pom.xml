@@ -251,7 +251,7 @@
             <!-- include>**/**/*Test_.java</include -->
             <!-- <include>**/**/ModelEntityDAOTest.java</include -->
             <!-- include>**/**/TrainingServiceTest.java</include -->
-            <include>**/**/_Test.java</include>
+            <include>**/**/IdentityProfileDAOTest.java</include>
           </includes>
           <forkCount>0</forkCount>
         </configuration>

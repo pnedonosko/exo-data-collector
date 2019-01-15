@@ -62,6 +62,7 @@ import org.exoplatform.datacollector.dao.ActivityCommentedDAO;
 import org.exoplatform.datacollector.dao.ActivityLikedDAO;
 import org.exoplatform.datacollector.dao.ActivityMentionedDAO;
 import org.exoplatform.datacollector.dao.ActivityPostedDAO;
+import org.exoplatform.datacollector.dao.IdentityProfileDAO;
 import org.exoplatform.datacollector.identity.SpaceIdentity;
 import org.exoplatform.datacollector.identity.UserIdentity;
 import org.exoplatform.platform.gadget.services.LoginHistory.LastLoginBean;
@@ -365,6 +366,8 @@ public class SocialDataCollectorService implements Startable {
 
   protected final ActivityMentionedDAO                      mentionStorage;
 
+  protected final IdentityProfileDAO                        identityProfileStorage;
+
   protected final ListenerService                           listenerService;
 
   protected final TrainingService                           trainingService;
@@ -429,6 +432,7 @@ public class SocialDataCollectorService implements Startable {
                                     ActivityCommentedDAO commentStorage,
                                     ActivityLikedDAO likeStorage,
                                     ActivityMentionedDAO mentionStorage,
+                                    IdentityProfileDAO identityProfileStorage,
                                     TrainingService trainingService) {
     super();
     this.identityManager = identityManager;
@@ -444,6 +448,7 @@ public class SocialDataCollectorService implements Startable {
     this.commentStorage = commentStorage;
     this.likeStorage = likeStorage;
     this.mentionStorage = mentionStorage;
+    this.identityProfileStorage = identityProfileStorage;
     this.trainingService = trainingService;
 
     this.workers = createThreadExecutor(WORKER_THREAD_PREFIX, WORKER_MAX_FACTOR, WORKER_QUEUE_FACTOR);
@@ -1297,7 +1302,7 @@ public class SocialDataCollectorService implements Startable {
     return getMapped(userIdentities, userName, name -> {
       // TODO read IdentityProfileEntity by name first, and if not found read
       // from Social API below
-      //UserIdentity persisted = storage.getByName();
+      // UserIdentity persisted = storage.getByName();
       Identity socId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, name, false);
       if (socId != null) {
         UserIdentity uid = userIdentity(socId);
@@ -1322,7 +1327,7 @@ public class SocialDataCollectorService implements Startable {
     return getMapped(userIdentities, identityId, id -> {
       // TODO read IdentityProfileEntity by ID first, and if not found read from
       // Social API below
-      //UserIdentity persisted = storage.getById();
+      // UserIdentity persisted = storage.getById();
       Identity socId = identityManager.getIdentity(id, false);
       if (socId != null) {
         UserIdentity uid = userIdentity(socId);

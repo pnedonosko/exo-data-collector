@@ -18,12 +18,16 @@
  */
 package org.exoplatform.datacollector.domain;
 
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.IdClass;
+import javax.persistence.NamedQueries;
+import javax.persistence.NamedQuery;
 import javax.persistence.Table;
 
 import org.exoplatform.commons.api.persistence.ExoEntity;
+import org.exoplatform.datacollector.domain.id.IdentityProfileId;
 
 /**
  * Created by The eXo Platform SAS
@@ -33,31 +37,46 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
  */
 @Entity(name = "IdentityProfile")
 @Table(name = "ST_IDENTITY_PROFILE")
-//@IdClass(IdentityProfileId.class)
+@IdClass(IdentityProfileId.class)
 @ExoEntity
+@NamedQueries({ @NamedQuery(name = "IdentityProfile.findById", query = "SELECT p FROM IdentityProfile p WHERE p.id = :id"), })
 public class IdentityProfileEntity {
 
   /** The ID of Social identity (numerical value). */
   @Id
+  @Column(name = "ID")
   protected String id;
 
   /** The name of Social identity (text with user name or group pretty name). */
   @Id
+  @Column(name = "NAME")
   protected String name;
 
   /** The social identity provider ID. */
+  @Column(name = "PROVIDER_ID")
   protected String providerId;
 
   /** The focus of the profile. */
+  @Column(name = "FOCUS")
   protected String focus;
 
   /** The context of the profile (mapped values, e.g. gender:female;role:administrator). */
+  @Column(name = "CONTEXT")
   protected String context;
 
   /**
    * 
    */
   public IdentityProfileEntity() {
+  }
+  
+  public IdentityProfileEntity(String id, String name, String providerId, String focus, String context) {
+    super();
+    this.id = id;
+    this.name = name;
+    this.providerId = providerId;
+    this.focus = focus;
+    this.context = context;
   }
 
   public String getId() {
@@ -99,5 +118,5 @@ public class IdentityProfileEntity {
   public void setContext(String context) {
     this.context = context;
   }
-  
+
 }
