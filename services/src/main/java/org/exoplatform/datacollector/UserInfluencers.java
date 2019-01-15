@@ -257,7 +257,7 @@ public class UserInfluencers {
   public static double sigmoid(double value) {
     // 1/(1+EXP(-LN(value)*2)) TODO *1.5 may produce a bit smaller values
     if (value != 0) {
-      return round(1 / (1 + Math.exp(-2 * Math.log(value))), WEIGHT_PRECISION);
+      return round(1 / (1 + Math.exp(-1 * Math.log(value))), WEIGHT_PRECISION);
     }
     return 0d;
   }
