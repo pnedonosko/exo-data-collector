@@ -19,6 +19,7 @@
 *.ear
 *.sar
 *.class
+*.pyc
 
 # Maven 
 target/
