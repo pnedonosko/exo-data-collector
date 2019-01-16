@@ -30,6 +30,7 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.picocontainer.Startable;
 
+import org.exoplatform.container.component.ComponentPlugin;
 import org.exoplatform.prediction.user.dao.ModelEntityDAO;
 import org.exoplatform.prediction.user.domain.ModelEntity;
 import org.exoplatform.prediction.user.domain.ModelEntity.Status;
@@ -56,6 +57,8 @@ public class TrainingService implements Startable {
 
   /** ModelEntityDAO */
   protected final ModelEntityDAO modelEntityDAO;
+
+  protected TrainingExecutor     trainingExecutor;
 
   /**
    * Instantiates a new training service.
@@ -166,6 +169,25 @@ public class TrainingService implements Startable {
    */
   @Override
   public void start() {
+    unpackTrainingScripts();
+    if(trainingExecutor == null) {
+      LOG.warn("TrainingExecutor is not configured. Using NativeTrainingExecutor by default");
+      trainingExecutor = new NativeTrainingExecutor();
+    }
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void stop() {
+
+  }
+
+  /**
+   * Unpacks training scripts from JAR to tmp directory. Sets trainingScriptPath
+   */
+  private void unpackTrainingScripts() {
     URL trainingScript = this.getClass().getClassLoader().getResource("scripts/user_feed_train.py");
     URL datasetutils = this.getClass().getClassLoader().getResource("scripts/datasetutils.py");
 
@@ -182,14 +204,6 @@ public class TrainingService implements Startable {
       LOG.error("Couldn't unpack the training scripts: " + e.getMessage());
     }
     LOG.info("Unpacked training script to: " + System.getProperty("java.io.tmpdir"));
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void stop() {
-
   }
 
   /**
@@ -215,39 +229,48 @@ public class TrainingService implements Startable {
   }
 
   public void trainModel(File dataset, String userName) {
-    // TODO: set PROCESSING status before training model
-    File modelFolder = new File(dataset.getParentFile().getAbsolutePath() + "/model");
-    modelFolder.mkdirs();
+    // TODO: set PROCESSING status before train
 
-    String[] cmd = { "python", trainingScriptPath, dataset.getAbsolutePath(), modelFolder.getAbsolutePath() };
-    try {
-      LOG.info("Running Python script....");
-      Process trainingProcess = Runtime.getRuntime().exec(cmd);
-      trainingProcess.waitFor();
-
-      // Check if model trained without errors
-      File modelFile = new File(dataset.getParentFile() + "/model.json");
-      if (modelFile.exists()) {
-        JSONParser parser = new JSONParser();
-        try {
-          JSONObject resultModel = (JSONObject) parser.parse(new FileReader(modelFile));
-          String result = (String) resultModel.get("status");
-          if (Status.READY.equals(result)) {
-            LOG.info("Model {} successfuly trained", userName);
-            ModelEntity model = getLastModel(userName);
-            activateModel(userName, model.getVersion(), modelFolder.getAbsolutePath());
-          } else {
-            LOG.warn("Model {} failed in training", userName);
-          }
-        } catch (ParseException e) {
-          LOG.warn("Model {} failed in training. Couldn't parse the model.json file");
+    // Train model
+    String modelFolder = trainingExecutor.train(dataset, trainingScriptPath);
+    // Check if model trained without errors
+    File modelFile = new File(dataset.getParentFile() + "/model.json");
+    if (modelFile.exists()) {
+      JSONParser parser = new JSONParser();
+      try {
+        JSONObject resultModel = (JSONObject) parser.parse(new FileReader(modelFile));
+        String result = (String) resultModel.get("status");
+        if (Status.READY.equals(result)) {
+          LOG.info("Model {} successfuly trained", userName);
+          ModelEntity model = getLastModel(userName);
+          activateModel(userName, model.getVersion(), modelFolder);
+        } else {
+          LOG.warn("Model {} failed in training", userName);
         }
+      } catch (ParseException e) {
+        LOG.warn("Model {} failed in training. Couldn't parse the model.json file", userName);
+      } catch (IOException e) {
+        LOG.warn("Model {} failed in training. Couldn't read the model.json file", userName);
       }
+    }
 
-    } catch (IOException e) {
-      LOG.error("Cannot execure external training script: ", e.getMessage());
-    } catch (InterruptedException e) {
-      LOG.warn("Training process has been interrupted");
+  }
+
+  /**
+   * Adds a trainingExecutor plugin. This method is safe in runtime:
+   * if configured trainingExecutor is not an instance of
+   * {@link TrainingExecutor} then it will log a warning and let server continue the start.
+   *
+   * @param plugin the plugin
+   */
+  public void addPlugin(ComponentPlugin plugin) {
+    Class<TrainingExecutor> pclass = TrainingExecutor.class;
+    if (pclass.isAssignableFrom(plugin.getClass())) {
+      trainingExecutor = pclass.cast(plugin);
+      LOG.info("Set training executor instance of " + plugin.getClass().getName());
+    } else {
+      LOG.warn("Training Executor plugin is not an instance of " + pclass.getName());
     }
   }
+
 }
