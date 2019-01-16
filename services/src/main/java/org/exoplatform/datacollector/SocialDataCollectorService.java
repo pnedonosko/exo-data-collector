@@ -63,6 +63,7 @@ import org.exoplatform.datacollector.dao.ActivityLikedDAO;
 import org.exoplatform.datacollector.dao.ActivityMentionedDAO;
 import org.exoplatform.datacollector.dao.ActivityPostedDAO;
 import org.exoplatform.datacollector.dao.IdentityProfileDAO;
+import org.exoplatform.datacollector.domain.IdentityProfileEntity;
 import org.exoplatform.datacollector.identity.SpaceIdentity;
 import org.exoplatform.datacollector.identity.UserIdentity;
 import org.exoplatform.platform.gadget.services.LoginHistory.LastLoginBean;
@@ -1300,13 +1301,34 @@ public class SocialDataCollectorService implements Startable {
 
   protected UserIdentity getUserIdentityByName_NEW(String userName) {
     return getMapped(userIdentities, userName, name -> {
-      // TODO read IdentityProfileEntity by name first, and if not found read
-      // from Social API below
-      // UserIdentity persisted = storage.getByName();
+      // Reading from the storage, if not exists - getting from Social API
+      IdentityProfileEntity persisted = identityProfileStorage.findByName(userName);
+      if (persisted != null) {
+        String gender = null;
+        if (persisted.getContext() != null) {
+          gender = Arrays.asList(persisted.getContext().split(";"))
+                         .stream()
+                         .filter(key -> key.contains("gender:"))
+                         .map(genderStr -> genderStr.split(":")[1])
+                         .findFirst()
+                         .orElse(null);
+
+        }
+
+        return new UserIdentity(persisted.getId(), persisted.getName(), gender, persisted.getFocus());
+      }
+
       Identity socId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, name, false);
       if (socId != null) {
         UserIdentity uid = userIdentity(socId);
-        // TODO Save IdentityProfileEntity
+        // Save IdentityProfileEntry to the storage
+        String context = "gender:" + uid.getGender();
+        IdentityProfileEntity identityProfile = new IdentityProfileEntity(uid.getId(),
+                                                                          uid.getRemoteId(),
+                                                                          uid.getRemoteId(),
+                                                                          uid.getFocus(),
+                                                                          context);
+        identityProfileStorage.create(identityProfile);
         return uid;
       } else {
         LOG.warn("Cannot find social identity by name: " + name);
@@ -1325,13 +1347,34 @@ public class SocialDataCollectorService implements Startable {
 
   protected UserIdentity getUserIdentityById_NEW(String identityId) {
     return getMapped(userIdentities, identityId, id -> {
-      // TODO read IdentityProfileEntity by ID first, and if not found read from
-      // Social API below
-      // UserIdentity persisted = storage.getById();
+      // Reading from the storage, if not exists - getting from Social API
+      IdentityProfileEntity persisted = identityProfileStorage.findById(identityId);
+      if (persisted != null) {
+        String gender = null;
+        if (persisted.getContext() != null) {
+          gender = Arrays.asList(persisted.getContext().split(";"))
+                         .stream()
+                         .filter(key -> key.contains("gender:"))
+                         .map(genderStr -> genderStr.split(":")[1])
+                         .findFirst()
+                         .orElse(null);
+
+        }
+
+        return new UserIdentity(persisted.getId(), persisted.getName(), gender, persisted.getFocus());
+      }
+
       Identity socId = identityManager.getIdentity(id, false);
       if (socId != null) {
         UserIdentity uid = userIdentity(socId);
-        // TODO Save IdentityProfileEntity
+        // Save IdentityProfileEntry to the storage
+        String context = "gender:" + uid.getGender();
+        IdentityProfileEntity identityProfile = new IdentityProfileEntity(uid.getId(),
+                                                                          uid.getRemoteId(),
+                                                                          uid.getRemoteId(),
+                                                                          uid.getFocus(),
+                                                                          context);
+        identityProfileStorage.create(identityProfile);
         return uid;
       } else {
         LOG.warn("Cannot find social identity by ID: " + id);

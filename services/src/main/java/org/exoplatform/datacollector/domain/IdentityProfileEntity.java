@@ -39,7 +39,8 @@ import org.exoplatform.datacollector.domain.id.IdentityProfileId;
 @Table(name = "ST_IDENTITY_PROFILE")
 @IdClass(IdentityProfileId.class)
 @ExoEntity
-@NamedQueries({ @NamedQuery(name = "IdentityProfile.findById", query = "SELECT p FROM IdentityProfile p WHERE p.id = :id"), })
+@NamedQueries({ @NamedQuery(name = "IdentityProfile.findById", query = "SELECT p FROM IdentityProfile p WHERE p.id = :id"),
+    @NamedQuery(name = "IdentityProfile.findByName", query = "SELECT p FROM IdentityProfile p WHERE p.name = :name") })
 public class IdentityProfileEntity {
 
   /** The ID of Social identity (numerical value). */
@@ -69,13 +70,13 @@ public class IdentityProfileEntity {
    */
   public IdentityProfileEntity() {
   }
-  
+
   public IdentityProfileEntity(String id, String name, String providerId, String focus, String context) {
     super();
     this.id = id;
     this.name = name;
     this.providerId = providerId;
-    this.focus = focus;
+    this.focus = focus != null ? focus.intern() : null;
     this.context = context;
   }
 
@@ -108,7 +109,7 @@ public class IdentityProfileEntity {
   }
 
   public void setFocus(String focus) {
-    this.focus = focus;
+    this.focus = focus != null ? focus.intern() : null;
   }
 
   public String getContext() {

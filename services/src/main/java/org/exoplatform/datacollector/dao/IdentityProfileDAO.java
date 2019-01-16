@@ -20,4 +20,16 @@ public class IdentityProfileDAO extends GenericDAOJPAImpl<IdentityProfileEntity,
       return null;
     }
   }
+  
+  public IdentityProfileEntity findByName(String name) {
+    try {
+      TypedQuery<IdentityProfileEntity> query = getEntityManager()
+                                                                  .createNamedQuery("IdentityProfile.findByName",
+                                                                                    IdentityProfileEntity.class)
+                                                                  .setParameter("name", name);
+      return query.getSingleResult();
+    } catch (NoResultException e) {
+      return null;
+    }
+  }
 }
