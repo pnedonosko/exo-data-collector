@@ -11,21 +11,21 @@ public class UserIdentity extends Identity {
 
   private final String gender;
 
-  private final String position;
+  private final String focus;
 
-  public UserIdentity(String id, String remoteId, String gender, String position) {
+  public UserIdentity(String id, String remoteId, String gender, String focus) {
     super(id);
     this.setRemoteId(remoteId);
     this.setProviderId(OrganizationIdentityProvider.NAME);
     this.gender = gender;
-    this.position = position;
+    this.focus = focus;
   }
 
   public String getGender() {
     return gender;
   }
 
-  public String getPosition() {
-    return position;
+  public String getFocus() {
+    return focus;
   }
 }

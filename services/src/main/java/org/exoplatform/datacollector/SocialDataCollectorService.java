@@ -62,6 +62,8 @@ import org.exoplatform.datacollector.dao.ActivityCommentedDAO;
 import org.exoplatform.datacollector.dao.ActivityLikedDAO;
 import org.exoplatform.datacollector.dao.ActivityMentionedDAO;
 import org.exoplatform.datacollector.dao.ActivityPostedDAO;
+import org.exoplatform.datacollector.dao.IdentityProfileDAO;
+import org.exoplatform.datacollector.domain.IdentityProfileEntity;
 import org.exoplatform.datacollector.identity.SpaceIdentity;
 import org.exoplatform.datacollector.identity.UserIdentity;
 import org.exoplatform.platform.gadget.services.LoginHistory.LastLoginBean;
@@ -144,19 +146,31 @@ public class SocialDataCollectorService implements Startable {
    */
   public static final String     WORKER_THREAD_PREFIX  = "datacollector-worker-thread-";
 
+  public static final String     ENGINEERING_FOCUS     = "engineering".intern();
+
   protected static final Pattern ENGINEERING_PATTERN   =
                                                      Pattern.compile("^.*developer|architect|r&d|mobile|qa|fqa|tqa|test|quality|qualité|expert|integrator|designer|cwi|technical advisor|services delivery|software engineer.*$");
+
+  public static final String     SALES_FOCUS           = "sales".intern();
 
   protected static final Pattern SALES_PATTERN         =
                                                Pattern.compile("^.*consultant|sales|client|support|sales engineer|demand generator.*$");
 
+  public static final String     MARKETING_FOCUS       = "marketing".intern();
+
   protected static final Pattern MARKETING_PATTERN     =
                                                    Pattern.compile("^.*brand|communication|marketing|customer success|user experience|.*$");
+
+  public static final String     MANAGEMENT_FOCUS      = "management".intern();
 
   protected static final Pattern MANAGEMENT_PATTERN    =
                                                     Pattern.compile("^.*officer|chief|founder|coo|cto|cio|evp|advisor|product manager|director|general manager.*$");
 
+  public static final String     FINANCIAL_FOCUS       = "financial".intern();
+
   protected static final Pattern FINANCIAL_PATTERN     = Pattern.compile("^.*accountant|financial|investment|account manager.*$");
+
+  public static final String     OTHER_FOCUS           = "other".intern();
 
   /**
    * The Constant EMPLOYEES_GROUPID - TODO better make it configurable. For
@@ -353,6 +367,8 @@ public class SocialDataCollectorService implements Startable {
 
   protected final ActivityMentionedDAO                      mentionStorage;
 
+  protected final IdentityProfileDAO                        identityProfileStorage;
+
   protected final ListenerService                           listenerService;
 
   protected final TrainingService                           trainingService;
@@ -417,6 +433,7 @@ public class SocialDataCollectorService implements Startable {
                                     ActivityCommentedDAO commentStorage,
                                     ActivityLikedDAO likeStorage,
                                     ActivityMentionedDAO mentionStorage,
+                                    IdentityProfileDAO identityProfileStorage,
                                     TrainingService trainingService) {
     super();
     this.identityManager = identityManager;
@@ -432,6 +449,7 @@ public class SocialDataCollectorService implements Startable {
     this.commentStorage = commentStorage;
     this.likeStorage = likeStorage;
     this.mentionStorage = mentionStorage;
+    this.identityProfileStorage = identityProfileStorage;
     this.trainingService = trainingService;
 
     this.workers = createThreadExecutor(WORKER_THREAD_PREFIX, WORKER_MAX_FACTOR, WORKER_QUEUE_FACTOR);
@@ -529,13 +547,14 @@ public class SocialDataCollectorService implements Startable {
     if (id != null) {
       final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/" + id.getRemoteId() + ".csv");
       userFile.getParentFile().mkdirs();
-      
-      
+
       // Copy old model file
-      // TODO: move it to another place. Now it's required to copy old model directory before submitCollectUserActivities is called
-      // because submitCollectUserActivities calls the training service to execute the training script
+      // TODO: move it to another place. Now it's required to copy old model
+      // directory before submitCollectUserActivities is called
+      // because submitCollectUserActivities calls the training service to
+      // execute the training script
       ModelEntity oldModel = trainingService.getLastModel(userName);
-      if(oldModel != null && oldModel.getModelFile() != null && oldModel.getStatus().equals(Status.READY)) {
+      if (oldModel != null && oldModel.getModelFile() != null && oldModel.getStatus().equals(Status.READY)) {
         try {
           FileUtils.copyDirectoryToDirectory(new File(oldModel.getModelFile()), userFile.getParentFile());
           LOG.info("Directory copied for " + userName);
@@ -545,7 +564,7 @@ public class SocialDataCollectorService implements Startable {
       }
       // Add new model to DB
       trainingService.addModel(userName, userFile.getAbsolutePath());
- 
+
       submitCollectUserActivities(id, userFile);
       LOG.info("Saved user dataset into bucket file: {}", userFile.getAbsolutePath());
       return userFile.getAbsolutePath();
@@ -566,7 +585,7 @@ public class SocialDataCollectorService implements Startable {
       @Override
       void execute(ExoContainer exoContainer) {
         try {
-          
+
           PrintWriter writer = new PrintWriter(file);
           try {
             collectUserActivities(id, writer);
@@ -852,7 +871,7 @@ public class SocialDataCollectorService implements Startable {
       aline.append('1').append(',');
       // poster_focus_*: poster job position as team membership encoded
       // TODO may be we would provide a focus of this space regarding the user?
-      encPosition(aline, null).append(',');
+      encFocus(aline, null).append(',');
     } else {
       UserIdentity poster = getUserIdentityById(posterId);
       // TODO poster full name?
@@ -866,7 +885,7 @@ public class SocialDataCollectorService implements Startable {
       // poster_is_in_connections
       aline.append(myConns.contains(posterId) ? '1' : '0').append(',');
       // poster_focus_*: poster job position as team membership encoded
-      encPosition(aline, poster).append(',');
+      encFocus(aline, poster).append(',');
     }
     // poster_influence
     double posterWeight = influencers.getParticipantWeight(posterId, ownerId);
@@ -896,7 +915,7 @@ public class SocialDataCollectorService implements Startable {
       // participantN_is_in_connections
       aline.append(myConns.contains(p.id) ? '1' : '0').append(',');
       // participantN_focus_*: job position as team membership encoded
-      encPosition(aline, part).append(',');
+      encFocus(aline, part).append(',');
       // participantN_influence
       double pweight = influencers.getParticipantWeight(p.id, ownerId);
       aline.append(pweight).append(',');
@@ -920,28 +939,47 @@ public class SocialDataCollectorService implements Startable {
     return aline.toString();
   }
 
-  protected StringBuilder encPosition(StringBuilder aline, UserIdentity identity) {
+  protected StringBuilder encFocus(StringBuilder aline, UserIdentity identity) {
     // Columns order: engineering, sales&support, marketing, management,
     // financial, other
-    if (identity != null && identity.getPosition() != null) {
-      String position = identity.getPosition().toUpperCase().toLowerCase();
-      if (ENGINEERING_PATTERN.matcher(position).matches()) {
+    if (identity != null) {
+      if (ENGINEERING_FOCUS.equals(identity.getFocus())) {
         aline.append("1,0,0,0,0,0");
-      } else if (SALES_PATTERN.matcher(position).matches()) {
+      } else if (SALES_FOCUS.equals(identity.getFocus())) {
         aline.append("0,1,0,0,0,0");
-      } else if (MARKETING_PATTERN.matcher(position).matches()) {
+      } else if (MARKETING_FOCUS.equals(identity.getFocus())) {
         aline.append("0,0,1,0,0,0");
-      } else if (MANAGEMENT_PATTERN.matcher(position).matches()) {
+      } else if (MANAGEMENT_FOCUS.equals(identity.getFocus())) {
         aline.append("0,0,0,1,0,0");
-      } else if (FINANCIAL_PATTERN.matcher(position).matches()) {
+      } else if (FINANCIAL_FOCUS.equals(identity.getFocus())) {
         aline.append("0,0,0,0,1,0");
       } else {
-        aline.append("0,0,0,0,0,1");
+        aline.append("0,0,0,0,0,1"); // OTHER_FOCUS
       }
     } else {
       aline.append("0,0,0,0,0,1");
     }
     return aline;
+  }
+
+  protected String findFocus(String title) {
+    // Columns order: engineering, sales&support, marketing, management,
+    // financial, other
+    if (title != null) {
+      String position = title.toUpperCase().toLowerCase();
+      if (ENGINEERING_PATTERN.matcher(position).matches()) {
+        return ENGINEERING_FOCUS;
+      } else if (SALES_PATTERN.matcher(position).matches()) {
+        return SALES_FOCUS;
+      } else if (MARKETING_PATTERN.matcher(position).matches()) {
+        return MARKETING_FOCUS;
+      } else if (MANAGEMENT_PATTERN.matcher(position).matches()) {
+        return MARKETING_FOCUS;
+      } else if (FINANCIAL_PATTERN.matcher(position).matches()) {
+        return FINANCIAL_FOCUS;
+      }
+    }
+    return OTHER_FOCUS;
   }
 
   protected StringBuilder encGender(StringBuilder aline, UserIdentity identity) {
@@ -1238,42 +1276,119 @@ public class SocialDataCollectorService implements Startable {
   }
 
   protected SpaceIdentity getSpaceIdentityByName(String spaceName) {
-    return getMapped(spaceIdentities,
-                     spaceName,
-                     name -> identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, name, false),
-                     socId -> spaceIdentity(socId),
-                     socId -> socId.getId());
+    return getMapped_OLD(spaceIdentities,
+                         spaceName,
+                         name -> identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, name, false),
+                         socId -> spaceIdentity(socId),
+                         socId -> socId.getId());
   }
 
   protected SpaceIdentity getSpaceIdentityById(String spaceId) {
-    return getMapped(spaceIdentities,
-                     spaceId,
-                     id -> identityManager.getIdentity(id, false),
-                     socId -> spaceIdentity(socId),
-                     socId -> socId.getRemoteId());
+    return getMapped_OLD(spaceIdentities,
+                         spaceId,
+                         id -> identityManager.getIdentity(id, false),
+                         socId -> spaceIdentity(socId),
+                         socId -> socId.getRemoteId());
   }
 
   protected UserIdentity getUserIdentityByName(String userName) {
-    return getMapped(userIdentities,
-                     userName,
-                     name -> identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, name, false),
-                     socId -> userIdentity(socId),
-                     socId -> socId.getId());
+    return getMapped_OLD(userIdentities,
+                         userName,
+                         name -> identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, name, false),
+                         socId -> userIdentity(socId),
+                         socId -> socId.getId());
+  }
+
+  protected UserIdentity getUserIdentityByName_NEW(String userName) {
+    return getMapped(userIdentities, userName, name -> {
+      // Reading from the storage, if not exists - getting from Social API
+      IdentityProfileEntity persisted = identityProfileStorage.findByName(userName);
+      if (persisted != null) {
+        String gender = null;
+        if (persisted.getContext() != null) {
+          gender = Arrays.asList(persisted.getContext().split(";"))
+                         .stream()
+                         .filter(key -> key.contains("gender:"))
+                         .map(genderStr -> genderStr.split(":")[1])
+                         .findFirst()
+                         .orElse(null);
+
+        }
+
+        return new UserIdentity(persisted.getId(), persisted.getName(), gender, persisted.getFocus());
+      }
+
+      Identity socId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, name, false);
+      if (socId != null) {
+        UserIdentity uid = userIdentity(socId);
+        // Save IdentityProfileEntry to the storage
+        String context = "gender:" + uid.getGender();
+        IdentityProfileEntity identityProfile = new IdentityProfileEntity(uid.getId(),
+                                                                          uid.getRemoteId(),
+                                                                          uid.getRemoteId(),
+                                                                          uid.getFocus(),
+                                                                          context);
+        identityProfileStorage.create(identityProfile);
+        return uid;
+      } else {
+        LOG.warn("Cannot find social identity by name: " + name);
+        return null;
+      }
+    }, socId -> socId.getId());
   }
 
   protected UserIdentity getUserIdentityById(String identityId) {
-    return getMapped(userIdentities,
-                     identityId,
-                     id -> identityManager.getIdentity(id, false),
-                     socId -> userIdentity(socId),
-                     socId -> socId.getRemoteId());
+    return getMapped_OLD(userIdentities,
+                         identityId,
+                         id -> identityManager.getIdentity(id, false),
+                         socId -> userIdentity(socId),
+                         socId -> socId.getRemoteId());
   }
 
-  private <I extends Identity> I getMapped(Map<String, SoftReference<I>> map,
-                                           String key,
-                                           Function<String, Identity> getter,
-                                           Function<Identity, I> factory,
-                                           Function<Identity, String> extraKeySupplier) {
+  protected UserIdentity getUserIdentityById_NEW(String identityId) {
+    return getMapped(userIdentities, identityId, id -> {
+      // Reading from the storage, if not exists - getting from Social API
+      IdentityProfileEntity persisted = identityProfileStorage.findById(identityId);
+      if (persisted != null) {
+        String gender = null;
+        if (persisted.getContext() != null) {
+          gender = Arrays.asList(persisted.getContext().split(";"))
+                         .stream()
+                         .filter(key -> key.contains("gender:"))
+                         .map(genderStr -> genderStr.split(":")[1])
+                         .findFirst()
+                         .orElse(null);
+
+        }
+
+        return new UserIdentity(persisted.getId(), persisted.getName(), gender, persisted.getFocus());
+      }
+
+      Identity socId = identityManager.getIdentity(id, false);
+      if (socId != null) {
+        UserIdentity uid = userIdentity(socId);
+        // Save IdentityProfileEntry to the storage
+        String context = "gender:" + uid.getGender();
+        IdentityProfileEntity identityProfile = new IdentityProfileEntity(uid.getId(),
+                                                                          uid.getRemoteId(),
+                                                                          uid.getRemoteId(),
+                                                                          uid.getFocus(),
+                                                                          context);
+        identityProfileStorage.create(identityProfile);
+        return uid;
+      } else {
+        LOG.warn("Cannot find social identity by ID: " + id);
+        return null;
+      }
+    }, socId -> socId.getId());
+  }
+
+  @Deprecated
+  private <I extends Identity> I getMapped_OLD(Map<String, SoftReference<I>> map,
+                                               String key,
+                                               Function<String, Identity> getter,
+                                               Function<Identity, I> factory,
+                                               Function<Identity, String> extraKeySupplier) {
     if (!DUMMY_ID.equals(key)) {
       do {
         SoftReference<I> ref = map.compute(key, (existingKey, existingRef) -> {
@@ -1289,6 +1404,45 @@ public class SocialDataCollectorService implements Startable {
           } else {
             newRef = null;
             LOG.warn("Cannot find social identity: " + existingKey);
+          }
+          // LOG.info("< Get social identity: " + id);
+          return newRef;
+        });
+        if (ref != null) {
+          // It may be null still here: after checking existingRef.get() !=
+          // null in compute() above the GC may decide to clear the value.
+          I id = ref.get();
+          if (id != null) {
+            return id;
+          } // otherwise repeat the loop to read from identityManager
+        } else {
+          break; // it will return null
+        }
+      } while (true);
+    }
+    return null;
+  }
+
+  private <I extends Identity> I getMapped(Map<String, SoftReference<I>> map,
+                                           String key,
+                                           Function<String, I> reader,
+                                           Function<I, String> extraKeySupplier) {
+    if (!DUMMY_ID.equals(key)) {
+      do {
+        SoftReference<I> ref = map.compute(key, (existingKey, existingRef) -> {
+          if (existingRef != null && existingRef.get() != null) {
+            return existingRef;
+          }
+          // LOG.info("> Get social identity: " + id);
+          SoftReference<I> newRef;
+          I inst = reader.apply(existingKey);
+          if (inst != null) {
+            newRef = new SoftReference<I>(inst);
+            map.put(extraKeySupplier.apply(inst), new SoftReference<I>(inst)); // map
+                                                                               // by
+                                                                               // Name/ID
+          } else {
+            newRef = null;
           }
           // LOG.info("< Get social identity: " + id);
           return newRef;
@@ -1328,7 +1482,7 @@ public class SocialDataCollectorService implements Startable {
     LOG.info(">> Get social profile: {} ( {} ) <<", id, userName);
     Profile socProfile = identityManager.getProfile(socId);
     if (socProfile != null) {
-      return new UserIdentity(id, userName, socProfile.getGender(), socProfile.getPosition());
+      return new UserIdentity(id, userName, socProfile.getGender(), findFocus(socProfile.getPosition()));
     } else {
       // TODO add listener to check when user will fill his profile and
       // then update the mapping

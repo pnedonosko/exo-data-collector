@@ -26,6 +26,10 @@
   </component>
 
   <component>
+    <type>org.exoplatform.datacollector.dao.IdentityProfileDAO</type>
+  </component>
+
+  <component>
     <type>org.exoplatform.prediction.TrainingService</type>
   </component>
 
