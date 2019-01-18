@@ -85,7 +85,7 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   @Path("/run/{bucketname}/{username}")
   public Response runCollect(@PathParam("bucketname") String bucketName, @PathParam("username") String userName) {
     try {
-      String filePath = dataCollector.collectUserActivities(bucketName, userName);
+      String filePath = dataCollector.collectUserActivities(bucketName, userName, true);
       if (filePath != null) {
         String actualFileName = filePath.substring(filePath.substring(0, filePath.lastIndexOf(File.separator + userName))
                                                            .lastIndexOf(File.separator));
@@ -98,5 +98,7 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
       return Response.serverError().entity("{\"error\":\"Error collecting user activities\"}").build();
     }
   }
+  
+  
 
 }

@@ -170,7 +170,7 @@ public class TrainingService implements Startable {
   @Override
   public void start() {
     unpackTrainingScripts();
-    if(trainingExecutor == null) {
+    if (trainingExecutor == null) {
       LOG.warn("TrainingExecutor is not configured. Using NativeTrainingExecutor by default");
       trainingExecutor = new NativeTrainingExecutor();
     }
@@ -252,8 +252,7 @@ public class TrainingService implements Startable {
       } catch (IOException e) {
         LOG.warn("Model {} failed in training. Couldn't read the model.json file", userName);
       }
-    }
-    else {
+    } else {
       LOG.warn("The model.json file is not found after training for model {}", userName);
     }
 
@@ -276,4 +275,18 @@ public class TrainingService implements Startable {
     }
   }
 
+  /**
+   * Sets PROCESSING status to the last model
+   * @param remoteId
+   */
+  public void setProcessing(String userName) {
+    ModelEntity model = getLastModel(userName);
+    if (model != null) {
+      model.setStatus(Status.PROCESSING);
+      modelEntityDAO.update(model);
+      LOG.info("Model {} got status PROCESSING");
+    } else {
+      LOG.info("Cannot set PROCESSING status to the model {} - model not found", userName);
+    }
+  }
 }
