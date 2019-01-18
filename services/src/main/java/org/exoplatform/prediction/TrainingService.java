@@ -253,6 +253,9 @@ public class TrainingService implements Startable {
         LOG.warn("Model {} failed in training. Couldn't read the model.json file", userName);
       }
     }
+    else {
+      LOG.warn("The model.json file is not found after training for model {}", userName);
+    }
 
   }
 
