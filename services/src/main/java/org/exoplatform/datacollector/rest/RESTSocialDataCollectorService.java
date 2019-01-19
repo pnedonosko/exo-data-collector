@@ -85,11 +85,10 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   @Path("/run/{bucketname}/{username}")
   public Response runCollect(@PathParam("bucketname") String bucketName, @PathParam("username") String userName) {
     try {
-      String filePath = dataCollector.collectUserActivities(bucketName, userName, true);
-      if (filePath != null) {
-        String actualFileName = filePath.substring(filePath.substring(0, filePath.lastIndexOf(File.separator + userName))
-                                                           .lastIndexOf(File.separator));
-        return Response.ok().entity("{\"filename\":\"" + actualFileName + "\"}").build();
+      File file = dataCollector.collectUserActivities(bucketName, userName);
+      if (file != null) {
+
+        return Response.ok().entity("{\"filename\":\"" + file.getName() + "\"}").build();
       } else {
         return Response.status(Status.BAD_REQUEST).entity("{\"error\":\"Wrong parameters\"}").build();
       }

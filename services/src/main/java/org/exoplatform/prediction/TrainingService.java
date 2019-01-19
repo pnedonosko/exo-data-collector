@@ -284,7 +284,7 @@ public class TrainingService implements Startable {
     if (model != null) {
       model.setStatus(Status.PROCESSING);
       modelEntityDAO.update(model);
-      LOG.info("Model {} got status PROCESSING");
+      LOG.info("Model {} got status PROCESSING", userName);
     } else {
       LOG.info("Cannot set PROCESSING status to the model {} - model not found", userName);
     }

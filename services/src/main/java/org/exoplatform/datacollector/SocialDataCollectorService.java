@@ -39,7 +39,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.Timer;
 import java.util.concurrent.ConcurrentHashMap;
@@ -191,6 +190,7 @@ public class SocialDataCollectorService implements Startable {
 
     @Override
     void execute(ExoContainer exoContainer) {
+      currentBucketIndex++;
       LOG.info("Bucket processing time! Current bucket: prod-{}", currentBucketIndex);
       Map<String, Date> targetUsers = getTargetUsers();
 
@@ -198,19 +198,16 @@ public class SocialDataCollectorService implements Startable {
         String userName = loginsQueue.poll();
         Date loginDate = targetUsers.get(userName);
         LOG.info("Getting user from bucket: {}", userName);
-
         ModelEntity existingModel = trainingService.getLastModel(userName);
 
         if (modelNeedsTraining(existingModel, loginDate)) {
-          collectUserActivities(BUCKET_PREFIX + currentBucketIndex, userName, true);
+          submitModelProcessing(userName, true);
           LOG.info("Started processing {}", userName);
         } else {
           LOG.info("User's {} model doesn't need training ", userName);
         }
-
         targetUsers.remove(userName);
       }
-      currentBucketIndex++;
       timer.schedule(new BucketWorker(containerName), TRAIN_PERIOD);
     }
 
@@ -378,7 +375,7 @@ public class SocialDataCollectorService implements Startable {
   /** Contains users id ordered by the login time */
   protected final ConcurrentLinkedQueue<String>             loginsQueue         = new ConcurrentLinkedQueue<>();
 
-  protected Integer                                         currentBucketIndex  = 0;
+  protected Integer                                         currentBucketIndex  = -1;
 
   /** The timer for scheduled tasks execution */
   protected final Timer                                     timer               = new Timer();
@@ -469,6 +466,28 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
+   * Collects collecting user activities in separate worker. Trains model if necesary.
+   * @param userName
+   * @param train if true - trains model
+   */
+  void submitModelProcessing(String userName, boolean train) {
+    final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
+    workers.submit(new ContainerCommand(containerName) {
+      @Override
+      void execute(ExoContainer exoContainer) {
+        File dataset = collectUserActivities(BUCKET_PREFIX + currentBucketIndex, userName);
+        if(dataset != null && train) {
+          trainingService.trainModel(dataset, userName);
+        }
+      }
+      @Override
+      void onContainerError(String error) {
+        LOG.error("Container error has occured: {}", error);
+      }
+    });
+  }
+
+  /**
    * Collect users activities into files bucketRecords in Platform data folder,
    * each file will have name of an user with <code>.csv</code> extension. If
    * such folder already exists, it will overwrite the files that match found
@@ -486,16 +505,12 @@ public class SocialDataCollectorService implements Startable {
     // into separate data stream, then feed them to the Training Service
 
     File bucketDir = openBucketDir(bucketName);
-    LOG.info("Saving dataset into bucket folder: {}", bucketDir.getAbsolutePath());
-
     Iterator<Identity> idIter = loadListIterator(identityManager.getIdentitiesByProfileFilter(OrganizationIdentityProvider.NAME,
                                                                                               new ProfileFilter(),
                                                                                               true));
     while (idIter.hasNext() && !Thread.currentThread().isInterrupted()) {
       final UserIdentity id = cacheUserIdentity(userIdentity(idIter.next()));
-      final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/" + id.getRemoteId() + ".csv");
-      userFile.getParentFile().mkdirs();
-      submitCollectUserActivities(id, userFile, true);
+      submitModelProcessing(id.getRemoteId(), true);
     }
 
     if (Thread.currentThread().isInterrupted()) {
@@ -522,81 +537,49 @@ public class SocialDataCollectorService implements Startable {
    * @param bucketName the bucketRecords name
    * @param userName the user name
    * @param train trains model if true
-   * @return the path of created dataset file
+   * @return the dataset file
    */
-  public String collectUserActivities(String bucketName, String userName, boolean train) {
-    // TODO: The method contains code, that executes in current thread.
-    // It's better to do call this method from a worker, and refactor
-    // sumbitCollectUserActivities - remove creation of worker.
-    // The result is - all work related with user is performed in one thread
-    // (worker)
-
+  public File collectUserActivities(String bucketName, String userName) {
     File bucketDir = openBucketDir(bucketName);
     LOG.info("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
       final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/" + id.getRemoteId() + ".csv");
       userFile.getParentFile().mkdirs();
-
       // Copy old model file
-      // TODO: move it to another place. Now it's required to copy old model
-      // directory before submitCollectUserActivities is called
-      // because submitCollectUserActivities calls the training service to
-      // execute the training script
-      ModelEntity oldModel = trainingService.getLastModel(userName);
-      if (oldModel != null && oldModel.getModelFile() != null && oldModel.getStatus().equals(Status.READY)) {
-        try {
-          FileUtils.copyDirectoryToDirectory(new File(oldModel.getModelFile()), userFile.getParentFile());
-          LOG.info("Directory copied for " + userName);
-        } catch (IOException e) {
-          LOG.info("Failed to copy directory {}", e.getMessage());
-        }
-      }
+      copyModelFile(trainingService.getLastModel(userName), userFile.getParentFile());
       // Add new model to DB
       trainingService.addModel(userName, userFile.getAbsolutePath());
-
-      submitCollectUserActivities(id, userFile, train);
+      trainingService.setProcessing(userName);
+      
+      try (PrintWriter writer = new PrintWriter(userFile)) {
+        collectUserActivities(id, writer);
+      } catch (Exception e) {
+        LOG.error("Cannot collect user activities for {} : {}", userName, e);
+        userFile.delete();
+        return null;
+      }
       LOG.info("Saved user dataset into bucket file: {}", userFile.getAbsolutePath());
-      return userFile.getAbsolutePath();
-    } else {
-      LOG.warn("User social identity not found for {}", userName);
-      return null;
+      return userFile;
     }
+    LOG.warn("User social identity not found for {}", userName);
+    return null;
   }
 
-  // **** internals
-
-  protected void submitCollectUserActivities(UserIdentity id, File file, boolean train) {
-
-    final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
-    workers.submit(new ContainerCommand(containerName) {
-      /**
-       * {@inheritDoc}
-       */
-      @Override
-      void execute(ExoContainer exoContainer) {
-        try (PrintWriter writer = new PrintWriter(file)) {
-          trainingService.setProcessing(id.getRemoteId());
-          
-          collectUserActivities(id, writer);
-          writer.close();
-          if (train) {
-            trainingService.trainModel(file, id.getRemoteId());
-          }
-
-        } catch (Exception e) {
-          LOG.error("User activities collector error for worker of {} : {}", id.getRemoteId(), e);
-        }
+  /**
+   * Copies model file to new destination. Only if model has status READY
+   * @param model contains model file to be copied
+   * @param dest new folder
+   */
+  protected void copyModelFile(ModelEntity model, File dest) {
+    if (model != null && model.getModelFile() != null && model.getStatus().equals(Status.READY)) {
+      try {
+        FileUtils.copyDirectoryToDirectory(new File(model.getModelFile()), dest);
+        LOG.info("Old model file copied for {}", model.getName());
+      } catch (IOException e) {
+        LOG.info("Failed to copy old model file for {}, {}", model.getName(), e.getMessage());
       }
-
-      /**
-       * {@inheritDoc}
-       */
-      @Override
-      void onContainerError(String error) {
-        LOG.error("Container error: ( {} ) for worker of {} : {}", containerName, id.getRemoteId(), error);
-      }
-    });
+    }
   }
 
   /**
