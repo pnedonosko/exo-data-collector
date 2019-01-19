@@ -577,7 +577,9 @@ public class SocialDataCollectorService implements Startable {
       void execute(ExoContainer exoContainer) {
         try (PrintWriter writer = new PrintWriter(file)) {
           trainingService.setProcessing(id.getRemoteId());
+          
           collectUserActivities(id, writer);
+          writer.close();
           if (train) {
             trainingService.trainModel(file, id.getRemoteId());
           }
