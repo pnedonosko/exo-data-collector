@@ -31,10 +31,10 @@ import org.json.simple.parser.ParseException;
 import org.picocontainer.Startable;
 
 import org.exoplatform.container.component.ComponentPlugin;
-import org.exoplatform.prediction.user.dao.ModelEntityDAO;
-import org.exoplatform.prediction.user.domain.ModelEntity;
-import org.exoplatform.prediction.user.domain.ModelEntity.Status;
-import org.exoplatform.prediction.user.domain.ModelId;
+import org.exoplatform.prediction.model.dao.ModelEntityDAO;
+import org.exoplatform.prediction.model.domain.ModelEntity;
+import org.exoplatform.prediction.model.domain.ModelId;
+import org.exoplatform.prediction.model.domain.ModelEntity.Status;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 
@@ -138,6 +138,7 @@ public class TrainingService implements Startable {
     ModelEntity model = modelEntityDAO.find(new ModelId(userName, version));
     if (model != null) {
       model.setArchived(new Date());
+      model.setStatus(Status.ARCHIEVED);
       modelEntityDAO.update(model);
       LOG.info("Model (name: " + userName + ", version: " + version + ") archived");
 
@@ -288,5 +289,17 @@ public class TrainingService implements Startable {
     } else {
       LOG.info("Cannot set PROCESSING status to the model {} - model not found", userName);
     }
+  }
+
+  public void setRetry(String userName) {
+    ModelEntity model = getLastModel(userName);
+    if (model != null) {
+      model.setStatus(Status.RETRY);
+      modelEntityDAO.update(model);
+      LOG.info("Model {} got status RETRY", userName);
+    } else {
+      LOG.info("Cannot set RETRY status to the model {} - model not found", userName);
+    }
+    
   }
 }

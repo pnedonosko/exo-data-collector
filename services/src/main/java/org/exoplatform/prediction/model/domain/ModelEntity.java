@@ -16,7 +16,7 @@
  * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
-package org.exoplatform.prediction.user.domain;
+package org.exoplatform.prediction.model.domain;
 
 import java.io.Serializable;
 import java.util.Date;
@@ -62,7 +62,7 @@ public class ModelEntity implements Serializable {
   private static final long serialVersionUID = 8773314714414238636L;
 
   public enum Status {
-    NEW, PROCESSING, READY
+    NEW, PROCESSING, READY, ARCHIEVED, RETRY, FAILED
   }
 
   @Id
@@ -71,7 +71,7 @@ public class ModelEntity implements Serializable {
 
   @Id
   @Column(name = "VERSION", nullable = false)
-  @GenericGenerator(name = "SEQ_ST_MODEL_VERSION", strategy = "org.exoplatform.prediction.user.domain.VersionGenerator")
+  @GenericGenerator(name = "SEQ_ST_MODEL_VERSION", strategy = "org.exoplatform.prediction.model.domain.ModelVersionGenerator")
   @GeneratedValue(generator = "SEQ_ST_MODEL_VERSION")
   protected Long   version;
 

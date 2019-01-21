@@ -22,7 +22,7 @@
   </component>
 
   <component>
-    <type>org.exoplatform.prediction.user.dao.ModelEntityDAO</type>
+    <type>org.exoplatform.prediction.model.dao.ModelEntityDAO</type>
   </component>
 
   <component>

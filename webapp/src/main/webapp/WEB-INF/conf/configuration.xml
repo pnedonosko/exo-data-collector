@@ -21,6 +21,12 @@
 
   <component>
     <type>org.exoplatform.datacollector.SocialDataCollectorService</type>
+    <init-params>
+         <value-param>
+            <name>manual-mode</name>
+            <value>true</value>
+         </value-param>
+      </init-params>
   </component>
   <component>
     <type>org.exoplatform.datacollector.rest.RESTSocialDataCollectorService</type>
@@ -43,7 +49,7 @@
   </component>
 
   <component>
-    <type>org.exoplatform.prediction.user.dao.ModelEntityDAO</type>
+    <type>org.exoplatform.prediction.model.dao.ModelEntityDAO</type>
   </component>
 
   <external-component-plugins>
