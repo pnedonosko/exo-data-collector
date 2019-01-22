@@ -229,9 +229,41 @@ public class TrainingService implements Startable {
     }
   }
 
-  public void trainModel(File dataset, String userName) {
-    // TODO: set PROCESSING status before train
+  public void submitTrainModel(String dataset, String userName) {
+    setProcessing(userName);
+    // If the training fails
+    if (!trainModel(new File(dataset), userName)) {
+      ModelEntity currentModel = getLastModel(userName);
+      if (currentModel != null) {
+        ModelEntity prevModel = modelEntityDAO.find(new ModelId(userName, currentModel.getVersion() - 1L));
+        if (prevModel != null && Status.READY.equals(prevModel.getStatus())) {
+          LOG.info("Retraining model for {}", userName);
+          // Retrain model
+          if (!trainModel(new File(dataset), userName)) {
+            LOG.warn("Model {} failed in retraining. Set status FAILED", userName);
+            currentModel.setStatus(Status.FAILED);
+            modelEntityDAO.update(currentModel);
+          }
+        } else {
+          LOG.warn("Model {} got status FAILED (training)", userName);
+          currentModel.setStatus(Status.FAILED);
+          modelEntityDAO.update(currentModel);
+        }
+      } else {
+        LOG.warn("Cannot find last model for {}", userName);
+      }
 
+    }
+
+  }
+
+  /**
+   * Trains a model.
+   * @param dataset user dataset
+   * @param userName userName
+   * @return true if success
+   */
+  protected boolean trainModel(File dataset, String userName) {
     // Train model
     String modelFolder = trainingExecutor.train(dataset, trainingScriptPath);
     // Check if model trained without errors
@@ -245,17 +277,17 @@ public class TrainingService implements Startable {
           LOG.info("Model {} successfuly trained", userName);
           ModelEntity model = getLastModel(userName);
           activateModel(userName, model.getVersion(), modelFolder);
-        } else {
-          LOG.warn("Model {} failed in training", userName);
+          return true;
         }
+        LOG.warn("Model {} failed in training", userName);
       } catch (ParseException e) {
         LOG.warn("Model {} failed in training. Couldn't parse the model.json file", userName);
       } catch (IOException e) {
         LOG.warn("Model {} failed in training. Couldn't read the model.json file", userName);
       }
-    } else {
-      LOG.warn("The model.json file is not found after training for model {}", userName);
     }
+    LOG.warn("The model.json file is not found after training for model {}", userName);
+    return false;
 
   }
 
@@ -300,6 +332,11 @@ public class TrainingService implements Startable {
     } else {
       LOG.info("Cannot set RETRY status to the model {} - model not found", userName);
     }
-    
+
+  }
+
+  public void update(ModelEntity entity) {
+    modelEntityDAO.update(entity);
+
   }
 }

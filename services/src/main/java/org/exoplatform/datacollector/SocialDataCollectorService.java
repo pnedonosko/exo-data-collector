@@ -187,15 +187,17 @@ public class SocialDataCollectorService implements Startable {
    * execution in TRAIN_PERIOD ms.
    */
   public class BucketWorker extends ContainerCommand {
-
     public BucketWorker(String containerName) {
       super(containerName);
     }
 
     @Override
     void execute(ExoContainer exoContainer) {
-      currentBucketIndex++;
-      LOG.info("Bucket processing time! Current bucket: prod-{}", currentBucketIndex);
+      if (!stopCollecting) {
+        currentBucketIndex++;
+        LOG.info("Bucket processing time! Current bucket: {}", BUCKET_PREFIX + currentBucketIndex);
+      }
+
       Map<String, Date> targetUsers = getTargetUsers();
 
       while (!loginsQueue.isEmpty() && !stopCollecting) {
@@ -239,7 +241,18 @@ public class SocialDataCollectorService implements Startable {
      * @return true, if model needs (re)training, otherwise - false
      */
     boolean modelNeedsTraining(ModelEntity model, Date loginDate) {
-      return model == null || model.getActivated() == null
+      // TODO: refactor statements
+      if(model == null) {
+        return true;
+      }
+      if(Status.RETRY.equals(model.getStatus())) {
+        return true;
+      }
+      if(Status.FAILED.equals(model.getStatus()) || Status.PROCESSING.equals(model.getStatus())) {
+        return false;
+      }
+      
+      return model.getActivated() == null
           || Math.abs(model.getActivated().getTime() - loginDate.getTime()) > TRAIN_PERIOD;
     }
   }
@@ -256,6 +269,7 @@ public class SocialDataCollectorService implements Startable {
     @Override
     void execute(ExoContainer exoContainer) {
       super.execute(exoContainer);
+      // TODO: check if the listener is already added
       listenerService.addListener(new LoginListener());
     }
 
@@ -475,6 +489,8 @@ public class SocialDataCollectorService implements Startable {
     if (!configManualMode) {
       final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
       workers.submit(new StartWorker(containerName));
+    } else {
+      stopCollecting = true;
     }
   }
 
@@ -490,31 +506,31 @@ public class SocialDataCollectorService implements Startable {
    * Stops the main loop within the collecting and training is executed
    * @return true if success, false - if the main loop is already stopped
    */
-  public boolean stopCollecting() {
+  public void stopCollecting() throws Exception {
     if (stopCollecting) {
       LOG.info("Collecting and training user models are already stopped");
-      return false;
+      throw new Exception("Collecting and training user models are already stopped");
     }
-    LOG.info("Collecting and training user models have been stopped");
     stopCollecting = true;
-    return true;
+    LOG.info("Collecting and training user models have been stopped");
+
   }
 
   /**
    * Runs the main loop within the collecting and training is executed
    * @return true, if success
    */
-  public boolean runCollecting() {
+  public void runCollecting() throws Exception {
     if (stopCollecting) {
       LOG.info("Starting collecting and training user models");
       stopCollecting = false;
       final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
       workers.submit(new StartWorker(containerName));
-      return true;
+    } else {
+      LOG.warn("Collecting and training is already started");
+      throw new Exception("Collecting and training is already started");
     }
 
-    LOG.warn("Collecting and training is already started");
-    return false;
   }
 
   /**
@@ -529,13 +545,21 @@ public class SocialDataCollectorService implements Startable {
       void execute(ExoContainer exoContainer) {
         String dataset = collectUserActivities(bucket, userName);
         if (dataset != null && train) {
-          trainingService.setProcessing(userName);
-          trainingService.trainModel(new File(dataset), userName);
+          trainingService.submitTrainModel(dataset, userName);
         }
-        if(dataset == null) {
-          // TODO: if RETRY is already set - set FAIL
-          trainingService.setRetry(userName);
-          LOG.warn("Collecting the dataset for model {} failed.", userName);
+        if (dataset == null) {
+          ModelEntity currentModel = trainingService.getLastModel(userName);
+          if(Status.RETRY.equals(currentModel.getStatus())) {
+            currentModel.setStatus(Status.FAILED);
+            LOG.warn("Model {} got status FAILED. Cannot collect dataset. ", userName);
+          }
+          else {
+            currentModel.setStatus(Status.RETRY);
+            bucketRecords.put(userName, new Date());
+            loginsQueue.add(userName);
+            LOG.warn("Model {} got status RETRY. Cannot collect dataset. Added to next bucket ", userName);
+          }
+          trainingService.update(currentModel);
         }
       }
 
@@ -583,10 +607,10 @@ public class SocialDataCollectorService implements Startable {
         LOG.error("Error removing canceled bucketRecords folder: {}", bucketName);
       }
       return null;
-    } else {
-      LOG.info("Saved dataset successfully into bucketRecords folder: {}", bucketDir.getAbsolutePath());
-      return bucketDir.getAbsolutePath();
     }
+    LOG.info("Saved dataset successfully into bucketRecords folder: {}", bucketDir.getAbsolutePath());
+    return bucketDir.getAbsolutePath();
+
   }
 
   /**

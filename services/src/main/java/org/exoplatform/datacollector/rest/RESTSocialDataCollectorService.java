@@ -27,7 +27,6 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
 
 import org.exoplatform.datacollector.SocialDataCollectorService;
 import org.exoplatform.services.log.ExoLogger;
@@ -53,9 +52,9 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   }
 
   /**
-   * Start the collector.
+   * Starts collecting and training models for all users of the platform
    *
-   * @return response 200 which contains relevanceEntity or 404
+   * @return response 200 which contains status OK and bucketName, or status ERROR
    */
   @GET
   // @RolesAllowed("administrators") // TODO only super users in PROD mode
@@ -65,40 +64,79 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
     try {
       String bucketPath = dataCollector.collectUsersActivities(bucketName);
       String actualBucketName = bucketPath.substring(bucketPath.lastIndexOf(File.separator));
-      return Response.ok().entity("{\"bucketname\":\"" + actualBucketName + "\"}").build();
+      return Response.ok().entity("{ \"status\": \"OK\", \"bucketName\": " + actualBucketName + " }").build();
     } catch (Exception e) {
       LOG.error("Error collecting user activities into " + bucketName, e);
-      return Response.serverError().entity("{\"error\":\"Error collecting user activities\"}").build();
+      return Response.serverError().entity("{\"status\":\"Error collecting user activities\"}").build();
     }
   }
 
   /**
-   * Start the user collector.
+   * Start the collecting and training for the particular user
    *
    * @param bucketName the bucket name
    * @param userName the user name
-   * @return response 200 which contains relevanceEntity or 404
+   * @return response status ACCEPTED and userFolder
    */
   @GET
   // @RolesAllowed("administrators") // TODO only super users in PROD mode
   @RolesAllowed("users")
   @Path("/run/{bucketname}/{username}")
+  public Response runCollectAndTrain(@PathParam("bucketname") String bucketName, @PathParam("username") String userName) {
+    dataCollector.submitModelProcessing(userName, bucketName, true);
+    return Response.ok().entity("{ \"status\": \"ACCEPTED\", \"userFoler\": " + bucketName + "/" + userName + "}").build();
+  }
+
+  /**
+   * Start the collecting for the particular user
+   *
+   * @param bucketName the bucket name
+   * @param userName the user name
+   * @return response status ACCEPTED and userFolder
+   */
+  @GET
+  // @RolesAllowed("administrators") // TODO only super users in PROD mode
+  @RolesAllowed("users")
+  @Path("/collect/{bucketname}/{username}")
   public Response runCollect(@PathParam("bucketname") String bucketName, @PathParam("username") String userName) {
+    dataCollector.submitModelProcessing(userName, bucketName, false);
+    return Response.ok().entity("{ \"status\": \"ACCEPTED\", \"userFoler\": " + bucketName + "/" + userName + "}").build();
+  }
+
+  /**
+   * Start the main loop with collecting and training
+   *
+   * @return response status OK or error
+   */
+  @GET
+  // @RolesAllowed("administrators") // TODO only super users in PROD mode
+  @RolesAllowed("users")
+  @Path("/main/run")
+  public Response run() {
     try {
-      String filePath = dataCollector.collectUserActivities(bucketName, userName);
-      if (filePath != null) {
-        String actualFileName = filePath.substring(filePath.substring(0, filePath.lastIndexOf(File.separator + userName))
-                                                           .lastIndexOf(File.separator));
-        return Response.ok().entity("{\"filename\":\"" + actualFileName + "\"}").build();
-      } else {
-        return Response.status(Status.BAD_REQUEST).entity("{\"error\":\"Wrong parameters\"}").build();
-      }
+      dataCollector.runCollecting();
+      return Response.ok().entity("{ \"status\": \"OK\"}").build();
     } catch (Exception e) {
-      LOG.error("Error collecting user activities into " + bucketName, e);
-      return Response.serverError().entity("{\"error\":\"Error collecting user activities\"}").build();
+      return Response.ok().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
     }
   }
-  
-  
+
+  /**
+   * Stops the main loop with collecting and training
+   *
+   * @return response status OK or error
+   */
+  @GET
+  // @RolesAllowed("administrators") // TODO only super users in PROD mode
+  @RolesAllowed("users")
+  @Path("/main/stop")
+  public Response stop() {
+    try {
+      dataCollector.stopCollecting();
+      return Response.ok().entity("{ \"status\": \"OK\"}").build();
+    } catch (Exception e) {
+      return Response.ok().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
+    }
+  }
 
 }
