@@ -62,7 +62,7 @@ public class ModelEntity implements Serializable {
   private static final long serialVersionUID = 8773314714414238636L;
 
   public enum Status {
-    NEW, PROCESSING, READY, ARCHIEVED, RETRY, FAILED
+    NEW, PROCESSING, READY, ARCHIEVED, RETRY, FAILED_DATASET, FAILED_TRAINING
   }
 
   @Id

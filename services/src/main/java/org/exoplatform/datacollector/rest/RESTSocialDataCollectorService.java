@@ -83,8 +83,12 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   @RolesAllowed("users")
   @Path("/run/{bucketname}/{username}")
   public Response runCollectAndTrain(@PathParam("bucketname") String bucketName, @PathParam("username") String userName) {
-    dataCollector.submitModelProcessing(userName, bucketName, true);
-    return Response.ok().entity("{ \"status\": \"ACCEPTED\", \"userFoler\": " + bucketName + "/" + userName + "}").build();
+    try {
+      dataCollector.startManualCollecting(userName, bucketName, true);
+      return Response.ok().entity("{ \"status\": \"ACCEPTED\", \"userFoler\": " + bucketName + "/" + userName + "}").build();
+    } catch (Exception e) {
+      return Response.serverError().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
+    }
   }
 
   /**
@@ -99,8 +103,13 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   @RolesAllowed("users")
   @Path("/collect/{bucketname}/{username}")
   public Response runCollect(@PathParam("bucketname") String bucketName, @PathParam("username") String userName) {
-    dataCollector.submitModelProcessing(userName, bucketName, false);
-    return Response.ok().entity("{ \"status\": \"ACCEPTED\", \"userFoler\": " + bucketName + "/" + userName + "}").build();
+    try {
+      dataCollector.startManualCollecting(userName, bucketName, false);
+      return Response.ok().entity("{ \"status\": \"ACCEPTED\", \"userFoler\": " + bucketName + "/" + userName + "}").build();
+    } catch (Exception e) {
+      return Response.serverError().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
+    }
+
   }
 
   /**
@@ -117,7 +126,7 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
       dataCollector.runCollecting();
       return Response.ok().entity("{ \"status\": \"OK\"}").build();
     } catch (Exception e) {
-      return Response.ok().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
+      return Response.serverError().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
     }
   }
 
@@ -135,7 +144,7 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
       dataCollector.stopCollecting();
       return Response.ok().entity("{ \"status\": \"OK\"}").build();
     } catch (Exception e) {
-      return Response.ok().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
+      return Response.serverError().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
     }
   }
 

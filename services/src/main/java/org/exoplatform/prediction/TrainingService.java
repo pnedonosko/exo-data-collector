@@ -229,7 +229,14 @@ public class TrainingService implements Startable {
     }
   }
 
+  /**
+   * Submits model training. If the training fails, trains one more time.
+   * If fails again, model gets FAILED_TRAINING status
+   * @param dataset
+   * @param userName
+   */
   public void submitTrainModel(String dataset, String userName) {
+    // TODO sync manual and auto training
     setProcessing(userName);
     // If the training fails
     if (!trainModel(new File(dataset), userName)) {
@@ -240,13 +247,13 @@ public class TrainingService implements Startable {
           LOG.info("Retraining model for {}", userName);
           // Retrain model
           if (!trainModel(new File(dataset), userName)) {
-            LOG.warn("Model {} failed in retraining. Set status FAILED", userName);
-            currentModel.setStatus(Status.FAILED);
+            LOG.warn("Model {} failed in retraining. Set status FAILED_TRAINING", userName);
+            currentModel.setStatus(Status.FAILED_TRAINING);
             modelEntityDAO.update(currentModel);
           }
         } else {
-          LOG.warn("Model {} got status FAILED (training)", userName);
-          currentModel.setStatus(Status.FAILED);
+          LOG.warn("Model {} got status FAILED_TRAINING", userName);
+          currentModel.setStatus(Status.FAILED_TRAINING);
           modelEntityDAO.update(currentModel);
         }
       } else {

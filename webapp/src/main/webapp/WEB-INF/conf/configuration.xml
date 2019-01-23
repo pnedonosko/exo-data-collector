@@ -22,11 +22,11 @@
   <component>
     <type>org.exoplatform.datacollector.SocialDataCollectorService</type>
     <init-params>
-         <value-param>
-            <name>manual-mode</name>
-            <value>true</value>
-         </value-param>
-      </init-params>
+      <value-param>
+        <name>manual-mode</name>
+        <value>true</value>
+      </value-param>
+    </init-params>
   </component>
   <component>
     <type>org.exoplatform.datacollector.rest.RESTSocialDataCollectorService</type>
@@ -69,18 +69,18 @@
   </external-component-plugins>
 
   <!-- NativeTrainingExecutor provider plugin -->
-  <external-component-plugins>
+  <!--external-component-plugins>
     <target-component>org.exoplatform.prediction.TrainingService</target-component>
     <component-plugin>
-      <name>set.nativeexecutor</name>
-      <set-method>addPlugin</set-method>
-      <type>org.exoplatform.prediction.NativeTrainingExecutor</type>
-      <description>Native training executor calls the training script natively on host machine using bash.</description>
+    <name>set.nativeexecutor</name>
+    <set-method>addPlugin</set-method>
+    <type>org.exoplatform.prediction.NativeTrainingExecutor</type>
+    <description>Native training executor calls the training script natively on host machine using bash.</description>
     </component-plugin>
-  </external-component-plugins>
-  
-    <!-- DockerTrainingExecutor provider plugin -->
-  <!-- external-component-plugins>
+    </external-component-plugins -->
+
+  <!-- DockerTrainingExecutor provider plugin -->
+  <external-component-plugins>
     <target-component>org.exoplatform.prediction.TrainingService</target-component>
     <component-plugin>
       <name>set.dockerexecutor</name>
@@ -88,6 +88,6 @@
       <type>org.exoplatform.prediction.DockerTrainingExecutor</type>
       <description>Native training executor runs the training script in docker container.</description>
     </component-plugin>
-  </external-component-plugins -->
+  </external-component-plugins>
 
 </configuration>

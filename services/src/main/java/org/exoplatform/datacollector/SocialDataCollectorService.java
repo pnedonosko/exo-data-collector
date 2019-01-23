@@ -242,18 +242,19 @@ public class SocialDataCollectorService implements Startable {
      */
     boolean modelNeedsTraining(ModelEntity model, Date loginDate) {
       // TODO: refactor statements
-      if(model == null) {
+      if (model == null) {
         return true;
       }
-      if(Status.RETRY.equals(model.getStatus())) {
+      if (Status.RETRY.equals(model.getStatus())) {
         return true;
       }
-      if(Status.FAILED.equals(model.getStatus()) || Status.PROCESSING.equals(model.getStatus())) {
+      if (Status.FAILED_DATASET.equals(model.getStatus()) 
+          || Status.FAILED_TRAINING.equals(model.getStatus())
+          || Status.PROCESSING.equals(model.getStatus())) {
         return false;
       }
-      
-      return model.getActivated() == null
-          || Math.abs(model.getActivated().getTime() - loginDate.getTime()) > TRAIN_PERIOD;
+
+      return model.getActivated() == null || Math.abs(model.getActivated().getTime() - loginDate.getTime()) > TRAIN_PERIOD;
     }
   }
 
@@ -501,6 +502,13 @@ public class SocialDataCollectorService implements Startable {
   public void stop() {
     // Nothing
   }
+  
+  public void startManualCollecting(String userName, String bucket, boolean train) throws Exception {
+    if(bucket == null || bucket.startsWith(BUCKET_PREFIX)) {
+      throw new Exception("Bucket name cannot be null or start with " + BUCKET_PREFIX);
+    }
+    submitModelProcessing(userName, bucket, train);
+  }
 
   /**
    * Stops the main loop within the collecting and training is executed
@@ -538,7 +546,7 @@ public class SocialDataCollectorService implements Startable {
    * @param userName
    * @param train if true - trains model
    */
-  public void submitModelProcessing(String userName, String bucket, boolean train) {
+  protected void submitModelProcessing(String userName, String bucket, boolean train) {
     final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
     workers.submit(new ContainerCommand(containerName) {
       @Override
@@ -549,11 +557,10 @@ public class SocialDataCollectorService implements Startable {
         }
         if (dataset == null) {
           ModelEntity currentModel = trainingService.getLastModel(userName);
-          if(Status.RETRY.equals(currentModel.getStatus())) {
-            currentModel.setStatus(Status.FAILED);
-            LOG.warn("Model {} got status FAILED. Cannot collect dataset. ", userName);
-          }
-          else {
+          if (Status.RETRY.equals(currentModel.getStatus())) {
+            currentModel.setStatus(Status.FAILED_DATASET);
+            LOG.warn("Model {} got status FAILED_DATASET. Cannot collect dataset. ", userName);
+          } else {
             currentModel.setStatus(Status.RETRY);
             bucketRecords.put(userName, new Date());
             loginsQueue.add(userName);
