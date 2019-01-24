@@ -191,15 +191,18 @@ public class TrainingService implements Startable {
   private void unpackTrainingScripts() {
     URL trainingScript = this.getClass().getClassLoader().getResource("scripts/user_feed_train.py");
     URL datasetutils = this.getClass().getClassLoader().getResource("scripts/datasetutils.py");
-
+    URL dockerScript = this.getClass().getClassLoader().getResource("scripts/docker_train.sh");
     try {
       File localTrainingScript = new File(System.getProperty("java.io.tmpdir") + "/user_feed_train.py");
       File localDatasetutils = new File(System.getProperty("java.io.tmpdir") + "/datasetutils.py");
+      File localDockerScript = new File(System.getProperty("java.io.tmpdir") + "/docker_train.sh");
+
       FileUtils.copyURLToFile(trainingScript, localTrainingScript);
       FileUtils.copyURLToFile(datasetutils, localDatasetutils);
+      FileUtils.copyURLToFile(dockerScript, localDockerScript);
       localTrainingScript.deleteOnExit();
       localDatasetutils.deleteOnExit();
-
+      localDockerScript.deleteOnExit();
       trainingScriptPath = localTrainingScript.getAbsolutePath();
     } catch (IOException e) {
       LOG.error("Couldn't unpack the training scripts: " + e.getMessage());
@@ -280,7 +283,7 @@ public class TrainingService implements Startable {
       try {
         JSONObject resultModel = (JSONObject) parser.parse(new FileReader(modelFile));
         String result = (String) resultModel.get("status");
-        if (Status.READY.equals(result)) {
+        if (Status.READY.name().equals(result)) {
           LOG.info("Model {} successfuly trained", userName);
           ModelEntity model = getLastModel(userName);
           activateModel(userName, model.getVersion(), modelFolder);

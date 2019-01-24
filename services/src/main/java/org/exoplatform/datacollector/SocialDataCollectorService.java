@@ -661,7 +661,7 @@ public class SocialDataCollectorService implements Startable {
    * @param dest new folder
    */
   protected void copyModelFile(ModelEntity model, File dest) {
-    if (model != null && model.getModelFile() != null && model.getStatus().equals(Status.READY)) {
+    if (model != null && model.getModelFile() != null && model.getStatus().equals(Status.READY.name())) {
       try {
         FileUtils.copyDirectoryToDirectory(new File(model.getModelFile()), dest);
         LOG.info("Old model file copied for {}", model.getName());
