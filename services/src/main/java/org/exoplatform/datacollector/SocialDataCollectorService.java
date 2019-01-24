@@ -248,8 +248,7 @@ public class SocialDataCollectorService implements Startable {
       if (Status.RETRY.equals(model.getStatus())) {
         return true;
       }
-      if (Status.FAILED_DATASET.equals(model.getStatus()) 
-          || Status.FAILED_TRAINING.equals(model.getStatus())
+      if (Status.FAILED_DATASET.equals(model.getStatus()) || Status.FAILED_TRAINING.equals(model.getStatus())
           || Status.PROCESSING.equals(model.getStatus())) {
         return false;
       }
@@ -502,12 +501,26 @@ public class SocialDataCollectorService implements Startable {
   public void stop() {
     // Nothing
   }
-  
+
+  /**
+   * Starts manual collecting and training a user's model.
+   * @param userName userName
+   * @param bucket bucket name
+   * @param train trains the model if true
+   * @throws Exception is thrown if the bucket is incorrect or user is not found or user's model is being processed
+   */
   public void startManualCollecting(String userName, String bucket, boolean train) throws Exception {
-    if(bucket == null || bucket.startsWith(BUCKET_PREFIX)) {
+    if (bucket == null || bucket.startsWith(BUCKET_PREFIX)) {
       throw new Exception("Bucket name cannot be null or start with " + BUCKET_PREFIX);
     }
-    submitModelProcessing(userName, bucket, train);
+
+    ModelEntity model = trainingService.getLastModel(userName);
+    if (model != null && !Status.NEW.equals(model.getStatus()) && !Status.PROCESSING.equals(model.getStatus())) {
+      submitModelProcessing(userName, bucket, train);
+    } else {
+      throw new Exception("The user is not found or being processed right now");
+    }
+
   }
 
   /**
