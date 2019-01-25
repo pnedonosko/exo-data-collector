@@ -76,15 +76,14 @@ public class TrainingService implements Startable {
    * @param userName the user name
    * @param datasetFile the dataset file
    */
-  public void addModel(String userName, String datasetFile) {
+  public void addModel(String userName, String dataset) {
     ModelEntity currentModel = getLastModel(userName);
     if (currentModel != null) {
       if (currentModel.getStatus() == Status.NEW || currentModel.getStatus() == Status.PROCESSING) {
         deleteModel(currentModel);
       }
     }
-
-    ModelEntity newModel = new ModelEntity(userName, datasetFile);
+    ModelEntity newModel = new ModelEntity(userName, dataset);
     modelEntityDAO.create(newModel);
   }
 
@@ -227,7 +226,6 @@ public class TrainingService implements Startable {
           LOG.warn("Cannot delete model folder: " + model.getModelFile());
         }
       }
-
       modelEntityDAO.delete(model);
     }
   }
@@ -262,9 +260,7 @@ public class TrainingService implements Startable {
       } else {
         LOG.warn("Cannot find last model for {}", userName);
       }
-
     }
-
   }
 
   /**
@@ -348,5 +344,12 @@ public class TrainingService implements Startable {
   public void update(ModelEntity entity) {
     modelEntityDAO.update(entity);
 
+  }
+
+  public void setDatasetToLatestModel(String userName, String dataset) {
+    ModelEntity lastModel = getLastModel(userName);
+    if(lastModel != null) {
+      lastModel.setDatasetFile(dataset);
+    }
   }
 }

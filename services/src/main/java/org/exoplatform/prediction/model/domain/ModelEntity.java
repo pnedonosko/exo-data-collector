@@ -52,8 +52,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " WHERE m.name = :name GROUP BY m.name"),
     @NamedQuery(name = "PredictionModel.findStatusByNameAndVersion", query = "SELECT m.status FROM PredictionModel m"
         + " WHERE m.name = :name AND m.version = :version"),
-    @NamedQuery(name = "PredictionModel.findByName", query = "SELECT m FROM PredictionModel m"
-        + " WHERE m.name = :name")})
+    @NamedQuery(name = "PredictionModel.findByName", query = "SELECT m FROM PredictionModel m" + " WHERE m.name = :name") })
 public class ModelEntity implements Serializable {
 
   /**
@@ -98,10 +97,10 @@ public class ModelEntity implements Serializable {
 
   }
 
-  public ModelEntity(String name, String datasetFile) {
+  public ModelEntity(String name, String dataset) {
     super();
     this.name = name;
-    this.datasetFile = datasetFile;
+    this.datasetFile = dataset;
     this.status = Status.NEW;
   }
 
