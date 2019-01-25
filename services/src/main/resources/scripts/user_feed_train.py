@@ -6,12 +6,6 @@ import datetime
 
 import json
 
-from IPython import display
-from matplotlib import cm
-from matplotlib import gridspec
-from matplotlib import pyplot as plt
-import numpy as np
-import pandas as pd
 from sklearn import metrics
 import tensorflow as tf
 from tensorflow.python.data import Dataset
@@ -67,22 +61,10 @@ def train_model(learning_rate, steps, batch_size, input_feature):
     model_dir=my_model_dir
   )
 
-  # Set up to plot the state of our model's line each period.
-  plt.figure(figsize=(15, 6))
-  plt.subplot(1, 2, 1)
-  plt.title("Learned Line by Period")
-  plt.ylabel(my_label)
-  plt.xlabel(my_feature)
-  # Change n to 1000 in prod mode
-  sample = feed_dataframe.sample(n=10)
-  plt.scatter(sample[my_feature], sample[my_label])
-  colors = [cm.coolwarm(x) for x in np.linspace(-1, 1, periods)]
-
   # Train the model, but do so inside a loop so that we can periodically assess
   # loss metrics.
   print("Training model...")
   print("RMSE (on training data):")
-  root_mean_squared_errors = []
   trainstarttime = datetime.datetime.now()
   for period in range(0, periods):
     iterstarttime = datetime.datetime.now()
@@ -102,38 +84,15 @@ def train_model(learning_rate, steps, batch_size, input_feature):
     print("  period %02d : %0.2f" % (period, root_mean_squared_error))
     iterdonetime = datetime.datetime.now()
     print("Analysed data in {}ms".format(deltatime_ms(iterdonetime, iterstarttime)))
-    # Add the loss metrics from this period to our list.
-    root_mean_squared_errors.append(root_mean_squared_error)
-    # Finally, track the weights and biases over time.
-    # Apply some math to ensure that the data and line are plotted neatly.
-    y_extents = np.array([0, sample[my_label].max()])
-
-    weight = linear_regressor.get_variable_value('linear/linear_model/%s/weights' % input_feature)[0]
-    bias = linear_regressor.get_variable_value('linear/linear_model/bias_weights')
-
-    x_extents = (y_extents - bias) / weight
-    x_extents = np.maximum(np.minimum(x_extents,
-                                      sample[my_feature].max()),
-                           sample[my_feature].min())
-    y_extents = weight * x_extents + bias
-    plt.plot(x_extents, y_extents, color=colors[period])
 
   print("Model training finished.")
   print("Training finished in {}ms".format(deltatime_ms(datetime.datetime.now(), trainstarttime)))
-
-  # Output a graph of loss metrics over periods.
-  plt.subplot(1, 2, 2)
-  plt.ylabel('RMSE')
-  plt.xlabel('Periods')
-  plt.title("Root Mean Squared Error vs. Periods")
-  plt.tight_layout()
-  plt.plot(root_mean_squared_errors)
 
   # Output a table with calibration data.
   calibration_data = pd.DataFrame()
   calibration_data["predictions"] = pd.Series(predictions)
   calibration_data["targets"] = pd.Series(targets)
-  display.display(calibration_data.describe(percentiles=[.10, .25, .5, .75, .90]))
+  print(calibration_data.describe(percentiles=[.10, .25, .5, .75, .90]))
 
   print("Final RMSE (on training data): %0.2f" % root_mean_squared_error)
 
