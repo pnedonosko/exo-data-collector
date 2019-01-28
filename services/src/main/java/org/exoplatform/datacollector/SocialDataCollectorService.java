@@ -557,7 +557,6 @@ public class SocialDataCollectorService implements Startable {
    * Adds user to the loginsQueue and bucketRecords for processing in the next bucket processing time.
    * @param userName to be added
    */
-
   public void addUser(String userName) {
     ModelEntity currentModel = trainingService.getLastModel(userName);
     // If model exists and is not being processed right now

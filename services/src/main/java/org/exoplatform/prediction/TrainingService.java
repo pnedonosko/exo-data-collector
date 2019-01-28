@@ -328,6 +328,10 @@ public class TrainingService implements Startable {
     }
   }
 
+  /**
+   * Sets RETRY status to the last model if exists
+   * @param userName the model name
+   */
   public void setRetry(String userName) {
     ModelEntity model = getLastModel(userName);
     if (model != null) {
@@ -340,11 +344,19 @@ public class TrainingService implements Startable {
 
   }
 
+  /**
+   * Updates ModelEntity
+   * @param entity to be updated
+   */
   public void update(ModelEntity entity) {
     modelEntityDAO.update(entity);
-
   }
 
+  /**
+   * Sets a dataset to the last model
+   * @param userName of model
+   * @param dataset to be set up
+   */
   public void setDatasetToLatestModel(String userName, String dataset) {
     ModelEntity lastModel = getLastModel(userName);
     if (lastModel != null) {
@@ -352,6 +364,11 @@ public class TrainingService implements Startable {
     }
   }
 
+  /**
+   * Gets the previous model of user
+   * @param userName the name of model
+   * @return previous model
+   */
   public ModelEntity getPreviousModel(String userName) {
     ModelEntity lastModel = getLastModel(userName);
     return lastModel != null ? modelEntityDAO.find(new ModelId(userName, lastModel.getVersion() - 1L)) : null;
