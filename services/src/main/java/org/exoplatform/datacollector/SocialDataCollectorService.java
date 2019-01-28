@@ -513,14 +513,12 @@ public class SocialDataCollectorService implements Startable {
     if (bucket == null || bucket.startsWith(BUCKET_PREFIX)) {
       throw new Exception("Bucket name cannot be null or start with " + BUCKET_PREFIX);
     }
-
     ModelEntity model = trainingService.getLastModel(userName);
-    if (model != null && !Status.NEW.equals(model.getStatus()) && !Status.PROCESSING.equals(model.getStatus())) {
+    if (model == null || !Status.NEW.equals(model.getStatus()) && !Status.PROCESSING.equals(model.getStatus())) {
       submitModelProcessing(userName, bucket, train);
     } else {
       throw new Exception("The user is not found or being processed right now");
     }
-
   }
 
   /**
@@ -551,46 +549,28 @@ public class SocialDataCollectorService implements Startable {
       LOG.warn("Collecting and training is already started");
       throw new Exception("Collecting and training is already started");
     }
-
   }
 
   /**
-   * Collects collecting user activities in separate worker. Trains model if necessary.
-   * @param userName
-   * @param train if true - trains model
+   * Adds user to the loginsQueue and bucketRecords for processing in the next bucket processing time.
+   * @param userName to be added
    */
-  protected void submitModelProcessing(String userName, String bucket, boolean train) {
-    final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
-    workers.submit(new ContainerCommand(containerName) {
-      @Override
-      void execute(ExoContainer exoContainer) {
-        if(train) {
-          trainingService.addModel(userName, null);
-        }
-        String dataset = collectUserActivities(bucket, userName);
-        if (dataset != null && train) {
-          trainingService.submitTrainModel(dataset, userName);
-        }
-        if (dataset == null) {
-          ModelEntity currentModel = trainingService.getLastModel(userName);
-          if (Status.RETRY.equals(currentModel.getStatus())) {
-            currentModel.setStatus(Status.FAILED_DATASET);
-            LOG.warn("Model {} got status FAILED_DATASET. Cannot collect dataset. ", userName);
-          } else {
-            currentModel.setStatus(Status.RETRY);
-            bucketRecords.put(userName, new Date());
-            loginsQueue.add(userName);
-            LOG.warn("Model {} got status RETRY. Cannot collect dataset. Added to next bucket ", userName);
-          }
-          trainingService.update(currentModel);
-        }
-      }
-
-      @Override
-      void onContainerError(String error) {
-        LOG.error("Container error has occured: {}", error);
-      }
-    });
+  public void addUser(String userName) {
+    ModelEntity currentModel = trainingService.getLastModel(userName);
+    // If model exists and is not being processed right now
+    if(currentModel != null && !Status.NEW.equals(currentModel.getStatus())
+        && !Status.PROCESSING.equals(currentModel.getStatus())) {
+      currentModel.setStatus(Status.RETRY);
+      trainingService.update(currentModel);
+      LOG.info("Model {} version {} got status RETRY.", currentModel.getName(), currentModel.getVersion());
+    }
+    if (!bucketRecords.containsKey(userName)) {
+      bucketRecords.put(userName, new Date());
+      loginsQueue.add(userName);
+      LOG.info("User {} has beed added to the main queue for collecting and training", userName);
+    } else {
+      LOG.info("User {} is already in the main queue for collecting and training", userName);
+    }
   }
 
   /**
@@ -645,15 +625,14 @@ public class SocialDataCollectorService implements Startable {
    * @param train trains model if true
    * @return the dataset file
    */
-  public String collectUserActivities(String bucketName, String userName) {
+  protected String collectUserActivities(String bucketName, String userName) {
     File bucketDir = openBucketDir(bucketName);
     LOG.info("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
       final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/" + id.getRemoteId() + ".csv");
       userFile.getParentFile().mkdirs();
-      // Copy old model file
-      copyModelFile(trainingService.getLastModel(userName), userFile.getParentFile());
+
       // Set the dataset path to the latest model in DB if exists
       trainingService.setDatasetToLatestModel(userName, userFile.getAbsolutePath());
 
@@ -669,6 +648,46 @@ public class SocialDataCollectorService implements Startable {
     }
     LOG.warn("User social identity not found for {}", userName);
     return null;
+  }
+
+  /**
+   * Collects collecting user activities in separate worker. Trains model if necessary.
+   * @param userName
+   * @param train if true - trains model
+   */
+  protected void submitModelProcessing(String userName, String bucket, boolean train) {
+    final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
+    workers.submit(new ContainerCommand(containerName) {
+      @Override
+      void execute(ExoContainer exoContainer) {
+        if (train) {
+          trainingService.addModel(userName, null);
+        }
+        String dataset = collectUserActivities(bucket, userName);
+        if (dataset != null && train) {
+          copyModelFile(trainingService.getPreviousModel(userName), new File(dataset).getParentFile());
+          trainingService.submitTrainModel(dataset, userName);
+        }
+        if (dataset == null) {
+          ModelEntity currentModel = trainingService.getLastModel(userName);
+          if (Status.RETRY.equals(currentModel.getStatus())) {
+            currentModel.setStatus(Status.FAILED_DATASET);
+            LOG.warn("Model {} got status FAILED_DATASET. Cannot collect dataset. ", userName);
+          } else {
+            currentModel.setStatus(Status.RETRY);
+            bucketRecords.put(userName, new Date());
+            loginsQueue.add(userName);
+            LOG.warn("Model {} got status RETRY. Cannot collect dataset. Added to next bucket ", userName);
+          }
+          trainingService.update(currentModel);
+        }
+      }
+
+      @Override
+      void onContainerError(String error) {
+        LOG.error("Container error has occured: {}", error);
+      }
+    });
   }
 
   /**
@@ -1507,4 +1526,5 @@ public class SocialDataCollectorService implements Startable {
 
     return bucketDir;
   }
+
 }

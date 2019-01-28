@@ -131,6 +131,20 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   }
 
   /**
+   * Adds user for processing in the main loop.
+   * 
+   * @return response status OK or error
+   */
+  @GET
+  // @RolesAllowed("administrators") // TODO only super users in PROD mode
+  @RolesAllowed("users")
+  @Path("/main/add/{username}")
+  public Response addUser(@PathParam("username") String userName) {
+    dataCollector.addUser(userName);
+    return Response.ok().entity("{ \"status\": \"OK\"}").build();
+  }
+
+  /**
    * Stops the main loop with collecting and training
    *
    * @return response status OK or error

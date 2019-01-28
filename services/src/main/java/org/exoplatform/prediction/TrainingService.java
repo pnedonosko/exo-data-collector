@@ -195,7 +195,6 @@ public class TrainingService implements Startable {
       File localTrainingScript = new File(System.getProperty("java.io.tmpdir") + "/user_feed_train.py");
       File localDatasetutils = new File(System.getProperty("java.io.tmpdir") + "/datasetutils.py");
       File localDockerScript = new File(System.getProperty("java.io.tmpdir") + "/docker_train.sh");
-
       FileUtils.copyURLToFile(trainingScript, localTrainingScript);
       FileUtils.copyURLToFile(datasetutils, localDatasetutils);
       FileUtils.copyURLToFile(dockerScript, localDockerScript);
@@ -348,8 +347,13 @@ public class TrainingService implements Startable {
 
   public void setDatasetToLatestModel(String userName, String dataset) {
     ModelEntity lastModel = getLastModel(userName);
-    if(lastModel != null) {
+    if (lastModel != null) {
       lastModel.setDatasetFile(dataset);
     }
+  }
+
+  public ModelEntity getPreviousModel(String userName) {
+    ModelEntity lastModel = getLastModel(userName);
+    return lastModel != null ? modelEntityDAO.find(new ModelId(userName, lastModel.getVersion() - 1L)) : null;
   }
 }
