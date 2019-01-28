@@ -123,7 +123,7 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   @Path("/main/run")
   public Response run() {
     try {
-      dataCollector.runCollecting();
+      dataCollector.startMainLoop();
       return Response.ok().entity("{ \"status\": \"OK\"}").build();
     } catch (Exception e) {
       return Response.serverError().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
@@ -155,7 +155,7 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   @Path("/main/stop")
   public Response stop() {
     try {
-      dataCollector.stopCollecting();
+      dataCollector.stopMainLoop();
       return Response.ok().entity("{ \"status\": \"OK\"}").build();
     } catch (Exception e) {
       return Response.serverError().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();

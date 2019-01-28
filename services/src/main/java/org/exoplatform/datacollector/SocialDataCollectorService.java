@@ -47,6 +47,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -178,7 +179,7 @@ public class SocialDataCollectorService implements Startable {
 
   protected static final String  BUCKET_PREFIX         = "prod-";
 
-  protected static final String  MANUAL_MODE_KEY       = "manual-mode";
+  protected static final String  AUTOSTART_MODE_PARAM  = "autostart";
 
   /**
    * The BucketWorker gets target users from login history or bucketRecords and
@@ -193,14 +194,14 @@ public class SocialDataCollectorService implements Startable {
 
     @Override
     void execute(ExoContainer exoContainer) {
-      if (!stopCollecting) {
+      if (runMainLoop.get()) {
         currentBucketIndex++;
         LOG.info("Bucket processing time! Current bucket: {}", BUCKET_PREFIX + currentBucketIndex);
       }
 
       Map<String, Date> targetUsers = getTargetUsers();
 
-      while (!loginsQueue.isEmpty() && !stopCollecting) {
+      while (!loginsQueue.isEmpty() && runMainLoop.get()) {
         String userName = loginsQueue.poll();
         Date loginDate = targetUsers.get(userName);
         LOG.info("Getting user from bucket: {}", userName);
@@ -214,7 +215,8 @@ public class SocialDataCollectorService implements Startable {
         }
         targetUsers.remove(userName);
       }
-      if (!stopCollecting) {
+
+      if (runMainLoop.get()) {
         timer.schedule(new BucketWorker(containerName), TRAIN_PERIOD);
       }
     }
@@ -400,11 +402,8 @@ public class SocialDataCollectorService implements Startable {
   /** The timer for scheduled tasks execution */
   protected final Timer                                     timer               = new Timer();
 
-  /** The manual mode for staring the main loop. It's set by config */
-  protected boolean                                         configManualMode    = false;
-
   /** The flag is used to stop the main loop **/
-  protected volatile boolean                                stopCollecting      = false;
+  protected AtomicBoolean                                   runMainLoop         = new AtomicBoolean(false);
 
   /**
    * Instantiates a new data collector service.
@@ -461,11 +460,12 @@ public class SocialDataCollectorService implements Startable {
 
     this.workers = createThreadExecutor(WORKER_THREAD_PREFIX, WORKER_MAX_FACTOR, WORKER_QUEUE_FACTOR);
 
-    ValueParam manualModeParam = initParams.getValueParam(MANUAL_MODE_KEY);
+    ValueParam autostartParam = initParams.getValueParam(AUTOSTART_MODE_PARAM);
     try {
-      this.configManualMode = Boolean.valueOf(manualModeParam.getValue());
+      String pval = autostartParam.getValue();
+      this.runMainLoop.set(pval != null ? Boolean.valueOf(pval.toUpperCase().toLowerCase()) : false);
     } catch (Exception e) {
-      LOG.warn("Cannot set manual mode to {}, using auto mode by default", manualModeParam.getValue());
+      LOG.warn("Cannot set manual mode to {}, using auto mode by default", autostartParam.getValue());
     }
   }
 
@@ -486,11 +486,9 @@ public class SocialDataCollectorService implements Startable {
       LOG.error("Cannot add the MembershipListener: {}", e.getMessage());
     }
 
-    if (!configManualMode) {
+    if (runMainLoop.get()) {
       final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
       workers.submit(new StartWorker(containerName));
-    } else {
-      stopCollecting = true;
     }
   }
 
@@ -504,10 +502,12 @@ public class SocialDataCollectorService implements Startable {
 
   /**
    * Starts manual collecting and training a user's model.
+   * 
    * @param userName userName
    * @param bucket bucket name
    * @param train trains the model if true
-   * @throws Exception is thrown if the bucket is incorrect or user is not found or user's model is being processed
+   * @throws Exception is thrown if the bucket is incorrect or user is not found
+   *           or user's model is being processed
    */
   public void startManualCollecting(String userName, String bucket, boolean train) throws Exception {
     if (bucket == null || bucket.startsWith(BUCKET_PREFIX)) {
@@ -522,43 +522,46 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Stops the main loop within the collecting and training is executed
-   * @return true if success, false - if the main loop is already stopped
+   * Stops the main loop (collecting and training).
+   *
+   * @return <code>true</code>, if successfully stopped, <code>false</code> if
+   *         already stopped
    */
-  public void stopCollecting() throws Exception {
-    if (stopCollecting) {
-      LOG.info("Collecting and training user models are already stopped");
-      throw new Exception("Collecting and training user models are already stopped");
+  public boolean stopMainLoop() {
+    if (runMainLoop.getAndSet(false)) {
+      LOG.info("Main loop (collecting and training user models) has been signaled for stopping");
+      return true;
     }
-    stopCollecting = true;
-    LOG.info("Collecting and training user models have been stopped");
-
+    LOG.warn("Main loop (collecting and training user models) already stopped");
+    return false;
   }
 
   /**
-   * Runs the main loop within the collecting and training is executed
-   * @return true, if success
+   * Start the main loop (collecting and training).
+   *
+   * @return <code>true</code>, if successfully started, <code>false</code> if
+   *         already started
    */
-  public void runCollecting() throws Exception {
-    if (stopCollecting) {
-      LOG.info("Starting collecting and training user models");
-      stopCollecting = false;
-      final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
-      workers.submit(new StartWorker(containerName));
-    } else {
-      LOG.warn("Collecting and training is already started");
-      throw new Exception("Collecting and training is already started");
+  public boolean startMainLoop() {
+    if (runMainLoop.getAndSet(true)) {
+      LOG.warn("Main loop (collecting and training user models) already started");
+      return false;
     }
+    LOG.info("Starting main loop (collecting and training user models)");
+    final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
+    workers.submit(new StartWorker(containerName));
+    return true;
   }
 
   /**
    * Adds user to the loginsQueue and bucketRecords for processing in the next bucket processing time.
    * @param userName to be added
    */
+
   public void addUser(String userName) {
     ModelEntity currentModel = trainingService.getLastModel(userName);
     // If model exists and is not being processed right now
-    if(currentModel != null && !Status.NEW.equals(currentModel.getStatus())
+    if (currentModel != null && !Status.NEW.equals(currentModel.getStatus())
         && !Status.PROCESSING.equals(currentModel.getStatus())) {
       currentModel.setStatus(Status.RETRY);
       trainingService.update(currentModel);
@@ -582,8 +585,8 @@ public class SocialDataCollectorService implements Startable {
    *
    * @param bucketName the bucketRecords name, can be <code>null</code> then a
    *          timestamped name will be created
-   * @return the saved bucketRecords folder or
-   *         <code>null</code> if error occured
+   * @return the saved bucketRecords folder or <code>null</code> if error
+   *         occured
    * @throws Exception the exception
    */
   public String collectUsersActivities(String bucketName) throws Exception {
@@ -692,6 +695,7 @@ public class SocialDataCollectorService implements Startable {
 
   /**
    * Copies model file to new destination. Only if model has status READY
+   * 
    * @param model contains model file to be copied
    * @param dest new folder
    */
