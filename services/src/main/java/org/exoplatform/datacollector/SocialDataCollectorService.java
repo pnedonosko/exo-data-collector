@@ -573,7 +573,7 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Collects collecting user activities in separate worker. Trains model if necesary.
+   * Collects collecting user activities in separate worker. Trains model if necessary.
    * @param userName
    * @param train if true - trains model
    */
@@ -582,6 +582,9 @@ public class SocialDataCollectorService implements Startable {
     workers.submit(new ContainerCommand(containerName) {
       @Override
       void execute(ExoContainer exoContainer) {
+        if(train) {
+          trainingService.addModel(userName, null);
+        }
         String dataset = collectUserActivities(bucket, userName);
         if (dataset != null && train) {
           trainingService.submitTrainModel(dataset, userName);
@@ -669,8 +672,8 @@ public class SocialDataCollectorService implements Startable {
       userFile.getParentFile().mkdirs();
       // Copy old model file
       copyModelFile(trainingService.getLastModel(userName), userFile.getParentFile());
-      // Add new model to DB
-      trainingService.addModel(userName, userFile.getAbsolutePath());
+      // Set the dataset path to the latest model in DB if exists
+      trainingService.setDatasetToLatestModel(userName, userFile.getAbsolutePath());
 
       try (PrintWriter writer = new PrintWriter(userFile)) {
         collectUserActivities(id, writer);
@@ -694,7 +697,7 @@ public class SocialDataCollectorService implements Startable {
    * @param dest new folder
    */
   protected void copyModelFile(ModelEntity model, File dest) {
-    if (model != null && model.getModelFile() != null && model.getStatus().equals(Status.READY.name())) {
+    if (model != null && model.getModelFile() != null && model.getStatus().equals(Status.READY)) {
       try {
         FileUtils.copyDirectoryToDirectory(new File(model.getModelFile()), dest);
         LOG.info("Old model file copied for {}", model.getName());
