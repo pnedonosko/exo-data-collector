@@ -73,7 +73,7 @@ def train_model(learning_rate, steps, batch_size, input_feature):
   plt.title("Learned Line by Period")
   plt.ylabel(my_label)
   plt.xlabel(my_feature)
-  # TODO Change n to 1000 in prod mode
+  # Change n to 1000 in prod mode
   sample = feed_dataframe.sample(n=10)
   plt.scatter(sample[my_feature], sample[my_label])
   colors = [cm.coolwarm(x) for x in np.linspace(-1, 1, periods)]
@@ -175,33 +175,12 @@ try :
   feed_dataframe = feed_dataframe.sample(frac=1)
   feed_dataframe.reset_index(drop=True)
 
-  plt.figure(figsize=(15, 6))
-
-  plt.subplot(1, 2, 1).set_title("owner_influence")
-  _ = feed_dataframe["owner_influence"].hist()
-  plt.subplot(1, 2, 2).set_title("poster_influence")
-  _ = feed_dataframe["poster_influence"].hist()
-
-  plt.figure(figsize=(15, 6))
-  plt.subplot(1, 2, 1).set_title("participant1_influence")
-  _ = feed_dataframe["participant1_influence"].hist()
-  plt.subplot(1, 2, 2).set_title("participant2_influence")
-  _ = feed_dataframe["participant2_influence"].hist()
-
-  plt.figure(figsize=(15, 6))
-  plt.subplot(1, 2, 1).set_title("poster_focus_engineering")
-  _ = feed_dataframe["poster_focus_engineering"].hist()
-  plt.subplot(1, 2, 2).set_title("poster_focus_other")
-  _ = feed_dataframe["poster_focus_other"].hist()
-
   # Train a model
   linear_regressor, calibration_data, rmse = train_model(
       learning_rate=0.0003,
       steps=600,
       batch_size=20,
       input_feature="activity_influence")
-
-  rmse = 0
 
   metadata = {
     "status" : "READY",
@@ -212,9 +191,9 @@ try :
   }
 
   # Display all graphs.
-  plt.show()
+  #plt.show()
 except (OSError, ValueError) as e:
-  print("Error: %s - %s." % (e.filename, e.strerror))
+  #print("Error: %s - %s." % (e.filename, e.strerror))
   metadata = {
     "status": "ERROR",
     "dataset": my_dataset_file,

@@ -16,7 +16,7 @@
  * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
-package org.exoplatform.prediction.user.domain;
+package org.exoplatform.prediction.model.domain;
 
 import java.io.Serializable;
 import java.util.Date;
@@ -52,8 +52,7 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
         + " WHERE m.name = :name GROUP BY m.name"),
     @NamedQuery(name = "PredictionModel.findStatusByNameAndVersion", query = "SELECT m.status FROM PredictionModel m"
         + " WHERE m.name = :name AND m.version = :version"),
-    @NamedQuery(name = "PredictionModel.findByName", query = "SELECT m FROM PredictionModel m"
-        + " WHERE m.name = :name")})
+    @NamedQuery(name = "PredictionModel.findByName", query = "SELECT m FROM PredictionModel m" + " WHERE m.name = :name") })
 public class ModelEntity implements Serializable {
 
   /**
@@ -62,7 +61,7 @@ public class ModelEntity implements Serializable {
   private static final long serialVersionUID = 8773314714414238636L;
 
   public enum Status {
-    NEW, PROCESSING, READY
+    NEW, PROCESSING, READY, ARCHIEVED, RETRY, FAILED_DATASET, FAILED_TRAINING
   }
 
   @Id
@@ -71,7 +70,7 @@ public class ModelEntity implements Serializable {
 
   @Id
   @Column(name = "VERSION", nullable = false)
-  @GenericGenerator(name = "SEQ_ST_MODEL_VERSION", strategy = "org.exoplatform.prediction.user.domain.VersionGenerator")
+  @GenericGenerator(name = "SEQ_ST_MODEL_VERSION", strategy = "org.exoplatform.prediction.model.domain.ModelVersionGenerator")
   @GeneratedValue(generator = "SEQ_ST_MODEL_VERSION")
   protected Long   version;
 
@@ -98,10 +97,10 @@ public class ModelEntity implements Serializable {
 
   }
 
-  public ModelEntity(String name, String datasetFile) {
+  public ModelEntity(String name, String dataset) {
     super();
     this.name = name;
-    this.datasetFile = datasetFile;
+    this.datasetFile = dataset;
     this.status = Status.NEW;
   }
 

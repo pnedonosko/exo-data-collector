@@ -1,12 +1,12 @@
-package org.exoplatform.prediction.user.dao;
+package org.exoplatform.prediction.model.dao;
 
 import javax.persistence.NoResultException;
 import javax.persistence.TypedQuery;
 
 import org.exoplatform.commons.persistence.impl.GenericDAOJPAImpl;
-import org.exoplatform.prediction.user.domain.ModelEntity;
-import org.exoplatform.prediction.user.domain.ModelEntity.Status;
-import org.exoplatform.prediction.user.domain.ModelId;
+import org.exoplatform.prediction.model.domain.ModelEntity;
+import org.exoplatform.prediction.model.domain.ModelId;
+import org.exoplatform.prediction.model.domain.ModelEntity.Status;
 
 public class ModelEntityDAO extends GenericDAOJPAImpl<ModelEntity, ModelId> {
 

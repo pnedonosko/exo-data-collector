@@ -1,4 +1,4 @@
-package org.exoplatform.prediction.user.domain;
+package org.exoplatform.prediction.model.domain;
 
 import java.io.Serializable;
 
@@ -12,7 +12,7 @@ import org.hibernate.id.IdentifierGenerator;
 
 import org.exoplatform.commons.persistence.impl.EntityManagerHolder;
 
-public class VersionGenerator implements IdentifierGenerator {
+public class ModelVersionGenerator implements IdentifierGenerator {
 
   @Override
   public Serializable generate(SessionImplementor session, Object object) throws HibernateException {
