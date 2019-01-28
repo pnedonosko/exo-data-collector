@@ -27,7 +27,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.ref.SoftReference;
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -67,6 +66,7 @@ import org.exoplatform.datacollector.dao.ActivityMentionedDAO;
 import org.exoplatform.datacollector.dao.ActivityPostedDAO;
 import org.exoplatform.datacollector.identity.SpaceIdentity;
 import org.exoplatform.datacollector.identity.UserIdentity;
+import org.exoplatform.datacollector.storage.FileStorage;
 import org.exoplatform.platform.gadget.services.LoginHistory.LastLoginBean;
 import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryBean;
 import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryService;
@@ -111,75 +111,73 @@ import org.exoplatform.social.core.storage.api.IdentityStorage;
 public class SocialDataCollectorService implements Startable {
 
   /** Logger */
-  private static final Log       LOG                   = ExoLogger.getExoLogger(SocialDataCollectorService.class);
+  private static final Log       LOG                  = ExoLogger.getExoLogger(SocialDataCollectorService.class);
 
-  public static final int        BATCH_SIZE            = 1000;
+  public static final int        BATCH_SIZE           = 1000;
 
-  public static final String     DUMMY_ID              = "0".intern();
+  public static final String     DUMMY_ID             = "0".intern();
 
-  public static final String     EMPTY_STRING          = "".intern();
+  public static final String     EMPTY_STRING         = "".intern();
 
   /**
    * Base minimum number of threads for worker thread executors.
    */
-  public static final int        MIN_THREADS           = 2;
+  public static final int        MIN_THREADS          = 2;
 
   /**
    * Minimal number of threads maximum possible for worker thread executors.
    */
-  public static final int        MIN_MAX_THREADS       = 4;
+  public static final int        MIN_MAX_THREADS      = 4;
 
   /** Thread idle time for thread executors (in seconds). */
-  public static final int        THREAD_IDLE_TIME      = 120;
+  public static final int        THREAD_IDLE_TIME     = 120;
 
   /**
    * Maximum threads per CPU for worker thread executors.
    */
-  public static final int        WORKER_MAX_FACTOR     = 2;
+  public static final int        WORKER_MAX_FACTOR    = 2;
 
   /**
    * Queue size per CPU for worker thread executors.
    */
-  public static final int        WORKER_QUEUE_FACTOR   = WORKER_MAX_FACTOR * 20;
+  public static final int        WORKER_QUEUE_FACTOR  = WORKER_MAX_FACTOR * 20;
 
   /**
    * Thread name used for worker thread.
    */
-  public static final String     WORKER_THREAD_PREFIX  = "datacollector-worker-thread-";
+  public static final String     WORKER_THREAD_PREFIX = "datacollector-worker-thread-";
 
-  protected static final Pattern ENGINEERING_PATTERN   =
+  protected static final Pattern ENGINEERING_PATTERN  =
                                                      Pattern.compile("^.*developer|architect|r&d|mobile|qa|fqa|tqa|test|quality|qualité|expert|integrator|designer|cwi|technical advisor|services delivery|software engineer.*$");
 
-  protected static final Pattern SALES_PATTERN         =
+  protected static final Pattern SALES_PATTERN        =
                                                Pattern.compile("^.*consultant|sales|client|support|sales engineer|demand generator.*$");
 
-  protected static final Pattern MARKETING_PATTERN     =
+  protected static final Pattern MARKETING_PATTERN    =
                                                    Pattern.compile("^.*brand|communication|marketing|customer success|user experience|.*$");
 
-  protected static final Pattern MANAGEMENT_PATTERN    =
+  protected static final Pattern MANAGEMENT_PATTERN   =
                                                     Pattern.compile("^.*officer|chief|founder|coo|cto|cio|evp|advisor|product manager|director|general manager.*$");
 
-  protected static final Pattern FINANCIAL_PATTERN     = Pattern.compile("^.*accountant|financial|investment|account manager.*$");
+  protected static final Pattern FINANCIAL_PATTERN    = Pattern.compile("^.*accountant|financial|investment|account manager.*$");
 
   /**
    * The Constant EMPLOYEES_GROUPID - TODO better make it configurable. For
    * /Groups/spaces/exo_employees.
    */
-  protected static final String  EMPLOYEES_GROUPID     = "/spaces/exo_employees";
+  protected static final String  EMPLOYEES_GROUPID    = "/spaces/exo_employees";
 
   /** The Constant for ACTIVE USERS virtual group. */
-  protected static final String  ACTIVE_USERS          = "$active_users";
+  protected static final String  ACTIVE_USERS         = "$active_users";
 
-  protected static final String  FILE_TIMESTAMP_FORMAT = "yyyy-MM-dd_HHmmss.SSSS";
-
-  protected static final Integer RECENT_LOGINS_COUNT   = 20;                                                                                                                                                                      // 3600000L;
+  protected static final Integer RECENT_LOGINS_COUNT  = 20;                                                                                                                                                                       // 3600000L;
 
   // 3 hours - 3 * 3600000L (3 min for testing purposes)
-  protected static final Long    TRAIN_PERIOD          = 3 * 60000L;                                                                                                                                                              // 3600000L;
+  protected static final Long    TRAIN_PERIOD         = 3 * 60000L;                                                                                                                                                               // 3600000L;
 
-  protected static final String  BUCKET_PREFIX         = "prod-";
+  protected static final String  BUCKET_PREFIX        = "prod-";
 
-  protected static final String  AUTOSTART_MODE_PARAM  = "autostart";
+  protected static final String  AUTOSTART_MODE_PARAM = "autostart";
 
   /**
    * The BucketWorker gets target users from login history or bucketRecords and
@@ -349,6 +347,8 @@ public class SocialDataCollectorService implements Startable {
     }
   }
 
+  protected final FileStorage                               fileStorage;
+
   protected final IdentityManager                           identityManager;
 
   protected final IdentityStorage                           identityStorage;
@@ -408,6 +408,7 @@ public class SocialDataCollectorService implements Startable {
   /**
    * Instantiates a new data collector service.
    *
+   * @param fileStorage the file storage
    * @param jcrService the jcr service
    * @param sessionProviders the session providers
    * @param hierarchyCreator the hierarchy creator
@@ -418,13 +419,17 @@ public class SocialDataCollectorService implements Startable {
    * @param relationshipManager the relationship manager
    * @param spaceService the space service
    * @param loginHistory the login history
+   * @param listenerService the listener service
    * @param userACL the user ACL
    * @param postStorage the post storage
    * @param commentStorage the comment storage
    * @param likeStorage the like storage
    * @param mentionStorage the mention storage
+   * @param trainingService the training service
+   * @param initParams the init params
    */
-  public SocialDataCollectorService(RepositoryService jcrService,
+  public SocialDataCollectorService(FileStorage fileStorage,
+                                    RepositoryService jcrService,
                                     SessionProviderService sessionProviders,
                                     NodeHierarchyCreator hierarchyCreator,
                                     OrganizationService organization,
@@ -442,7 +447,7 @@ public class SocialDataCollectorService implements Startable {
                                     ActivityMentionedDAO mentionStorage,
                                     TrainingService trainingService,
                                     InitParams initParams) {
-    super();
+    this.fileStorage = fileStorage;
     this.identityManager = identityManager;
     this.identityStorage = identityStorage;
     this.activityManager = activityManager;
@@ -487,8 +492,12 @@ public class SocialDataCollectorService implements Startable {
     }
 
     if (runMainLoop.get()) {
+      // TODO use(reuse) startMainLoop()
+      LOG.info("Data Collector started (in automatic mode)");
       final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
       workers.submit(new StartWorker(containerName));
+    } else {
+      LOG.info("Data Collector started (in manual mode)");
     }
   }
 
@@ -554,7 +563,9 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Adds user to the loginsQueue and bucketRecords for processing in the next bucket processing time.
+   * Adds user to the loginsQueue and bucketRecords for processing in the next
+   * bucket processing time.
+   * 
    * @param userName to be added
    */
   public void addUser(String userName) {
@@ -585,25 +596,24 @@ public class SocialDataCollectorService implements Startable {
    * @param bucketName the bucketRecords name, can be <code>null</code> then a
    *          timestamped name will be created
    * @return the saved bucketRecords folder or <code>null</code> if error
-   *         occured
+   *         occurred
    * @throws Exception the exception
    */
   public String collectUsersActivities(String bucketName) throws Exception {
     // Go through all users in the organization and swap their datasets
     // into separate data stream, then feed them to the Training Service
 
-    File bucketDir = openBucketDir(bucketName);
+    File bucketDir = fileStorage.getBucketDir(bucketName);
     Iterator<Identity> idIter = loadListIterator(identityManager.getIdentitiesByProfileFilter(OrganizationIdentityProvider.NAME,
                                                                                               new ProfileFilter(),
                                                                                               true));
     while (idIter.hasNext() && !Thread.currentThread().isInterrupted()) {
       final UserIdentity id = cacheUserIdentity(userIdentity(idIter.next()));
-      submitModelProcessing(id.getRemoteId(), bucketName, true);
+      submitModelProcessing(id.getRemoteId(), bucketName, false);
     }
 
     if (Thread.currentThread().isInterrupted()) {
       LOG.warn("Saving of dataset interrupted for bucketRecords: {}", bucketName);
-      workers.shutdownNow();
       // Clean the bucketRecords files
       try {
         Arrays.asList(bucketDir.listFiles()).stream().forEach(f -> f.delete());
@@ -628,7 +638,7 @@ public class SocialDataCollectorService implements Startable {
    * @return the dataset file
    */
   protected String collectUserActivities(String bucketName, String userName) {
-    File bucketDir = openBucketDir(bucketName);
+    File bucketDir = fileStorage.getBucketDir(bucketName);
     LOG.info("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
@@ -636,6 +646,10 @@ public class SocialDataCollectorService implements Startable {
       userFile.getParentFile().mkdirs();
 
       // Set the dataset path to the latest model in DB if exists
+      // TODO Don't use absolute path but use relative to
+      // data-collector/datasets path, so it will be possible to relocate file
+      // storage w/o modifying DB. Relative path should start from a bucket
+      // name.
       trainingService.setDatasetToLatestModel(userName, userFile.getAbsolutePath());
 
       try (PrintWriter writer = new PrintWriter(userFile)) {
@@ -653,7 +667,9 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Collects collecting user activities in separate worker. Trains model if necessary.
+   * Collects collecting user activities in separate worker. Trains model if
+   * necessary.
+   * 
    * @param userName
    * @param train if true - trains model
    */
@@ -1505,29 +1521,6 @@ public class SocialDataCollectorService implements Startable {
                                   new LinkedBlockingQueue<Runnable>(queueSize),
                                   new WorkerThreadFactory(threadNamePrefix),
                                   new ThreadPoolExecutor.CallerRunsPolicy());
-  }
-
-  protected File openBucketDir(String bucketName) {
-    // TODO Temporally spool all users datasets into a dedicated folder into
-    // ${gatein.data.dir}/data-collector/${bucketName}
-    // String dataDirPath = System.getProperty("gatein.data.dir");
-
-    String dataDirPath = System.getProperty("java.io.tmpdir");
-    if (dataDirPath == null || dataDirPath.trim().length() == 0) {
-      dataDirPath = System.getProperty("exo.data.dir");
-      if (dataDirPath == null || dataDirPath.trim().length() == 0) {
-        dataDirPath = System.getProperty("java.io.tmpdir");
-        LOG.warn("Platoform data dir not defined. Will use: {}", dataDirPath);
-      }
-    }
-    if (bucketName == null || bucketName.trim().length() == 0) {
-      bucketName = "bucket-" + new SimpleDateFormat(FILE_TIMESTAMP_FORMAT).format(new Date());
-    }
-
-    File bucketDir = new File(dataDirPath + "/data-collector/" + bucketName);
-    bucketDir.mkdirs();
-
-    return bucketDir;
   }
 
 }

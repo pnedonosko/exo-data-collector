@@ -25,6 +25,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
@@ -52,9 +53,10 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   }
 
   /**
-   * Starts collecting and training models for all users of the platform
+   * Starts collecting for all users of the platform.
    *
-   * @return response 200 which contains status OK and bucketName, or status ERROR
+   * @return response 200 which contains status OK and bucketName, or status
+   *         ERROR
    */
   @GET
   // @RolesAllowed("administrators") // TODO only super users in PROD mode
@@ -72,7 +74,7 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   }
 
   /**
-   * Start the collecting and training for the particular user
+   * Start collect dataset and optionally train a model for a given user.
    *
    * @param bucketName the bucket name
    * @param userName the user name
@@ -82,34 +84,15 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   // @RolesAllowed("administrators") // TODO only super users in PROD mode
   @RolesAllowed("users")
   @Path("/run/{bucketname}/{username}")
-  public Response runCollectAndTrain(@PathParam("bucketname") String bucketName, @PathParam("username") String userName) {
+  public Response runCollect(@PathParam("bucketname") String bucketName,
+                             @PathParam("username") String userName,
+                             @QueryParam("train") String isTrain) {
     try {
-      dataCollector.startManualCollecting(userName, bucketName, true);
+      dataCollector.startManualCollecting(userName, bucketName, isTrain != null ? Boolean.valueOf(isTrain) : false);
       return Response.ok().entity("{ \"status\": \"ACCEPTED\", \"userFoler\": " + bucketName + "/" + userName + "}").build();
     } catch (Exception e) {
       return Response.serverError().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
     }
-  }
-
-  /**
-   * Start the collecting for the particular user
-   *
-   * @param bucketName the bucket name
-   * @param userName the user name
-   * @return response status ACCEPTED and userFolder
-   */
-  @GET
-  // @RolesAllowed("administrators") // TODO only super users in PROD mode
-  @RolesAllowed("users")
-  @Path("/collect/{bucketname}/{username}")
-  public Response runCollect(@PathParam("bucketname") String bucketName, @PathParam("username") String userName) {
-    try {
-      dataCollector.startManualCollecting(userName, bucketName, false);
-      return Response.ok().entity("{ \"status\": \"ACCEPTED\", \"userFoler\": " + bucketName + "/" + userName + "}").build();
-    } catch (Exception e) {
-      return Response.serverError().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
-    }
-
   }
 
   /**
@@ -120,10 +103,28 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   @GET
   // @RolesAllowed("administrators") // TODO only super users in PROD mode
   @RolesAllowed("users")
-  @Path("/main/run")
+  @Path("/start")
   public Response run() {
     try {
       dataCollector.startMainLoop();
+      return Response.ok().entity("{ \"status\": \"OK\"}").build();
+    } catch (Exception e) {
+      return Response.serverError().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
+    }
+  }
+
+  /**
+   * Stops the main loop with collecting and training
+   *
+   * @return response status OK or error
+   */
+  @GET
+  // @RolesAllowed("administrators") // TODO only super users in PROD mode
+  @RolesAllowed("users")
+  @Path("/stop")
+  public Response stop() {
+    try {
+      dataCollector.stopMainLoop();
       return Response.ok().entity("{ \"status\": \"OK\"}").build();
     } catch (Exception e) {
       return Response.serverError().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
@@ -138,28 +139,10 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   @GET
   // @RolesAllowed("administrators") // TODO only super users in PROD mode
   @RolesAllowed("users")
-  @Path("/main/add/{username}")
+  @Path("/start/{username}")
   public Response addUser(@PathParam("username") String userName) {
     dataCollector.addUser(userName);
     return Response.ok().entity("{ \"status\": \"OK\"}").build();
-  }
-
-  /**
-   * Stops the main loop with collecting and training
-   *
-   * @return response status OK or error
-   */
-  @GET
-  // @RolesAllowed("administrators") // TODO only super users in PROD mode
-  @RolesAllowed("users")
-  @Path("/main/stop")
-  public Response stop() {
-    try {
-      dataCollector.stopMainLoop();
-      return Response.ok().entity("{ \"status\": \"OK\"}").build();
-    } catch (Exception e) {
-      return Response.serverError().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
-    }
   }
 
 }
