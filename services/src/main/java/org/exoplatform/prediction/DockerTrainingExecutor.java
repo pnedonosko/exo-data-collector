@@ -22,7 +22,6 @@ public class DockerTrainingExecutor extends BaseComponentPlugin implements Train
     File workDirectory = dataset.getParentFile();
     File modelFolder = new File(workDirectory.getAbsolutePath() + "/model");
     modelFolder.mkdirs();
-
     try {
       // Copy scripts to the docker work directory
       FileUtils.copyFileToDirectory(scriptFile, workDirectory);
@@ -32,9 +31,7 @@ public class DockerTrainingExecutor extends BaseComponentPlugin implements Train
       LOG.error("Cannot copy dataset {} to the work directory, {}", dataset.getName(), e.getMessage());
       return null;
     }
-
     String[] cmd = { "/bin/sh", dockerScriptPath, workDirectory.getAbsolutePath(), scriptFile.getName(), dataset.getName() };
-
     try {
       LOG.info("Running docker container to train the model....");
       Process trainingProcess = Runtime.getRuntime().exec(cmd);

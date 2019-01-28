@@ -192,15 +192,18 @@ public class TrainingService implements Startable {
     URL datasetutils = this.getClass().getClassLoader().getResource("scripts/datasetutils.py");
     URL dockerScript = this.getClass().getClassLoader().getResource("scripts/docker_train.sh");
     try {
-      File localTrainingScript = new File(System.getProperty("java.io.tmpdir") + "/user_feed_train.py");
-      File localDatasetutils = new File(System.getProperty("java.io.tmpdir") + "/datasetutils.py");
-      File localDockerScript = new File(System.getProperty("java.io.tmpdir") + "/docker_train.sh");
+      File scriptsFolder = new File(System.getProperty("java.io.tmpdir") + "/collector_scripts");
+      scriptsFolder.mkdirs();
+      File localTrainingScript = new File(scriptsFolder.getAbsolutePath() + "/user_feed_train.py");
+      File localDatasetutils = new File(scriptsFolder.getAbsolutePath() + "/datasetutils.py");
+      File localDockerScript = new File(scriptsFolder.getAbsolutePath() + "/docker_train.sh");
       FileUtils.copyURLToFile(trainingScript, localTrainingScript);
       FileUtils.copyURLToFile(datasetutils, localDatasetutils);
       FileUtils.copyURLToFile(dockerScript, localDockerScript);
       localTrainingScript.deleteOnExit();
       localDatasetutils.deleteOnExit();
       localDockerScript.deleteOnExit();
+      scriptsFolder.deleteOnExit();
       trainingScriptPath = localTrainingScript.getAbsolutePath();
     } catch (IOException e) {
       LOG.error("Couldn't unpack the training scripts: " + e.getMessage());
