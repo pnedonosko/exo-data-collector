@@ -1,7 +1,9 @@
 package org.exoplatform.prediction;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 
 import org.apache.commons.io.FileUtils;
 
@@ -11,7 +13,7 @@ import org.exoplatform.services.log.Log;
 
 public class DockerTrainingExecutor extends BaseComponentPlugin implements TrainingExecutor {
 
-  private static final Log LOG = ExoLogger.getExoLogger(DockerTrainingExecutor.class);;
+  private static final Log LOG = ExoLogger.getExoLogger(DockerTrainingExecutor.class);
 
   @Override
   public String train(File dataset, String trainingScriptPath) {
@@ -22,7 +24,6 @@ public class DockerTrainingExecutor extends BaseComponentPlugin implements Train
     File workDirectory = dataset.getParentFile();
     File modelFolder = new File(workDirectory.getAbsolutePath() + "/model");
     modelFolder.mkdirs();
-
     try {
       // Copy scripts to the docker work directory
       FileUtils.copyFileToDirectory(scriptFile, workDirectory);
@@ -32,27 +33,26 @@ public class DockerTrainingExecutor extends BaseComponentPlugin implements Train
       LOG.error("Cannot copy dataset {} to the work directory, {}", dataset.getName(), e.getMessage());
       return null;
     }
-
     String[] cmd = { "/bin/sh", dockerScriptPath, workDirectory.getAbsolutePath(), scriptFile.getName(), dataset.getName() };
-
     try {
       LOG.info("Running docker container to train the model....");
       Process trainingProcess = Runtime.getRuntime().exec(cmd);
       trainingProcess.waitFor();
 
-      // Only for debugging purposes. Logs all docker output to the console
-      /*
-      BufferedReader stdInput = new BufferedReader(new InputStreamReader(trainingProcess.getInputStream()));
-      BufferedReader stdError = new BufferedReader(new InputStreamReader(trainingProcess.getErrorStream()));
-      LOG.info("Here is the standard output of the container:\n");
       String s = null;
-      while ((s = stdInput.readLine()) != null) {
-        LOG.info(s);
+      // TODO Only for debugging purposes. Logs all docker output to the console
+      if (LOG.isDebugEnabled()) {
+        BufferedReader stdInput = new BufferedReader(new InputStreamReader(trainingProcess.getInputStream()));
+        LOG.debug("Standard output of the container:\n");
+        while ((s = stdInput.readLine()) != null) {
+          LOG.info("> " + s);
+        }
       }
-      LOG.info("Here is the error output of the container:\n");
+      BufferedReader stdError = new BufferedReader(new InputStreamReader(trainingProcess.getErrorStream()));
+      LOG.info("Error output of the container:\n");
       while ((s = stdError.readLine()) != null) {
-        LOG.info(s);
-      }*/
+        LOG.info("> " + s);
+      }
 
       LOG.info("Container finished working for {}", dataset.getName());
       new File(workDirectory.getAbsolutePath() + "/" + scriptFile.getName()).delete();

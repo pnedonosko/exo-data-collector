@@ -27,7 +27,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.ref.SoftReference;
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -47,6 +46,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -68,6 +68,7 @@ import org.exoplatform.datacollector.dao.IdentityProfileDAO;
 import org.exoplatform.datacollector.domain.IdentityProfileEntity;
 import org.exoplatform.datacollector.identity.SpaceIdentity;
 import org.exoplatform.datacollector.identity.UserIdentity;
+import org.exoplatform.datacollector.storage.FileStorage;
 import org.exoplatform.platform.gadget.services.LoginHistory.LastLoginBean;
 import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryBean;
 import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryService;
@@ -112,87 +113,84 @@ import org.exoplatform.social.core.storage.api.IdentityStorage;
 public class SocialDataCollectorService implements Startable {
 
   /** Logger */
-  private static final Log       LOG                   = ExoLogger.getExoLogger(SocialDataCollectorService.class);
+  private static final Log       LOG                  = ExoLogger.getExoLogger(SocialDataCollectorService.class);
 
-  public static final int        BATCH_SIZE            = 1000;
+  public static final int        BATCH_SIZE           = 1000;
 
-  public static final String     DUMMY_ID              = "0".intern();
+  public static final String     DUMMY_ID             = "0".intern();
 
-  public static final String     EMPTY_STRING          = "".intern();
+  public static final String     EMPTY_STRING         = "".intern();
 
   /**
    * Base minimum number of threads for worker thread executors.
    */
-  public static final int        MIN_THREADS           = 2;
+  public static final int        MIN_THREADS          = 2;
 
   /**
    * Minimal number of threads maximum possible for worker thread executors.
    */
-  public static final int        MIN_MAX_THREADS       = 4;
+  public static final int        MIN_MAX_THREADS      = 4;
 
   /** Thread idle time for thread executors (in seconds). */
-  public static final int        THREAD_IDLE_TIME      = 120;
+  public static final int        THREAD_IDLE_TIME     = 120;
 
   /**
    * Maximum threads per CPU for worker thread executors.
    */
-  public static final int        WORKER_MAX_FACTOR     = 2;
+  public static final int        WORKER_MAX_FACTOR    = 2;
 
   /**
    * Queue size per CPU for worker thread executors.
    */
-  public static final int        WORKER_QUEUE_FACTOR   = WORKER_MAX_FACTOR * 20;
+  public static final int        WORKER_QUEUE_FACTOR  = WORKER_MAX_FACTOR * 20;
 
   /**
    * Thread name used for worker thread.
    */
-  public static final String     WORKER_THREAD_PREFIX  = "datacollector-worker-thread-";
+  public static final String     WORKER_THREAD_PREFIX = "datacollector-worker-thread-";
 
-  public static final String     ENGINEERING_FOCUS     = "engineering".intern();
+  public static final String     ENGINEERING_FOCUS    = "engineering".intern();
 
-  protected static final Pattern ENGINEERING_PATTERN   =
+  public static final String     SALES_FOCUS          = "sales".intern();
+
+  public static final String     MARKETING_FOCUS      = "marketing".intern();
+
+  public static final String     MANAGEMENT_FOCUS     = "management".intern();
+
+  public static final String     FINANCIAL_FOCUS      = "financial".intern();
+
+  public static final String     OTHER_FOCUS          = "other".intern();
+  
+  protected static final Pattern ENGINEERING_PATTERN  =
                                                      Pattern.compile("^.*developer|architect|r&d|mobile|qa|fqa|tqa|test|quality|qualité|expert|integrator|designer|cwi|technical advisor|services delivery|software engineer.*$");
 
-  public static final String     SALES_FOCUS           = "sales".intern();
-
-  protected static final Pattern SALES_PATTERN         =
+  protected static final Pattern SALES_PATTERN        =
                                                Pattern.compile("^.*consultant|sales|client|support|sales engineer|demand generator.*$");
 
-  public static final String     MARKETING_FOCUS       = "marketing".intern();
-
-  protected static final Pattern MARKETING_PATTERN     =
+  protected static final Pattern MARKETING_PATTERN    =
                                                    Pattern.compile("^.*brand|communication|marketing|customer success|user experience|.*$");
 
-  public static final String     MANAGEMENT_FOCUS      = "management".intern();
-
-  protected static final Pattern MANAGEMENT_PATTERN    =
+  protected static final Pattern MANAGEMENT_PATTERN   =
                                                     Pattern.compile("^.*officer|chief|founder|coo|cto|cio|evp|advisor|product manager|director|general manager.*$");
 
-  public static final String     FINANCIAL_FOCUS       = "financial".intern();
-
-  protected static final Pattern FINANCIAL_PATTERN     = Pattern.compile("^.*accountant|financial|investment|account manager.*$");
-
-  public static final String     OTHER_FOCUS           = "other".intern();
+  protected static final Pattern FINANCIAL_PATTERN    = Pattern.compile("^.*accountant|financial|investment|account manager.*$");
 
   /**
    * The Constant EMPLOYEES_GROUPID - TODO better make it configurable. For
    * /Groups/spaces/exo_employees.
    */
-  protected static final String  EMPLOYEES_GROUPID     = "/spaces/exo_employees";
+  protected static final String  EMPLOYEES_GROUPID    = "/spaces/exo_employees";
 
   /** The Constant for ACTIVE USERS virtual group. */
-  protected static final String  ACTIVE_USERS          = "$active_users";
+  protected static final String  ACTIVE_USERS         = "$active_users";
 
-  protected static final String  FILE_TIMESTAMP_FORMAT = "yyyy-MM-dd_HHmmss.SSSS";
+  protected static final Integer RECENT_LOGINS_COUNT  = 20;                                                                                                                                                                       // 3600000L;
 
-  protected static final Integer RECENT_LOGINS_COUNT   = 20;                                                                                                                                                                      // 3600000L;
+  protected static final String  BUCKET_PREFIX        = "prod-";
 
-  // 3 hours - 3 * 3600000L (3 min for testing purposes)
-  protected static final Long    TRAIN_PERIOD          = 3 * 60000L;                                                                                                                                                              // 3600000L;
+  protected static final String  AUTOSTART_MODE_PARAM = "autostart";
 
-  protected static final String  BUCKET_PREFIX         = "prod-";
-
-  protected static final String  MANUAL_MODE_KEY       = "manual-mode";
+  protected static final String  TRAIN_PERIOD_PARAM   = "train-period";
 
   /**
    * The BucketWorker gets target users from login history or bucketRecords and
@@ -207,14 +205,14 @@ public class SocialDataCollectorService implements Startable {
 
     @Override
     void execute(ExoContainer exoContainer) {
-      if (!stopCollecting) {
+      if (runMainLoop.get()) {
         currentBucketIndex++;
         LOG.info("Bucket processing time! Current bucket: {}", BUCKET_PREFIX + currentBucketIndex);
       }
 
       Map<String, Date> targetUsers = getTargetUsers();
 
-      while (!loginsQueue.isEmpty() && !stopCollecting) {
+      while (!loginsQueue.isEmpty() && runMainLoop.get()) {
         String userName = loginsQueue.poll();
         Date loginDate = targetUsers.get(userName);
         LOG.info("Getting user from bucket: {}", userName);
@@ -228,8 +226,9 @@ public class SocialDataCollectorService implements Startable {
         }
         targetUsers.remove(userName);
       }
-      if (!stopCollecting) {
-        timer.schedule(new BucketWorker(containerName), TRAIN_PERIOD);
+
+      if (runMainLoop.get()) {
+        timer.schedule(new BucketWorker(containerName), trainPeriod);
       }
     }
 
@@ -267,7 +266,7 @@ public class SocialDataCollectorService implements Startable {
         return false;
       }
 
-      return model.getActivated() == null || Math.abs(model.getActivated().getTime() - loginDate.getTime()) > TRAIN_PERIOD;
+      return model.getActivated() == null || Math.abs(model.getActivated().getTime() - loginDate.getTime()) > trainPeriod;
     }
   }
 
@@ -361,6 +360,8 @@ public class SocialDataCollectorService implements Startable {
     }
   }
 
+  protected final FileStorage                               fileStorage;
+
   protected final IdentityManager                           identityManager;
 
   protected final IdentityStorage                           identityStorage;
@@ -416,15 +417,19 @@ public class SocialDataCollectorService implements Startable {
   /** The timer for scheduled tasks execution */
   protected final Timer                                     timer               = new Timer();
 
-  /** The manual mode for staring the main loop. It's set by config */
-  protected boolean                                         configManualMode    = false;
-
   /** The flag is used to stop the main loop **/
-  protected volatile boolean                                stopCollecting      = false;
+  protected AtomicBoolean                                   runMainLoop         = new AtomicBoolean(false);
+
+  /**
+   * The train period. It's the delay between processing buckets. 180 min. by
+   * default
+   */
+  protected Long                                            trainPeriod         = 180 * 60000L;
 
   /**
    * Instantiates a new data collector service.
    *
+   * @param fileStorage the file storage
    * @param jcrService the jcr service
    * @param sessionProviders the session providers
    * @param hierarchyCreator the hierarchy creator
@@ -435,13 +440,17 @@ public class SocialDataCollectorService implements Startable {
    * @param relationshipManager the relationship manager
    * @param spaceService the space service
    * @param loginHistory the login history
+   * @param listenerService the listener service
    * @param userACL the user ACL
    * @param postStorage the post storage
    * @param commentStorage the comment storage
    * @param likeStorage the like storage
    * @param mentionStorage the mention storage
+   * @param trainingService the training service
+   * @param initParams the init params
    */
-  public SocialDataCollectorService(RepositoryService jcrService,
+  public SocialDataCollectorService(FileStorage fileStorage,
+                                    RepositoryService jcrService,
                                     SessionProviderService sessionProviders,
                                     NodeHierarchyCreator hierarchyCreator,
                                     OrganizationService organization,
@@ -460,7 +469,7 @@ public class SocialDataCollectorService implements Startable {
                                     IdentityProfileDAO identityProfileStorage,
                                     TrainingService trainingService,
                                     InitParams initParams) {
-    super();
+    this.fileStorage = fileStorage;
     this.identityManager = identityManager;
     this.identityStorage = identityStorage;
     this.activityManager = activityManager;
@@ -476,14 +485,23 @@ public class SocialDataCollectorService implements Startable {
     this.mentionStorage = mentionStorage;
     this.identityProfileStorage = identityProfileStorage;
     this.trainingService = trainingService;
-
     this.workers = createThreadExecutor(WORKER_THREAD_PREFIX, WORKER_MAX_FACTOR, WORKER_QUEUE_FACTOR);
 
-    ValueParam manualModeParam = initParams.getValueParam(MANUAL_MODE_KEY);
+    ValueParam autostartParam = initParams.getValueParam(AUTOSTART_MODE_PARAM);
+    ValueParam trainPeroidParam = initParams.getValueParam(TRAIN_PERIOD_PARAM);
     try {
-      this.configManualMode = Boolean.valueOf(manualModeParam.getValue());
+      String pval = autostartParam.getValue();
+      this.runMainLoop.set(pval != null ? Boolean.valueOf(pval) : false);
     } catch (Exception e) {
-      LOG.warn("Cannot set manual mode to {}, using auto mode by default", manualModeParam.getValue());
+      LOG.warn("Cannot set manual mode to {}, using auto mode by default", autostartParam.getValue());
+    }
+    try {
+      String pval = trainPeroidParam.getValue();
+      this.trainPeriod = Integer.parseInt(pval) * 60000L;
+    } catch (Exception e) {
+      LOG.warn("Cannot set the train period to {}, using {} min. by default",
+               trainPeroidParam.getValue(),
+               this.trainPeriod / 60000L);
     }
   }
 
@@ -504,11 +522,13 @@ public class SocialDataCollectorService implements Startable {
       LOG.error("Cannot add the MembershipListener: {}", e.getMessage());
     }
 
-    if (!configManualMode) {
+    if (runMainLoop.get()) {
+      // TODO use(reuse) startMainLoop()
+      LOG.info("Data Collector started (in automatic mode)");
       final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
       workers.submit(new StartWorker(containerName));
     } else {
-      stopCollecting = true;
+      LOG.info("Data Collector started (in manual mode)");
     }
   }
 
@@ -522,58 +542,166 @@ public class SocialDataCollectorService implements Startable {
 
   /**
    * Starts manual collecting and training a user's model.
+   * 
    * @param userName userName
    * @param bucket bucket name
    * @param train trains the model if true
-   * @throws Exception is thrown if the bucket is incorrect or user is not found or user's model is being processed
+   * @throws Exception is thrown if the bucket is incorrect or user is not found
+   *           or user's model is being processed
    */
   public void startManualCollecting(String userName, String bucket, boolean train) throws Exception {
     if (bucket == null || bucket.startsWith(BUCKET_PREFIX)) {
       throw new Exception("Bucket name cannot be null or start with " + BUCKET_PREFIX);
     }
-
     ModelEntity model = trainingService.getLastModel(userName);
-    if (model != null && !Status.NEW.equals(model.getStatus()) && !Status.PROCESSING.equals(model.getStatus())) {
+    if (model == null || !Status.NEW.equals(model.getStatus()) && !Status.PROCESSING.equals(model.getStatus())) {
       submitModelProcessing(userName, bucket, train);
     } else {
       throw new Exception("The user is not found or being processed right now");
     }
-
   }
 
   /**
-   * Stops the main loop within the collecting and training is executed
-   * @return true if success, false - if the main loop is already stopped
+   * Stops the main loop (collecting and training).
+   *
+   * @return <code>true</code>, if successfully stopped, <code>false</code> if
+   *         already stopped
    */
-  public void stopCollecting() throws Exception {
-    if (stopCollecting) {
-      LOG.info("Collecting and training user models are already stopped");
-      throw new Exception("Collecting and training user models are already stopped");
+  public boolean stopMainLoop() {
+    if (runMainLoop.getAndSet(false)) {
+      LOG.info("Main loop (collecting and training user models) has been signaled for stopping");
+      return true;
     }
-    stopCollecting = true;
-    LOG.info("Collecting and training user models have been stopped");
-
+    LOG.warn("Main loop (collecting and training user models) already stopped");
+    return false;
   }
 
   /**
-   * Runs the main loop within the collecting and training is executed
-   * @return true, if success
+   * Start the main loop (collecting and training).
+   *
+   * @return <code>true</code>, if successfully started, <code>false</code> if
+   *         already started
    */
-  public void runCollecting() throws Exception {
-    if (stopCollecting) {
-      LOG.info("Starting collecting and training user models");
-      stopCollecting = false;
-      final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
-      workers.submit(new StartWorker(containerName));
+  public boolean startMainLoop() {
+    if (runMainLoop.getAndSet(true)) {
+      LOG.warn("Main loop (collecting and training user models) already started");
+      return false;
+    }
+    LOG.info("Starting main loop (collecting and training user models)");
+    final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
+    workers.submit(new StartWorker(containerName));
+    return true;
+  }
+
+  /**
+   * Adds user to the loginsQueue and bucketRecords for processing in the next
+   * bucket processing time.
+   * 
+   * @param userName to be added
+   */
+  public void addUser(String userName) {
+    ModelEntity currentModel = trainingService.getLastModel(userName);
+    // If model exists and is not being processed right now
+    if (currentModel != null && !Status.NEW.equals(currentModel.getStatus())
+        && !Status.PROCESSING.equals(currentModel.getStatus())) {
+      currentModel.setStatus(Status.RETRY);
+      trainingService.update(currentModel);
+      LOG.info("Model {} version {} got status RETRY.", currentModel.getName(), currentModel.getVersion());
+    }
+    if (!bucketRecords.containsKey(userName)) {
+      bucketRecords.put(userName, new Date());
+      loginsQueue.add(userName);
+      LOG.info("User {} has beed added to the main queue for collecting and training", userName);
     } else {
-      LOG.warn("Collecting and training is already started");
-      throw new Exception("Collecting and training is already started");
+      LOG.info("User {} is already in the main queue for collecting and training", userName);
     }
+  }
+
+  /**
+   * Collect users activities into files bucketRecords in Platform data folder,
+   * each file will have name of an user with <code>.csv</code> extension. If
+   * such folder already exists, it will overwrite the files that match found
+   * users. In case of error during the work, all partial results will be
+   * deleted.
+   *
+   * @param bucketName the bucketRecords name, can be <code>null</code> then a
+   *          timestamped name will be created
+   * @return the saved bucketRecords folder or <code>null</code> if error
+   *         occurred
+   * @throws Exception the exception
+   */
+  public String collectUsersActivities(String bucketName) throws Exception {
+    // Go through all users in the organization and swap their datasets
+    // into separate data stream, then feed them to the Training Service
+
+    File bucketDir = fileStorage.getBucketDir(bucketName);
+    Iterator<Identity> idIter = loadListIterator(identityManager.getIdentitiesByProfileFilter(OrganizationIdentityProvider.NAME,
+                                                                                              new ProfileFilter(),
+                                                                                              true));
+    while (idIter.hasNext() && !Thread.currentThread().isInterrupted()) {
+      final UserIdentity id = cacheUserIdentity(userIdentity(idIter.next()));
+      submitModelProcessing(id.getRemoteId(), bucketName, false);
+    }
+
+    if (Thread.currentThread().isInterrupted()) {
+      LOG.warn("Saving of dataset interrupted for bucketRecords: {}", bucketName);
+      // Clean the bucketRecords files
+      try {
+        Arrays.asList(bucketDir.listFiles()).stream().forEach(f -> f.delete());
+        bucketDir.delete();
+      } catch (Exception e) {
+        LOG.error("Error removing canceled bucketRecords folder: {}", bucketName);
+      }
+      return null;
+    }
+    LOG.info("Saved dataset successfully into bucketRecords folder: {}", bucketDir.getAbsolutePath());
+    return bucketDir.getAbsolutePath();
 
   }
 
   /**
-   * Collects collecting user activities in separate worker. Trains model if necessary.
+   * Collect user activities into given files bucketRecords in Platform data
+   * folder. Moves old model directory to a new one. Adds new model to DB
+   *
+   * @param bucketName the bucketRecords name
+   * @param userName the user name
+   * @param train trains model if true
+   * @return the dataset file
+   */
+  protected String collectUserActivities(String bucketName, String userName) {
+    File bucketDir = fileStorage.getBucketDir(bucketName);
+    LOG.info("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
+    final UserIdentity id = getUserIdentityByName(userName);
+    if (id != null) {
+      final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/" + id.getRemoteId() + ".csv");
+      userFile.getParentFile().mkdirs();
+
+      // Set the dataset path to the latest model in DB if exists
+      // TODO Don't use absolute path but use relative to
+      // data-collector/datasets path, so it will be possible to relocate file
+      // storage w/o modifying DB. Relative path should start from a bucket
+      // name.
+      trainingService.setDatasetToLatestModel(userName, userFile.getAbsolutePath());
+
+      try (PrintWriter writer = new PrintWriter(userFile)) {
+        collectUserActivities(id, writer);
+      } catch (Exception e) {
+        LOG.error("Cannot collect user activities for {} : {}", userName, e);
+        userFile.delete();
+        return null;
+      }
+
+      LOG.info("Saved user dataset into bucket file: {}", userFile.getAbsolutePath());
+      return userFile.getAbsolutePath();
+    }
+    LOG.warn("User social identity not found for {}", userName);
+    return null;
+  }
+
+  /**
+   * Collects collecting user activities in separate worker. Trains model if
+   * necessary.
+   * 
    * @param userName
    * @param train if true - trains model
    */
@@ -582,11 +710,12 @@ public class SocialDataCollectorService implements Startable {
     workers.submit(new ContainerCommand(containerName) {
       @Override
       void execute(ExoContainer exoContainer) {
-        if(train) {
+        if (train) {
           trainingService.addModel(userName, null);
         }
         String dataset = collectUserActivities(bucket, userName);
         if (dataset != null && train) {
+          copyModelFile(trainingService.getPreviousModel(userName), new File(dataset).getParentFile());
           trainingService.submitTrainModel(dataset, userName);
         }
         if (dataset == null) {
@@ -612,87 +741,8 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Collect users activities into files bucketRecords in Platform data folder,
-   * each file will have name of an user with <code>.csv</code> extension. If
-   * such folder already exists, it will overwrite the files that match found
-   * users. In case of error during the work, all partial results will be
-   * deleted.
-   *
-   * @param bucketName the bucketRecords name, can be <code>null</code> then a
-   *          timestamped name will be created
-   * @return the saved bucketRecords folder or
-   *         <code>null</code> if error occured
-   * @throws Exception the exception
-   */
-  public String collectUsersActivities(String bucketName) throws Exception {
-    // Go through all users in the organization and swap their datasets
-    // into separate data stream, then feed them to the Training Service
-
-    File bucketDir = openBucketDir(bucketName);
-    Iterator<Identity> idIter = loadListIterator(identityManager.getIdentitiesByProfileFilter(OrganizationIdentityProvider.NAME,
-                                                                                              new ProfileFilter(),
-                                                                                              true));
-    while (idIter.hasNext() && !Thread.currentThread().isInterrupted()) {
-      final UserIdentity id = cacheUserIdentity(userIdentity(idIter.next()));
-      submitModelProcessing(id.getRemoteId(), bucketName, true);
-    }
-
-    if (Thread.currentThread().isInterrupted()) {
-      LOG.warn("Saving of dataset interrupted for bucketRecords: {}", bucketName);
-      workers.shutdownNow();
-      // Clean the bucketRecords files
-      try {
-        Arrays.asList(bucketDir.listFiles()).stream().forEach(f -> f.delete());
-        bucketDir.delete();
-      } catch (Exception e) {
-        LOG.error("Error removing canceled bucketRecords folder: {}", bucketName);
-      }
-      return null;
-    }
-    LOG.info("Saved dataset successfully into bucketRecords folder: {}", bucketDir.getAbsolutePath());
-    return bucketDir.getAbsolutePath();
-
-  }
-
-  /**
-   * Collect user activities into given files bucketRecords in Platform data
-   * folder. Moves old model directory to a new one. Adds new model to DB
-   *
-   * @param bucketName the bucketRecords name
-   * @param userName the user name
-   * @param train trains model if true
-   * @return the dataset file
-   */
-  public String collectUserActivities(String bucketName, String userName) {
-    File bucketDir = openBucketDir(bucketName);
-    LOG.info("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
-    final UserIdentity id = getUserIdentityByName(userName);
-    if (id != null) {
-      final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/" + id.getRemoteId() + ".csv");
-      userFile.getParentFile().mkdirs();
-      // Copy old model file
-      copyModelFile(trainingService.getLastModel(userName), userFile.getParentFile());
-      // Set the dataset path to the latest model in DB if exists
-      trainingService.setDatasetToLatestModel(userName, userFile.getAbsolutePath());
-
-      try (PrintWriter writer = new PrintWriter(userFile)) {
-        collectUserActivities(id, writer);
-      } catch (Exception e) {
-        LOG.error("Cannot collect user activities for {} : {}", userName, e);
-        userFile.delete();
-        return null;
-      }
-
-      LOG.info("Saved user dataset into bucket file: {}", userFile.getAbsolutePath());
-      return userFile.getAbsolutePath();
-    }
-    LOG.warn("User social identity not found for {}", userName);
-    return null;
-  }
-
-
-  /**
    * Copies model file to new destination. Only if model has status READY
+   * 
    * @param model contains model file to be copied
    * @param dest new folder
    */
@@ -1640,26 +1690,4 @@ public class SocialDataCollectorService implements Startable {
                                   new ThreadPoolExecutor.CallerRunsPolicy());
   }
 
-  protected File openBucketDir(String bucketName) {
-    // TODO Temporally spool all users datasets into a dedicated folder into
-    // ${gatein.data.dir}/data-collector/${bucketName}
-    // String dataDirPath = System.getProperty("gatein.data.dir");
-
-    String dataDirPath = System.getProperty("java.io.tmpdir");
-    if (dataDirPath == null || dataDirPath.trim().length() == 0) {
-      dataDirPath = System.getProperty("exo.data.dir");
-      if (dataDirPath == null || dataDirPath.trim().length() == 0) {
-        dataDirPath = System.getProperty("java.io.tmpdir");
-        LOG.warn("Platoform data dir not defined. Will use: {}", dataDirPath);
-      }
-    }
-    if (bucketName == null || bucketName.trim().length() == 0) {
-      bucketName = "bucket-" + new SimpleDateFormat(FILE_TIMESTAMP_FORMAT).format(new Date());
-    }
-
-    File bucketDir = new File(dataDirPath + "/data-collector/" + bucketName);
-    bucketDir.mkdirs();
-
-    return bucketDir;
-  }
 }

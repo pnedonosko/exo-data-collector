@@ -31,10 +31,11 @@ import org.json.simple.parser.ParseException;
 import org.picocontainer.Startable;
 
 import org.exoplatform.container.component.ComponentPlugin;
+import org.exoplatform.datacollector.storage.FileStorage;
 import org.exoplatform.prediction.model.dao.ModelEntityDAO;
 import org.exoplatform.prediction.model.domain.ModelEntity;
-import org.exoplatform.prediction.model.domain.ModelId;
 import org.exoplatform.prediction.model.domain.ModelEntity.Status;
+import org.exoplatform.prediction.model.domain.ModelId;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 
@@ -50,8 +51,10 @@ public class TrainingService implements Startable {
   /** Logger */
   private static final Log       LOG                = ExoLogger.getExoLogger(TrainingService.class);
 
-  /** Max count of archived models in DB  */
+  /** Max count of archived models in DB */
   private static final Integer   MAX_STORED_MODELS  = 20;
+
+  protected final FileStorage    fileStorage;
 
   private String                 trainingScriptPath = null;
 
@@ -62,17 +65,20 @@ public class TrainingService implements Startable {
 
   /**
    * Instantiates a new training service.
+   *
+   * @param fileStorage the file storage
+   * @param modelEntityDAO the model entity DAO
    */
-  public TrainingService(ModelEntityDAO modelEntityDAO) {
+  public TrainingService(FileStorage fileStorage, ModelEntityDAO modelEntityDAO) {
+    this.fileStorage = fileStorage;
     this.modelEntityDAO = modelEntityDAO;
-
   }
 
   /**
-   * Submits a new model to train in the training service.
-   * Respects current model status:
-   * If NEW or PROCESSING - cleans up it
-   * If READY - creates a NEW version
+   * Submits a new model to train in the training service. Respects current
+   * model status: If NEW or PROCESSING - cleans up it If READY - creates a NEW
+   * version
+   * 
    * @param userName the user name
    * @param datasetFile the dataset file
    */
@@ -98,8 +104,8 @@ public class TrainingService implements Startable {
 
   /**
    * Activates model by setting the modelFile, activatedDate, READY status
-   * Archives the old version of model, if exists.
-   * Deletes the dataset file.
+   * Archives the old version of model, if exists. Deletes the dataset file.
+   * 
    * @param userName of the model
    * @param version of the model
    * @param modelFile to be set up
@@ -128,8 +134,8 @@ public class TrainingService implements Startable {
   }
 
   /**
-   * Archives a model by setting archived date.
-   * Deletes old models
+   * Archives a model by setting archived date. Deletes old models
+   * 
    * @param userName of the model
    * @param version of the model
    */
@@ -152,6 +158,7 @@ public class TrainingService implements Startable {
 
   /**
    * Gets the model with latest version
+   * 
    * @param userName
    * @return modelEntity or null
    */
@@ -192,16 +199,18 @@ public class TrainingService implements Startable {
     URL datasetutils = this.getClass().getClassLoader().getResource("scripts/datasetutils.py");
     URL dockerScript = this.getClass().getClassLoader().getResource("scripts/docker_train.sh");
     try {
-      File localTrainingScript = new File(System.getProperty("java.io.tmpdir") + "/user_feed_train.py");
-      File localDatasetutils = new File(System.getProperty("java.io.tmpdir") + "/datasetutils.py");
-      File localDockerScript = new File(System.getProperty("java.io.tmpdir") + "/docker_train.sh");
-
+      File scriptsDir = fileStorage.getScriptsDir();
+      scriptsDir.mkdirs();
+      File localTrainingScript = new File(scriptsDir, "user_feed_train.py");
+      File localDatasetutils = new File(scriptsDir, "datasetutils.py");
+      File localDockerScript = new File(scriptsDir, "docker_train.sh");
       FileUtils.copyURLToFile(trainingScript, localTrainingScript);
       FileUtils.copyURLToFile(datasetutils, localDatasetutils);
       FileUtils.copyURLToFile(dockerScript, localDockerScript);
       localTrainingScript.deleteOnExit();
       localDatasetutils.deleteOnExit();
       localDockerScript.deleteOnExit();
+      scriptsDir.deleteOnExit();
       trainingScriptPath = localTrainingScript.getAbsolutePath();
     } catch (IOException e) {
       LOG.error("Couldn't unpack the training scripts: " + e.getMessage());
@@ -211,6 +220,7 @@ public class TrainingService implements Startable {
 
   /**
    * Deletes a model from DB and clears its files
+   * 
    * @param model
    */
   private void deleteModel(ModelEntity model) {
@@ -231,8 +241,9 @@ public class TrainingService implements Startable {
   }
 
   /**
-   * Submits model training. If the training fails, trains one more time.
-   * If fails again, model gets FAILED_TRAINING status
+   * Submits model training. If the training fails, trains one more time. If
+   * fails again, model gets FAILED_TRAINING status
+   * 
    * @param dataset
    * @param userName
    */
@@ -265,6 +276,7 @@ public class TrainingService implements Startable {
 
   /**
    * Trains a model.
+   * 
    * @param dataset user dataset
    * @param userName userName
    * @return true if success
@@ -294,13 +306,12 @@ public class TrainingService implements Startable {
     }
     LOG.warn("The model.json file is not found after training for model {}", userName);
     return false;
-
   }
 
   /**
-   * Adds a trainingExecutor plugin. This method is safe in runtime:
-   * if configured trainingExecutor is not an instance of
-   * {@link TrainingExecutor} then it will log a warning and let server continue the start.
+   * Adds a trainingExecutor plugin. This method is safe in runtime: if
+   * configured trainingExecutor is not an instance of {@link TrainingExecutor}
+   * then it will log a warning and let server continue the start.
    *
    * @param plugin the plugin
    */
@@ -316,6 +327,7 @@ public class TrainingService implements Startable {
 
   /**
    * Sets PROCESSING status to the last model
+   * 
    * @param remoteId
    */
   public void setProcessing(String userName) {
@@ -329,6 +341,11 @@ public class TrainingService implements Startable {
     }
   }
 
+  /**
+   * Sets RETRY status to the last model if exists
+   * 
+   * @param userName the model name
+   */
   public void setRetry(String userName) {
     ModelEntity model = getLastModel(userName);
     if (model != null) {
@@ -341,15 +358,36 @@ public class TrainingService implements Startable {
 
   }
 
+  /**
+   * Updates ModelEntity
+   * 
+   * @param entity to be updated
+   */
   public void update(ModelEntity entity) {
     modelEntityDAO.update(entity);
-
   }
 
+  /**
+   * Sets a dataset to the last model
+   * 
+   * @param userName of model
+   * @param dataset to be set up
+   */
   public void setDatasetToLatestModel(String userName, String dataset) {
     ModelEntity lastModel = getLastModel(userName);
-    if(lastModel != null) {
+    if (lastModel != null) {
       lastModel.setDatasetFile(dataset);
     }
+  }
+
+  /**
+   * Gets the previous model of user
+   * 
+   * @param userName the name of model
+   * @return previous model
+   */
+  public ModelEntity getPreviousModel(String userName) {
+    ModelEntity lastModel = getLastModel(userName);
+    return lastModel != null ? modelEntityDAO.find(new ModelId(userName, lastModel.getVersion() - 1L)) : null;
   }
 }
