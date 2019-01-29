@@ -185,12 +185,17 @@ public class SocialDataCollectorService implements Startable {
    * execution in TRAIN_PERIOD ms.
    */
   public class BucketWorker extends ContainerCommand {
+    private AtomicBoolean runWorker = new AtomicBoolean(true);
+
     public BucketWorker(String containerName) {
       super(containerName);
     }
 
     @Override
     void execute(ExoContainer exoContainer) {
+      if (!runWorker.get()) {
+        return;
+      }
       if (runMainLoop.get()) {
         currentBucketIndex++;
         LOG.info("Bucket processing time! Current bucket: {}", BUCKET_PREFIX + currentBucketIndex);
@@ -198,6 +203,10 @@ public class SocialDataCollectorService implements Startable {
 
       Map<String, Date> targetUsers = getTargetUsers();
 
+      LOG.info("BucketRecords:");
+      targetUsers.keySet().forEach(LOG::info);
+      LOG.info("Login queue: ");
+      loginsQueue.forEach(LOG::info);
       while (!loginsQueue.isEmpty() && runMainLoop.get()) {
         String userName = loginsQueue.poll();
         Date loginDate = targetUsers.get(userName);
@@ -214,7 +223,8 @@ public class SocialDataCollectorService implements Startable {
       }
 
       if (runMainLoop.get()) {
-        timer.schedule(new BucketWorker(containerName), trainPeriod);
+        currentWorker = new BucketWorker(containerName);
+        timer.schedule(currentWorker, trainPeriod);
       }
     }
 
@@ -254,6 +264,10 @@ public class SocialDataCollectorService implements Startable {
 
       return model.getActivated() == null || Math.abs(model.getActivated().getTime() - loginDate.getTime()) > trainPeriod;
     }
+
+    void stop() {
+      runWorker.set(false);
+    }
   }
 
   /**
@@ -261,6 +275,7 @@ public class SocialDataCollectorService implements Startable {
    * Registers loginListener
    */
   public class StartWorker extends BucketWorker {
+
     public StartWorker(String containerName) {
       super(containerName);
     }
@@ -268,8 +283,6 @@ public class SocialDataCollectorService implements Startable {
     @Override
     void execute(ExoContainer exoContainer) {
       super.execute(exoContainer);
-      // TODO: check if the listener is already added
-      listenerService.addListener(new LoginListener());
     }
 
     /**
@@ -335,14 +348,16 @@ public class SocialDataCollectorService implements Startable {
 
     @Override
     public void onEvent(Event<ConversationRegistry, ConversationState> event) throws Exception {
+      if(!runMainLoop.get()) {
+        return;
+      }
+      
       String userId = event.getData().getIdentity().getUserId();
-
       if (!bucketRecords.containsKey(userId)) {
         loginsQueue.add(userId);
         bucketRecords.put(userId, new Date());
         LOG.info("User {} has logged in and added to bucketRecords", event.getData().getIdentity().getUserId());
       }
-
     }
   }
 
@@ -406,6 +421,9 @@ public class SocialDataCollectorService implements Startable {
 
   /** The train period. It's the delay between processing buckets. 180 min. by default */
   protected Long                                            trainPeriod         = 180 * 60000L;
+
+  /** The current worker that executes or is going to execute the main loop of collecting/training. */
+  protected BucketWorker                                    currentWorker;
 
   /**
    * Instantiates a new data collector service.
@@ -500,12 +518,15 @@ public class SocialDataCollectorService implements Startable {
     } catch (Exception e) {
       LOG.error("Cannot add the MembershipListener: {}", e.getMessage());
     }
-
+    
+    listenerService.addListener(new LoginListener());
+    
     if (runMainLoop.get()) {
       // TODO use(reuse) startMainLoop()
-      LOG.info("Data Collector started (in automatic mode)");
       final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
-      workers.submit(new StartWorker(containerName));
+      currentWorker = new StartWorker(containerName);
+      workers.submit(currentWorker);
+      LOG.info("Data Collector started (in automatic mode)");
     } else {
       LOG.info("Data Collector started (in manual mode)");
     }
@@ -548,6 +569,10 @@ public class SocialDataCollectorService implements Startable {
    */
   public boolean stopMainLoop() {
     if (runMainLoop.getAndSet(false)) {
+      if(currentWorker != null) {
+        currentWorker.stop();
+        currentWorker = null;
+      }
       LOG.info("Main loop (collecting and training user models) has been signaled for stopping");
       return true;
     }
@@ -568,7 +593,8 @@ public class SocialDataCollectorService implements Startable {
     }
     LOG.info("Starting main loop (collecting and training user models)");
     final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
-    workers.submit(new StartWorker(containerName));
+    currentWorker = new StartWorker(containerName);
+    workers.submit(currentWorker);
     return true;
   }
 
