@@ -40,11 +40,11 @@ public class PredictionService implements Startable {
   protected class LazyPredictFileListAccess implements ListAccess<ExoSocialActivity> {
 
     protected final String userId;
-    
+
     protected LazyPredictFileListAccess(String userId) {
       this.userId = userId;
     }
-    
+
     /**
      * {@inheritDoc}
      */
@@ -74,6 +74,13 @@ public class PredictionService implements Startable {
   }
 
   public ListAccess<ExoSocialActivity> getUserFeed(Identity userIdentity) {
+    // TODO when this method called we do following:
+    // 1) getting this user inferring dataset from Collector service (should be
+    // implemented in SocialDataCollectorService)
+    // 2) use this dataset with prediction script, at end of the script work,
+    // this dataset will be updated (added column 'rank_predicted')
+    // 3) load the updated data (CSV file) and order the user feed according the rank
+    // 4) return ordered feed as LazyPredictFileListAccess
     return new LazyPredictFileListAccess(userIdentity.getRemoteId());
   }
 
