@@ -172,12 +172,11 @@ public class SocialDataCollectorService implements Startable {
 
   protected static final Integer RECENT_LOGINS_COUNT  = 20;                                                                                                                                                                       // 3600000L;
 
-  // 3 hours - 3 * 3600000L (3 min for testing purposes)
-  protected static final Long    TRAIN_PERIOD         = 3 * 60000L;                                                                                                                                                               // 3600000L;
-
   protected static final String  BUCKET_PREFIX        = "prod-";
 
   protected static final String  AUTOSTART_MODE_PARAM = "autostart";
+
+  protected static final String  TRAIN_PERIOD_PARAM   = "train-period";
 
   /**
    * The BucketWorker gets target users from login history or bucketRecords and
@@ -215,7 +214,7 @@ public class SocialDataCollectorService implements Startable {
       }
 
       if (runMainLoop.get()) {
-        timer.schedule(new BucketWorker(containerName), TRAIN_PERIOD);
+        timer.schedule(new BucketWorker(containerName), trainPeriod);
       }
     }
 
@@ -253,7 +252,7 @@ public class SocialDataCollectorService implements Startable {
         return false;
       }
 
-      return model.getActivated() == null || Math.abs(model.getActivated().getTime() - loginDate.getTime()) > TRAIN_PERIOD;
+      return model.getActivated() == null || Math.abs(model.getActivated().getTime() - loginDate.getTime()) > trainPeriod;
     }
   }
 
@@ -405,6 +404,9 @@ public class SocialDataCollectorService implements Startable {
   /** The flag is used to stop the main loop **/
   protected AtomicBoolean                                   runMainLoop         = new AtomicBoolean(false);
 
+  /** The train period. It's the delay between processing buckets. 180 min. by default */
+  protected Long                                            trainPeriod         = 180 * 60000L;
+
   /**
    * Instantiates a new data collector service.
    *
@@ -462,15 +464,23 @@ public class SocialDataCollectorService implements Startable {
     this.likeStorage = likeStorage;
     this.mentionStorage = mentionStorage;
     this.trainingService = trainingService;
-
     this.workers = createThreadExecutor(WORKER_THREAD_PREFIX, WORKER_MAX_FACTOR, WORKER_QUEUE_FACTOR);
 
     ValueParam autostartParam = initParams.getValueParam(AUTOSTART_MODE_PARAM);
+    ValueParam trainPeroidParam = initParams.getValueParam(TRAIN_PERIOD_PARAM);
     try {
       String pval = autostartParam.getValue();
-      this.runMainLoop.set(pval != null ? Boolean.valueOf(pval.toUpperCase().toLowerCase()) : false);
+      this.runMainLoop.set(pval != null ? Boolean.valueOf(pval) : false);
     } catch (Exception e) {
       LOG.warn("Cannot set manual mode to {}, using auto mode by default", autostartParam.getValue());
+    }
+    try {
+      String pval = trainPeroidParam.getValue();
+      this.trainPeriod = Integer.parseInt(pval) * 60000L;
+    } catch (Exception e) {
+      LOG.warn("Cannot set the train period to {}, using {} min. by default",
+               trainPeroidParam.getValue(),
+               this.trainPeriod / 60000L);
     }
   }
 

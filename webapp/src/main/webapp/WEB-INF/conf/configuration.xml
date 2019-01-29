@@ -42,9 +42,13 @@
         <name>autostart</name>
         <value>${exo.datacollector.autostart:false}</value>
       </value-param>
+      <value-param>
+        <name>train-period</name>
+        <value>${exo.datacollector.train-period:120}</value>
+      </value-param>
     </init-params>
   </component>
-  
+
   <component>
     <type>org.exoplatform.datacollector.rest.RESTSocialDataCollectorService</type>
   </component>
