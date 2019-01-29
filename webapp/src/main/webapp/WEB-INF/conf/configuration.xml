@@ -44,7 +44,7 @@
       </value-param>
       <value-param>
         <name>train-period</name>
-        <value>${exo.datacollector.train-period:120}</value>
+        <value>${exo.datacollector.trainPeriod:3}</value>
       </value-param>
     </init-params>
   </component>
