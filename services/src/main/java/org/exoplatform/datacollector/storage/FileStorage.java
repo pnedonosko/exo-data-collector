@@ -44,6 +44,14 @@ public class FileStorage {
 
   public static final String FILE_TIMESTAMP_FORMAT  = "yyyy-MM-dd_HHmmss.SSSS";
 
+  protected final File       trainingScript;
+
+  protected final File       predictionScript;
+
+  protected final File       datasetutilsScript;
+
+  protected final File       dockerRunScript;
+
   protected final InitParams initParams;
 
   /**
@@ -53,6 +61,11 @@ public class FileStorage {
    */
   public FileStorage(InitParams initParams) {
     this.initParams = initParams;
+
+    this.trainingScript = new File(getScriptsDir().getAbsolutePath() + "/user_feed_train.py");
+    this.predictionScript = new File(getScriptsDir().getAbsolutePath() + "/user_feed_predict.py");
+    this.datasetutilsScript = new File(getScriptsDir().getAbsolutePath() + "/datasetutils.py");
+    this.dockerRunScript = new File(getScriptsDir().getAbsolutePath() + "/docker_run.sh");
   }
 
   public File getWorkDir() {
@@ -110,6 +123,26 @@ public class FileStorage {
     bucketDir.mkdirs();
 
     return bucketDir;
+  }
+
+  public File getTrainingScript() {
+    return trainingScript;
+  }
+
+  public File getPredictionScript() {
+    return predictionScript;
+  }
+
+  public File getDatasetutilsScript() {
+    return datasetutilsScript;
+  }
+
+  public File getDockerRunScript() {
+    return dockerRunScript;
+  }
+
+  public InitParams getInitParams() {
+    return initParams;
   }
 
   protected String getValueParam(String keyName) {

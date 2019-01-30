@@ -18,9 +18,14 @@
  */
 package org.exoplatform.prediction;
 
+import java.io.File;
+
 import org.picocontainer.Startable;
 
 import org.exoplatform.commons.utils.ListAccess;
+import org.exoplatform.container.component.ComponentPlugin;
+import org.exoplatform.services.log.ExoLogger;
+import org.exoplatform.services.log.Log;
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
 import org.exoplatform.social.core.identity.model.Identity;
 
@@ -33,6 +38,10 @@ import org.exoplatform.social.core.identity.model.Identity;
  * @version $Id: PredictionService.java 00000 Jan 25, 2019 pnedonosko $
  */
 public class PredictionService implements Startable {
+
+  protected static final Log LOG = ExoLogger.getExoLogger(PredictionService.class);
+
+  protected ScriptsExecutor  scriptsExecutor;
 
   /**
    * Load predictions from a file result on demand.
@@ -79,8 +88,12 @@ public class PredictionService implements Startable {
     // implemented in SocialDataCollectorService)
     // 2) use this dataset with prediction script, at end of the script work,
     // this dataset will be updated (added column 'rank_predicted')
-    // 3) load the updated data (CSV file) and order the user feed according the rank
+    // 3) load the updated data (CSV file) and order the user feed according the
+    // rank
     // 4) return ordered feed as LazyPredictFileListAccess
+
+    File dataset = new File("path-to-dataset");
+    scriptsExecutor.predict(dataset);
     return new LazyPredictFileListAccess(userIdentity.getRemoteId());
   }
 
@@ -89,7 +102,9 @@ public class PredictionService implements Startable {
    */
   @Override
   public void start() {
-    // TODO any?
+    if (scriptsExecutor == null) {
+      throw new RuntimeException("ScriptsExecutor is not configured");
+    }
   }
 
   /**
@@ -98,5 +113,22 @@ public class PredictionService implements Startable {
   @Override
   public void stop() {
     // TODO any?
+  }
+
+  /**
+   * Adds a scriptsExecutor plugin. This method is safe in runtime: if
+   * configured scriptsExecutor is not an instance of {@link ScriptsExecutor}
+   * then it will log a warning and let server continue the start.
+   *
+   * @param plugin the plugin
+   */
+  public void addPlugin(ComponentPlugin plugin) {
+    Class<ScriptsExecutor> pclass = ScriptsExecutor.class;
+    if (pclass.isAssignableFrom(plugin.getClass())) {
+      scriptsExecutor = pclass.cast(plugin);
+      LOG.info("Set scripts executor instance of " + plugin.getClass().getName());
+    } else {
+      LOG.warn("Scripts Executor plugin is not an instance of " + pclass.getName());
+    }
   }
 }

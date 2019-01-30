@@ -61,7 +61,7 @@ public class TrainingService implements Startable {
   /** ModelEntityDAO */
   protected final ModelEntityDAO modelEntityDAO;
 
-  protected TrainingExecutor     trainingExecutor;
+  protected ScriptsExecutor     scriptsExecutor;
 
   /**
    * Instantiates a new training service.
@@ -177,9 +177,8 @@ public class TrainingService implements Startable {
   @Override
   public void start() {
     unpackTrainingScripts();
-    if (trainingExecutor == null) {
-      LOG.warn("TrainingExecutor is not configured. Using NativeTrainingExecutor by default");
-      trainingExecutor = new NativeTrainingExecutor();
+    if (scriptsExecutor == null) {
+      throw new RuntimeException("ScriptsExecutor is not configured");
     }
   }
 
@@ -283,7 +282,7 @@ public class TrainingService implements Startable {
    */
   protected boolean trainModel(File dataset, String userName) {
     // Train model
-    String modelFolder = trainingExecutor.train(dataset, trainingScriptPath);
+    String modelFolder = scriptsExecutor.train(dataset);
     // Check if model trained without errors
     File modelFile = new File(dataset.getParentFile() + "/model.json");
     if (modelFile.exists()) {
@@ -309,19 +308,19 @@ public class TrainingService implements Startable {
   }
 
   /**
-   * Adds a trainingExecutor plugin. This method is safe in runtime: if
-   * configured trainingExecutor is not an instance of {@link TrainingExecutor}
+   * Adds a scriptsExecutor plugin. This method is safe in runtime: if
+   * configured scriptsExecutor is not an instance of {@link ScriptsExecutor}
    * then it will log a warning and let server continue the start.
    *
    * @param plugin the plugin
    */
   public void addPlugin(ComponentPlugin plugin) {
-    Class<TrainingExecutor> pclass = TrainingExecutor.class;
+    Class<ScriptsExecutor> pclass = ScriptsExecutor.class;
     if (pclass.isAssignableFrom(plugin.getClass())) {
-      trainingExecutor = pclass.cast(plugin);
-      LOG.info("Set training executor instance of " + plugin.getClass().getName());
+      scriptsExecutor = pclass.cast(plugin);
+      LOG.info("Set scripts executor instance of " + plugin.getClass().getName());
     } else {
-      LOG.warn("Training Executor plugin is not an instance of " + pclass.getName());
+      LOG.warn("Scripts Executor plugin is not an instance of " + pclass.getName());
     }
   }
 
