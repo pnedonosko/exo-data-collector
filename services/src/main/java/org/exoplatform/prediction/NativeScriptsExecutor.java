@@ -8,6 +8,10 @@ import org.exoplatform.datacollector.storage.FileStorage;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 
+/**
+ * The NativeScriptsExecutor executes scripts natively on the host machine
+ *
+ */
 public class NativeScriptsExecutor extends BaseComponentPlugin implements ScriptsExecutor {
 
   /** Logger */
@@ -19,10 +23,6 @@ public class NativeScriptsExecutor extends BaseComponentPlugin implements Script
     this.fileStorage = fileStorage;
   }
 
-  /**
-   * Calls the train script using /bin/sh natively on the host machine.
-   * Returns the path of created model folder
-   */
   @Override
   public String train(File dataset) {
     File modelFolder = new File(dataset.getParentFile().getAbsolutePath() + "/model");
@@ -36,6 +36,11 @@ public class NativeScriptsExecutor extends BaseComponentPlugin implements Script
     executeScript(dataset, fileStorage.getPredictionScript());
   }
 
+  /**
+   * Executes the script and passes the dataset as an argument
+   * @param dataset to be processed
+   * @param script to be executed
+   */
   protected void executeScript(File dataset, File script) {
     String[] cmd = { "python", script.getAbsolutePath(), dataset.getAbsolutePath() };
     try {

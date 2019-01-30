@@ -12,6 +12,10 @@ import org.exoplatform.datacollector.storage.FileStorage;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 
+/**
+ * The DockerScriptsExecutor executes scripts in docker containers
+ *
+ */
 public class DockerScriptsExecutor extends BaseComponentPlugin implements ScriptsExecutor {
 
   protected static final Log  LOG = ExoLogger.getExoLogger(DockerScriptsExecutor.class);
@@ -27,7 +31,6 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements Script
 
   @Override
   public String train(File dataset) {
-
     File modelFolder = new File(dataset.getParentFile().getAbsolutePath() + "/model");
     modelFolder.mkdirs();
     executeScript(dataset, fileStorage.getTrainingScript());
@@ -39,6 +42,11 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements Script
     executeScript(dataset, fileStorage.getPredictionScript());
   }
 
+  /**
+   * Executes the script and passes the dataset as an argument
+   * @param dataset to be processed
+   * @param script to be executed
+   */
   protected void executeScript(File dataset, File script) {
     // The folder of a dataset is the work directory for docker
     File workDirectory = dataset.getParentFile();
@@ -72,6 +80,10 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements Script
     }
   }
 
+  /**
+   * Logs the docker container output
+   * @param process docker process
+   */
   protected void logDockerOutput(Process process) {
     try {
       String s = null;

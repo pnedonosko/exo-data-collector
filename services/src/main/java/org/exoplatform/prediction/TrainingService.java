@@ -21,7 +21,6 @@ package org.exoplatform.prediction;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.net.URL;
 import java.util.Date;
 
 import org.apache.commons.io.FileUtils;
@@ -49,19 +48,17 @@ import org.exoplatform.services.log.Log;
 public class TrainingService implements Startable {
 
   /** Logger */
-  private static final Log       LOG                = ExoLogger.getExoLogger(TrainingService.class);
+  private static final Log       LOG               = ExoLogger.getExoLogger(TrainingService.class);
 
   /** Max count of archived models in DB */
-  private static final Integer   MAX_STORED_MODELS  = 20;
+  private static final Integer   MAX_STORED_MODELS = 20;
 
   protected final FileStorage    fileStorage;
-
-  private String                 trainingScriptPath = null;
 
   /** ModelEntityDAO */
   protected final ModelEntityDAO modelEntityDAO;
 
-  protected ScriptsExecutor     scriptsExecutor;
+  protected ScriptsExecutor      scriptsExecutor;
 
   /**
    * Instantiates a new training service.
@@ -176,7 +173,6 @@ public class TrainingService implements Startable {
    */
   @Override
   public void start() {
-    unpackTrainingScripts();
     if (scriptsExecutor == null) {
       throw new RuntimeException("ScriptsExecutor is not configured");
     }
@@ -188,33 +184,6 @@ public class TrainingService implements Startable {
   @Override
   public void stop() {
 
-  }
-
-  /**
-   * Unpacks training scripts from JAR to tmp directory. Sets trainingScriptPath
-   */
-  private void unpackTrainingScripts() {
-    URL trainingScript = this.getClass().getClassLoader().getResource("scripts/user_feed_train.py");
-    URL datasetutils = this.getClass().getClassLoader().getResource("scripts/datasetutils.py");
-    URL dockerScript = this.getClass().getClassLoader().getResource("scripts/docker_run.sh");
-    try {
-      File scriptsDir = fileStorage.getScriptsDir();
-      scriptsDir.mkdirs();
-      File localTrainingScript = new File(scriptsDir, "user_feed_train.py");
-      File localDatasetutils = new File(scriptsDir, "datasetutils.py");
-      File localDockerScript = new File(scriptsDir, "docker_run.sh");
-      FileUtils.copyURLToFile(trainingScript, localTrainingScript);
-      FileUtils.copyURLToFile(datasetutils, localDatasetutils);
-      FileUtils.copyURLToFile(dockerScript, localDockerScript);
-      localTrainingScript.deleteOnExit();
-      localDatasetutils.deleteOnExit();
-      localDockerScript.deleteOnExit();
-      scriptsDir.deleteOnExit();
-      trainingScriptPath = localTrainingScript.getAbsolutePath();
-    } catch (IOException e) {
-      LOG.error("Couldn't unpack the training scripts: " + e.getMessage());
-    }
-    LOG.info("Unpacked training script to: " + System.getProperty("java.io.tmpdir"));
   }
 
   /**

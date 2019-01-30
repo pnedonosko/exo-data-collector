@@ -19,8 +19,12 @@
 package org.exoplatform.datacollector.storage;
 
 import java.io.File;
+import java.io.IOException;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+
+import org.apache.commons.io.FileUtils;
 
 import org.exoplatform.container.xml.InitParams;
 import org.exoplatform.container.xml.ValueParam;
@@ -62,12 +66,17 @@ public class FileStorage {
   public FileStorage(InitParams initParams) {
     this.initParams = initParams;
 
+    unpackScripts();
     this.trainingScript = new File(getScriptsDir().getAbsolutePath() + "/user_feed_train.py");
     this.predictionScript = new File(getScriptsDir().getAbsolutePath() + "/user_feed_predict.py");
     this.datasetutilsScript = new File(getScriptsDir().getAbsolutePath() + "/datasetutils.py");
     this.dockerRunScript = new File(getScriptsDir().getAbsolutePath() + "/docker_run.sh");
   }
 
+  /**
+   * Gets the work directory
+   * @return the work directory
+   */
   public File getWorkDir() {
     String workDirPath = getValueParam(WORK_DIRECTORY_PARAM);
     File workDir;
@@ -91,6 +100,10 @@ public class FileStorage {
     return workDir;
   }
 
+  /**
+   * Gets the datasets directory
+   * @return the datasets directory
+   */
   public File getDatasetsDir() {
     File datasetsDir = new File(getWorkDir(), "datasets");
     datasetsDir.mkdirs();
@@ -98,17 +111,25 @@ public class FileStorage {
     return datasetsDir;
   }
 
+  /**
+   * Gets the scripts directory
+   * @return the scripts directory
+   */
   public File getScriptsDir() {
     // TODO It would be reasonable to keep (at least) prediction scripts
     // together with models, as between versions script(s) may change and newer
     // versions may be incompatible. Indeed this also actual for a datasets
     // (format, feature names, targets).
-    File datasetsDir = new File(getWorkDir(), "scripts");
-    datasetsDir.mkdirs();
+    File scriptsDir = new File(getWorkDir(), "scripts");
+    scriptsDir.mkdirs();
 
-    return datasetsDir;
+    return scriptsDir;
   }
 
+  /**
+   * Gets the bucket directory
+   * @return the bucket directory
+   */
   public File getBucketDir(String bucketName) {
     // TODO Spool all users datasets into a dedicated folder into
     // $WORK_DIR/datasets/${bucketName}
@@ -125,26 +146,43 @@ public class FileStorage {
     return bucketDir;
   }
 
+  /**
+   * Gets the training script
+   * @return the training script
+   */
   public File getTrainingScript() {
     return trainingScript;
   }
 
+  /**
+   * Gets the prediction script
+   * @return the prediction script
+   */
   public File getPredictionScript() {
     return predictionScript;
   }
 
+  /**
+   * Gets the datasetutils script
+   * @return the datasetutils script
+   */
   public File getDatasetutilsScript() {
     return datasetutilsScript;
   }
 
+  /**
+   * Gets the dockerRun script
+   * @return the dockerRun script
+   */
   public File getDockerRunScript() {
     return dockerRunScript;
   }
 
-  public InitParams getInitParams() {
-    return initParams;
-  }
-
+  /**
+   * Gets the value of a param in the initParams
+   * @param keyName of the param
+   * @return the value
+   */
   protected String getValueParam(String keyName) {
     if (initParams != null) {
       ValueParam param = initParams.getValueParam(keyName);
@@ -157,6 +195,32 @@ public class FileStorage {
       }
     }
     return null;
+  }
+
+  /**
+   * Unpacks scripts from JAR to tmp directory
+   */
+  protected void unpackScripts() {
+    URL trainingScript = this.getClass().getClassLoader().getResource("scripts/user_feed_train.py");
+    URL datasetutils = this.getClass().getClassLoader().getResource("scripts/datasetutils.py");
+    URL dockerScript = this.getClass().getClassLoader().getResource("scripts/docker_run.sh");
+    try {
+      File scriptsDir = getScriptsDir();
+      scriptsDir.mkdirs();
+      File localTrainingScript = new File(scriptsDir, "user_feed_train.py");
+      File localDatasetutils = new File(scriptsDir, "datasetutils.py");
+      File localDockerScript = new File(scriptsDir, "docker_run.sh");
+      FileUtils.copyURLToFile(trainingScript, localTrainingScript);
+      FileUtils.copyURLToFile(datasetutils, localDatasetutils);
+      FileUtils.copyURLToFile(dockerScript, localDockerScript);
+      localTrainingScript.deleteOnExit();
+      localDatasetutils.deleteOnExit();
+      localDockerScript.deleteOnExit();
+      scriptsDir.deleteOnExit();
+    } catch (IOException e) {
+      LOG.error("Couldn't unpack training and prediction scripts: " + e.getMessage());
+    }
+    LOG.info("Unpacked training and prediction scripts to: " + getScriptsDir());
   }
 
 }

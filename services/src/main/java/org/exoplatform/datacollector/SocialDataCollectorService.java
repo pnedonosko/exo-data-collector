@@ -601,7 +601,6 @@ public class SocialDataCollectorService implements Startable {
         // File bucketDir = fileStorage.getBucketDir(bucketName);
 
         // TODO compile path in FileStorage?
-        // TODO training dataset name use: train.csv
         final File userFile = new File(model.getDatasetFile().replace(id.getRemoteId() + ".csv", "predict.csv"));
         try (PrintWriter writer = new PrintWriter(userFile)) {
           // TODO it's bad idea to fetch and predict all the user feed here, we
@@ -749,7 +748,7 @@ public class SocialDataCollectorService implements Startable {
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
       // TODO compile path in FileStorage?
-      final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/" + id.getRemoteId() + ".csv");
+      final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/train.csv");
       userFile.getParentFile().mkdirs();
 
       // Set the dataset path to the latest model in DB if exists
