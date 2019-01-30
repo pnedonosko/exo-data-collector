@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -46,7 +47,15 @@ public class UserInfluencersTest {
 
     List<Space> spaces = Arrays.asList(spaceMarketing, spaceSupport);
 
-    userInfluencers = new UserInfluencers(james, connections, spaces);
+    userInfluencers = new UserInfluencers(james,
+                                          Collections.unmodifiableMap(connections.stream()
+                                                                                 .collect(Collectors.toMap(c -> c.getId(),
+                                                                                                           c -> c,
+                                                                                                           (c1, c2) -> c1))),
+                                          Collections.unmodifiableMap(spaces.stream()
+                                                                            .collect(Collectors.toMap(s -> s.getId(),
+                                                                                                      s -> new SpaceSnapshot(s),
+                                                                                                      (s1, s2) -> s1))));
 
     userInfluencers.addStream("Stream1", 0.2);
     userInfluencers.addStream("Stream1", 0.4);

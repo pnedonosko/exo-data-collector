@@ -50,6 +50,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.apache.commons.io.FileUtils;
 import org.picocontainer.Startable;
@@ -160,7 +161,7 @@ public class SocialDataCollectorService implements Startable {
   public static final String     FINANCIAL_FOCUS      = "financial".intern();
 
   public static final String     OTHER_FOCUS          = "other".intern();
-  
+
   protected static final Pattern ENGINEERING_PATTERN  =
                                                      Pattern.compile("^.*developer|architect|r&d|mobile|qa|fqa|tqa|test|quality|qualité|expert|integrator|designer|cwi|technical advisor|services delivery|software engineer.*$");
 
@@ -228,7 +229,7 @@ public class SocialDataCollectorService implements Startable {
         ModelEntity existingModel = trainingService.getLastModel(userName);
 
         if (modelNeedsTraining(existingModel, loginDate)) {
-          submitModelProcessing(userName, BUCKET_PREFIX + currentBucketIndex, true);
+          submitUserCollector(userName, BUCKET_PREFIX + currentBucketIndex, true);
           LOG.info("Started processing {}", userName);
         } else {
           LOG.info("User's {} model doesn't need training ", userName);
@@ -362,10 +363,10 @@ public class SocialDataCollectorService implements Startable {
 
     @Override
     public void onEvent(Event<ConversationRegistry, ConversationState> event) throws Exception {
-      if(!runMainLoop.get()) {
+      if (!runMainLoop.get()) {
         return;
       }
-      
+
       String userId = event.getData().getIdentity().getUserId();
       if (!bucketRecords.containsKey(userId)) {
         loginsQueue.add(userId);
@@ -427,6 +428,9 @@ public class SocialDataCollectorService implements Startable {
   /** Contains users id ordered by the login time */
   protected final ConcurrentLinkedQueue<String>             loginsQueue         = new ConcurrentLinkedQueue<>();
 
+  /** Calculated user influencers (aka runtime cache). */
+  protected final ConcurrentHashMap<String, UserSnapshot>   currentInfluencers  = new ConcurrentHashMap<>();
+
   protected Integer                                         currentBucketIndex  = -1;
 
   /** The timer for scheduled tasks execution */
@@ -441,7 +445,10 @@ public class SocialDataCollectorService implements Startable {
    */
   protected Long                                            trainPeriod         = 180 * 60000L;
 
-  /** The current worker that executes or is going to execute the main loop of collecting/training. */
+  /**
+   * The current worker that executes or is going to execute the main loop of
+   * collecting/training.
+   */
   protected BucketWorker                                    currentWorker;
 
   /**
@@ -539,9 +546,9 @@ public class SocialDataCollectorService implements Startable {
     } catch (Exception e) {
       LOG.error("Cannot add the MembershipListener: {}", e.getMessage());
     }
-    
+
     listenerService.addListener(new LoginListener());
-    
+
     if (runMainLoop.get()) {
       // TODO use(reuse) startMainLoop()
       final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
@@ -562,7 +569,7 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Starts manual collecting and training a user's model.
+   * Starts manual collecting and optionally training a user's model.
    * 
    * @param userName userName
    * @param bucket bucket name
@@ -570,16 +577,57 @@ public class SocialDataCollectorService implements Startable {
    * @throws Exception is thrown if the bucket is incorrect or user is not found
    *           or user's model is being processed
    */
-  public void startManualCollecting(String userName, String bucket, boolean train) throws Exception {
+  public void startUserCollector(String userName, String bucket, boolean train) throws Exception {
     if (bucket == null || bucket.startsWith(BUCKET_PREFIX)) {
       throw new Exception("Bucket name cannot be null or start with " + BUCKET_PREFIX);
     }
     ModelEntity model = trainingService.getLastModel(userName);
     if (model == null || !Status.NEW.equals(model.getStatus()) && !Status.PROCESSING.equals(model.getStatus())) {
-      submitModelProcessing(userName, bucket, train);
+      submitUserCollector(userName, bucket, train);
     } else {
       throw new Exception("The user is not found or being processed right now");
     }
+  }
+
+  /**
+   * Collect user's current feed.
+   *
+   * @param userName the user name
+   * @return the string
+   */
+  public String collectUserFeed(String userName) {
+    final UserIdentity id = getUserIdentityByName(userName);
+    if (id != null) {
+      ModelEntity model = trainingService.getLastModel(userName);
+      if (model != null) {
+        // TODO Find bucketName of active model (in main loop), it should be
+        // from prod bucket!
+        // File bucketDir = fileStorage.getBucketDir(bucketName);
+
+        // TODO compile path in FileStorage?
+        // TODO training dataset name use: train.csv
+        final File userFile = new File(model.getDatasetFile().replace(id.getRemoteId() + ".csv", "predict.csv"));
+        try (PrintWriter writer = new PrintWriter(userFile)) {
+          // TODO it's bad idea to fetch and predict all the user feed here, we
+          // need make it lazy (on-demand), and do only for actually fetched
+          // but, at the same time we don't want predict for each fetched
+          // activity but for a batch (like what fetched to show in activity
+          // stream)
+          collectUserActivities(id, writer, false);
+          LOG.info("Saved user inferring dataset into bucket file: {}", userFile.getAbsolutePath());
+          return userFile.getAbsolutePath();
+        } catch (Exception e) {
+          LOG.error("Cannot collect user inferring dataset for {} : {}", userName, e);
+          userFile.delete();
+          return null;
+        }
+      } else {
+        LOG.warn("User model not found for {}", userName);
+      }
+    } else {
+      LOG.warn("User social identity not found for {}", userName);
+    }
+    return null;
   }
 
   /**
@@ -590,7 +638,7 @@ public class SocialDataCollectorService implements Startable {
    */
   public boolean stopMainLoop() {
     if (runMainLoop.getAndSet(false)) {
-      if(currentWorker != null) {
+      if (currentWorker != null) {
         currentWorker.stop();
         currentWorker = null;
       }
@@ -626,6 +674,8 @@ public class SocialDataCollectorService implements Startable {
    * @param userName to be added
    */
   public void addUser(String userName) {
+    // TODO need better name: it's actually about TrainingService but lies in
+    // Data Collector.
     ModelEntity currentModel = trainingService.getLastModel(userName);
     // If model exists and is not being processed right now
     if (currentModel != null && !Status.NEW.equals(currentModel.getStatus())
@@ -666,7 +716,7 @@ public class SocialDataCollectorService implements Startable {
                                                                                               true));
     while (idIter.hasNext() && !Thread.currentThread().isInterrupted()) {
       final UserIdentity id = cacheUserIdentity(userIdentity(idIter.next()));
-      submitModelProcessing(id.getRemoteId(), bucketName, false);
+      submitUserCollector(id.getRemoteId(), bucketName, false);
     }
 
     if (Thread.currentThread().isInterrupted()) {
@@ -682,8 +732,11 @@ public class SocialDataCollectorService implements Startable {
     }
     LOG.info("Saved dataset successfully into bucketRecords folder: {}", bucketDir.getAbsolutePath());
     return bucketDir.getAbsolutePath();
-
   }
+
+//  public String collectUser() {
+//
+//  }
 
   /**
    * Collect user activities into given files bucketRecords in Platform data
@@ -691,14 +744,15 @@ public class SocialDataCollectorService implements Startable {
    *
    * @param bucketName the bucketRecords name
    * @param userName the user name
-   * @param train trains model if true
+   * @param withRank collect with rank if <code>true</code>
    * @return the dataset file
    */
-  protected String collectUserActivities(String bucketName, String userName) {
+  protected String collectUserActivities(String bucketName, String userName, boolean withRank) {
     File bucketDir = fileStorage.getBucketDir(bucketName);
     LOG.info("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
+      // TODO compile path in FileStorage?
       final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/" + id.getRemoteId() + ".csv");
       userFile.getParentFile().mkdirs();
 
@@ -710,7 +764,7 @@ public class SocialDataCollectorService implements Startable {
       trainingService.setDatasetToLatestModel(userName, userFile.getAbsolutePath());
 
       try (PrintWriter writer = new PrintWriter(userFile)) {
-        collectUserActivities(id, writer);
+        collectUserActivities(id, writer, withRank);
       } catch (Exception e) {
         LOG.error("Cannot collect user activities for {} : {}", userName, e);
         userFile.delete();
@@ -725,13 +779,14 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Collects collecting user activities in separate worker. Trains model if
+   * Collects user's all activities in separate worker. Trains model if
    * necessary.
-   * 
-   * @param userName
+   *
+   * @param userName the user name
+   * @param bucket the bucket
    * @param train if true - trains model
    */
-  protected void submitModelProcessing(String userName, String bucket, boolean train) {
+  protected void submitUserCollector(String userName, String bucket, boolean train) {
     final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
     workers.submit(new ContainerCommand(containerName) {
       @Override
@@ -739,7 +794,7 @@ public class SocialDataCollectorService implements Startable {
         if (train) {
           trainingService.addModel(userName, null);
         }
-        String dataset = collectUserActivities(bucket, userName);
+        String dataset = collectUserActivities(bucket, userName, true);
         if (dataset != null && train) {
           copyModelFile(trainingService.getPreviousModel(userName), new File(dataset).getParentFile());
           trainingService.submitTrainModel(dataset, userName);
@@ -788,65 +843,87 @@ public class SocialDataCollectorService implements Startable {
    *
    * @param id the user identity in Social
    * @param out the writer where spool the user activities dataset
+   * @param withRank if <code>true</code> then collect dataset with rank
    * @throws Exception the exception
    */
-  protected void collectUserActivities(UserIdentity id, PrintWriter out) throws Exception {
+  protected void collectUserActivities(UserIdentity id, PrintWriter out, boolean withRank) throws Exception {
     LOG.info("> Collecting user activities for {}", id.getRemoteId());
-    out.println(activityHeader());
+    out.println(activityHeader(withRank));
 
     // Find this user favorite participants (influencers) and streams
     LOG.info(">> Buidling user influencers for {}", id.getRemoteId());
-    Collection<Identity> idConnections = loadListAll(relationshipManager.getConnections(id));
-    Collection<Space> userSpaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
+    Collection<Identity> conns = loadListAll(relationshipManager.getConnections(id));
+    Collection<Space> spaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
     final long sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
 
-    UserInfluencers influencers = new UserInfluencers(id, idConnections, userSpaces);
+    UserSnapshot user = currentInfluencers.computeIfAbsent(id.getRemoteId(), userName -> {
+      // Prepare an user state snapshot, it should not be modified until another
+      // collecting
+      // XXX Collector with merge function to solve duplicates in source
+      // collections (may have place for connections)
+      Map<String, Identity> connsSnapshot = Collections.unmodifiableMap(conns.stream()
+                                                                             .collect(Collectors.toMap(c -> c.getId(),
+                                                                                                       c -> c,
+                                                                                                       (c1, c2) -> c1)));
+      Map<String, SpaceSnapshot> spacesSnapshot =
+                                                Collections.unmodifiableMap(spaces.stream()
+                                                                                  .collect(Collectors.toMap(s -> s.getId(),
+                                                                                                            s -> new SpaceSnapshot(s),
+                                                                                                            (s1, s2) -> s1)));
+      UserInfluencers influencers = new UserInfluencers(id, connsSnapshot, spacesSnapshot);
 
-    influencers.addUserPosts(postStorage.findUserPosts(id.getId(), sinceTime));
+      influencers.addUserPosts(postStorage.findUserPosts(id.getId(), sinceTime));
 
-    influencers.addCommentedPoster(commentStorage.findPartIsCommentedPoster(id.getId(), sinceTime));
-    influencers.addCommentedCommenter(commentStorage.findPartIsCommentedCommenter(id.getId(), sinceTime));
-    influencers.addCommentedConvoPoster(commentStorage.findPartIsCommentedConvoPoster(id.getId(), sinceTime));
+      influencers.addCommentedPoster(commentStorage.findPartIsCommentedPoster(id.getId(), sinceTime));
+      influencers.addCommentedCommenter(commentStorage.findPartIsCommentedCommenter(id.getId(), sinceTime));
+      influencers.addCommentedConvoPoster(commentStorage.findPartIsCommentedConvoPoster(id.getId(), sinceTime));
 
-    influencers.addPostCommenter(commentStorage.findPartIsPostCommenter(id.getId(), sinceTime));
-    influencers.addCommentCommenter(commentStorage.findPartIsCommentCommenter(id.getId(), sinceTime));
-    influencers.addConvoCommenter(commentStorage.findPartIsConvoCommenter(id.getId(), sinceTime));
+      influencers.addPostCommenter(commentStorage.findPartIsPostCommenter(id.getId(), sinceTime));
+      influencers.addCommentCommenter(commentStorage.findPartIsCommentCommenter(id.getId(), sinceTime));
+      influencers.addConvoCommenter(commentStorage.findPartIsConvoCommenter(id.getId(), sinceTime));
 
-    influencers.addMentioner(mentionStorage.findPartIsMentioner(id.getId(), sinceTime));
-    influencers.addMentioned(mentionStorage.findPartIsMentioned(id.getId(), sinceTime));
+      influencers.addMentioner(mentionStorage.findPartIsMentioner(id.getId(), sinceTime));
+      influencers.addMentioned(mentionStorage.findPartIsMentioned(id.getId(), sinceTime));
 
-    influencers.addLikedPoster(likeStorage.findPartIsLikedPoster(id.getId(), sinceTime));
-    influencers.addLikedCommenter(likeStorage.findPartIsLikedCommenter(id.getId(), sinceTime));
-    influencers.addLikedConvoPoster(likeStorage.findPartIsLikedConvoPoster(id.getId(), sinceTime));
+      influencers.addLikedPoster(likeStorage.findPartIsLikedPoster(id.getId(), sinceTime));
+      influencers.addLikedCommenter(likeStorage.findPartIsLikedCommenter(id.getId(), sinceTime));
+      influencers.addLikedConvoPoster(likeStorage.findPartIsLikedConvoPoster(id.getId(), sinceTime));
 
-    influencers.addPostLiker(likeStorage.findPartIsPostLiker(id.getId(), sinceTime));
-    influencers.addCommentLiker(likeStorage.findPartIsCommentLiker(id.getId(), sinceTime));
-    influencers.addConvoLiker(likeStorage.findPartIsConvoLiker(id.getId(), sinceTime));
+      influencers.addPostLiker(likeStorage.findPartIsPostLiker(id.getId(), sinceTime));
+      influencers.addCommentLiker(likeStorage.findPartIsCommentLiker(id.getId(), sinceTime));
+      influencers.addConvoLiker(likeStorage.findPartIsConvoLiker(id.getId(), sinceTime));
 
-    influencers.addSamePostLiker(likeStorage.findPartIsSamePostLiker(id.getId(), sinceTime));
-    influencers.addSameCommentLiker(likeStorage.findPartIsSameCommentLiker(id.getId(), sinceTime));
-    influencers.addSameConvoLiker(likeStorage.findPartIsSameConvoLiker(id.getId(), sinceTime));
+      influencers.addSamePostLiker(likeStorage.findPartIsSamePostLiker(id.getId(), sinceTime));
+      influencers.addSameCommentLiker(likeStorage.findPartIsSameCommentLiker(id.getId(), sinceTime));
+      influencers.addSameConvoLiker(likeStorage.findPartIsSameConvoLiker(id.getId(), sinceTime));
 
-    // Here the influencers object knows favorite streams of the user
-    Collection<String> favoriteStreams = influencers.getFavoriteStreamsTop(10);
-    if (favoriteStreams.size() < 10) {
-      // TODO add required (to 10) streams where user has most of its
-      // connections
-    }
-    if (favoriteStreams.size() > 0) {
-      influencers.addStreamPoster(postStorage.findPartIsFavoriteStreamPoster(id.getId(), sinceTime, favoriteStreams));
-      influencers.addStreamCommenter(commentStorage.findPartIsFavoriteStreamCommenter(id.getId(), sinceTime, favoriteStreams));
-      influencers.addStreamPostLiker(likeStorage.findPartIsFavoriteStreamPostLiker(id.getId(), sinceTime, favoriteStreams));
-      influencers.addStreamCommentLiker(likeStorage.findPartIsFavoriteStreamCommentLiker(id.getId(), sinceTime, favoriteStreams));
-    }
-    LOG.info("<< Built user influencers for {}", id.getRemoteId());
+      // Here the influencers object knows favorite streams of the user
+      Set<String> favoriteStreams = influencers.getFavoriteStreamsTop(10);
+      if (favoriteStreams.size() < 10) {
+        // TODO add required (to 10) streams where user has most of its
+        // connections
+      }
+      if (favoriteStreams.size() > 0) {
+        influencers.addStreamPoster(postStorage.findPartIsFavoriteStreamPoster(id.getId(), sinceTime, favoriteStreams));
+        influencers.addStreamCommenter(commentStorage.findPartIsFavoriteStreamCommenter(id.getId(), sinceTime, favoriteStreams));
+        influencers.addStreamPostLiker(likeStorage.findPartIsFavoriteStreamPostLiker(id.getId(), sinceTime, favoriteStreams));
+        influencers.addStreamCommentLiker(likeStorage.findPartIsFavoriteStreamCommentLiker(id.getId(),
+                                                                                           sinceTime,
+                                                                                           favoriteStreams));
+      }
+      LOG.info("<< Built user influencers for {}", id.getRemoteId());
+      UserSnapshot userSnapshot = new UserSnapshot(influencers, id, connsSnapshot, spacesSnapshot);
+      // Favorite streams calculated before addStream* methods call
+      userSnapshot.setFavoriteStreams(Collections.unmodifiableSet(favoriteStreams));
+      return userSnapshot;
+    });
 
     // load identity's activities and collect its data
     Iterator<ExoSocialActivity> feedIter =
                                          loadActivitiesListIterator(activityManager.getActivityFeedWithListAccess(id), sinceTime);
     while (feedIter.hasNext() && !Thread.currentThread().isInterrupted()) {
       ExoSocialActivity activity = feedIter.next();
-      out.println(activityLine(influencers, favoriteStreams, activity));
+      out.println(activityLine(user, activity, withRank));
     }
 
     if (Thread.currentThread().isInterrupted()) {
@@ -856,7 +933,7 @@ public class SocialDataCollectorService implements Startable {
     }
   }
 
-  protected String activityHeader() {
+  protected String activityHeader(boolean withRank) {
     StringBuilder aline = new StringBuilder();
     aline.append("id,")
          // .append("title,")
@@ -929,13 +1006,19 @@ public class SocialDataCollectorService implements Startable {
            .append(prefix)
            .append("influence,");
     }
-    aline.append("rank");
-    // aline.deleteCharAt(aline.length() - 1); // TODO remove last comma
+    if (withRank) {
+      aline.append("rank");
+    } else {
+      aline.deleteCharAt(aline.length() - 1);
+    }
     return aline.toString();
   }
 
-  protected String activityLine(UserInfluencers influencers, Collection<String> favoriteStreams, ExoSocialActivity activity) {
-    ActivityRank rank = new ActivityRank();
+  protected String activityLine(UserSnapshot user, ExoSocialActivity activity, boolean withRank) {
+    ActivityRank rank = null;
+    if (withRank) {
+      rank = new ActivityRank();
+    }
     StringBuilder aline = new StringBuilder();
     // Activity identification & type
     // ID
@@ -976,7 +1059,7 @@ public class SocialDataCollectorService implements Startable {
     // aline.append(findStreamFocus(stream.getPrettyId())).append(',');
     // owner influence
     // TODO format double/float with dot-delimiter for decimal part
-    aline.append(influencers.getStreamWeight(ownerId)).append(',');
+    aline.append(user.getInfluencers().getStreamWeight(ownerId)).append(',');
     // number_of_likes
     aline.append(activity.getNumberOfLikes()).append(',');
     // number_of_comments
@@ -988,11 +1071,11 @@ public class SocialDataCollectorService implements Startable {
     // TODO reactivity has different logic for training and prediction:
     // when trained, we want know actual user reaction on the post
     // when predicting, a reaction is unknown and reactivity is full (1)
-    double reactivity = influencers.getPostReactivity(activity.getId());
+    double reactivity = user.getInfluencers().getPostReactivity(activity.getId());
     aline.append(reactivity).append(',');
 
-    final String myId = influencers.getUserIdentity().getId();
-    final Collection<String> myConns = influencers.getUserConnections().keySet();
+    final String myId = user.getIdentity().getId();
+    final Collection<String> myConns = user.getConnections().keySet();
 
     boolean participatedByMe = false;
     boolean participatedByConns = false;
@@ -1017,16 +1100,17 @@ public class SocialDataCollectorService implements Startable {
     likedByConns = aline.charAt(aline.length() - 2) == '1';
 
     // Contribute into target weight
-    // influencers.get
-    rank.participatedByMe(participatedByMe);
-    rank.participatedByConnections(participatedByConns);
-    rank.likedByMe(likedByMe);
-    rank.likedByConnections(likedByConns);
-    rank.postedInFavoriteStream(favoriteStreams.contains(ownerId));
-    // TODO app not yet used in features
-    // target.postedInFavoriteApp(isPostedInFavoriteApp);
-    rank.widelyLiked(influencers.isWidelyLiked(activity.getNumberOfLikes()));
-    rank.reactivity(reactivity);
+    if (withRank) {
+      rank.participatedByMe(participatedByMe);
+      rank.participatedByConnections(participatedByConns);
+      rank.likedByMe(likedByMe);
+      rank.likedByConnections(likedByConns);
+      rank.postedInFavoriteStream(user.getFavoriteStreams().contains(ownerId));
+      // TODO app not yet used in features
+      // target.postedInFavoriteApp(isPostedInFavoriteApp);
+      rank.widelyLiked(user.getInfluencers().isWidelyLiked(activity.getNumberOfLikes()));
+      rank.reactivity(reactivity);
+    }
 
     // Poster (creator)
     String posterId = activity.getPosterId();
@@ -1060,15 +1144,17 @@ public class SocialDataCollectorService implements Startable {
       encFocus(aline, poster).append(',');
     }
     // poster_influence
-    double posterWeight = influencers.getParticipantWeight(posterId, ownerId);
+    double posterWeight = user.getInfluencers().getParticipantWeight(posterId, ownerId);
     aline.append(posterWeight).append(',');
-    rank.participatedByInfluencer(posterWeight);
-    if (new HashSet<String>(Arrays.asList(activity.getLikeIdentityIds())).contains(posterId)) {
-      rank.likedByInfluencer(posterWeight);
+    if (withRank) {
+      rank.participatedByInfluencer(posterWeight);
+      if (new HashSet<String>(Arrays.asList(activity.getLikeIdentityIds())).contains(posterId)) {
+        rank.likedByInfluencer(posterWeight);
+      }
     }
 
     // Find top 5 participants in this activity, we need not less than 5!
-    for (ActivityParticipant p : findTopParticipants(activity, influencers, isSpace, ACTIVITY_PARTICIPANTS_TOP)) {
+    for (ActivityParticipant p : findTopParticipants(activity, user, isSpace, ACTIVITY_PARTICIPANTS_TOP)) {
       // participantN_id
       aline.append(p.id).append(',');
       // participantN_conversed
@@ -1089,22 +1175,26 @@ public class SocialDataCollectorService implements Startable {
       // participantN_focus_*: job position as team membership encoded
       encFocus(aline, part).append(',');
       // participantN_influence
-      double pweight = influencers.getParticipantWeight(p.id, ownerId);
+      double pweight = user.getInfluencers().getParticipantWeight(p.id, ownerId);
       aline.append(pweight).append(',');
       // LOG.info("<<< Added activity participant: " + p.id + "@" +
       // activity.getId() + " <<<<");
-      if (p.isConversed > 0) {
-        rank.participatedByInfluencer(pweight);
-      } else if (p.isFavored > 0) {
-        rank.likedByInfluencer(pweight);
+      if (withRank) {
+        if (p.isConversed > 0) {
+          rank.participatedByInfluencer(pweight);
+        } else if (p.isFavored > 0) {
+          rank.likedByInfluencer(pweight);
+        }
       }
     }
 
-    // rank column
-    aline.append(rank.build());
-
-    // remove ending comma
-    // aline.deleteCharAt(aline.length() - 1);
+    if (withRank) {
+      // rank column
+      aline.append(rank.build());
+    } else {
+      // remove last comma
+      aline.deleteCharAt(aline.length() - 1);
+    }
 
     // LOG.info("<< Added activity: " +
     // influencers.getUserIdentity().getRemoteId() + "@" + activity.getId());
@@ -1246,7 +1336,7 @@ public class SocialDataCollectorService implements Startable {
   }
 
   protected Collection<ActivityParticipant> findTopParticipants(ExoSocialActivity activity,
-                                                                UserInfluencers influencers,
+                                                                UserSnapshot user,
                                                                 boolean isInSpace,
                                                                 int topLength) {
     Map<String, ActivityParticipant> top = new LinkedHashMap<>();
@@ -1318,7 +1408,7 @@ public class SocialDataCollectorService implements Startable {
 
       if (top.size() < topLength) {
         // Add user connections who were logged-in
-        Iterator<Identity> citer = influencers.getUserConnections().values().iterator();
+        Iterator<Identity> citer = user.getConnections().values().iterator();
         while (citer.hasNext() && top.size() < topLength) {
           String cid = citer.next().getId();
           // if (wasUserLoggedin(cid, activityScopeTimeBegin,

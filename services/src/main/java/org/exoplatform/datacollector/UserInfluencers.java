@@ -19,11 +19,8 @@
 package org.exoplatform.datacollector;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -38,9 +35,11 @@ import org.exoplatform.datacollector.domain.ActivityPostedEntity;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.social.core.identity.model.Identity;
-import org.exoplatform.social.core.space.model.Space;
 
 /**
+ * User influencers snapshot. Data calculated here should not be modified since
+ * once collected (by
+ * {@link SocialDataCollectorService#collectUserActivities(org.exoplatform.datacollector.identity.UserIdentity, java.io.PrintWriter)}).<br>
  * Created by The eXo Platform SAS
  * 
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
@@ -67,7 +66,7 @@ public class UserInfluencers {
   public static final int       REACTIVITY_DAYS_RANGE      = 30;
 
   public static final int       INFLUENCE_DAYS_RANGE       = 90;
-  
+
   /** The Constant FEED_DAYS_RANGE = 2 years long. */
   public static final int       FEED_DAYS_RANGE            = 731;
 
@@ -104,21 +103,6 @@ public class UserInfluencers {
     for (int i = 1; i < REACTIVITY_WEIGHTS.length; i++) {
       double prev = REACTIVITY_WEIGHTS[i - 1];
       REACTIVITY_WEIGHTS[i] = prev - Math.pow(prev * REACTIVITY_DAY_WEIGHT_GROW, 2);
-    }
-  }
-
-  class SpaceInfo {
-    final Space       space;
-
-    final Set<String> members;
-
-    final Set<String> managers;
-
-    SpaceInfo(Space space) {
-      super();
-      this.space = space;
-      this.members = new HashSet<String>(Arrays.asList(space.getMembers()));
-      this.managers = new HashSet<String>(Arrays.asList(space.getManagers()));
     }
   }
 
@@ -170,44 +154,29 @@ public class UserInfluencers {
     }
   }
 
-  private Map<String, List<Double>>    streams      = new HashMap<>();
+  private Map<String, List<Double>>        streams      = new HashMap<>();
 
-  private Map<String, List<Double>>    participants = new HashMap<>();
+  private Map<String, List<Double>>        participants = new HashMap<>();
 
-  private Map<String, ActivityInfo>    activities   = new HashMap<>();
+  private Map<String, ActivityInfo>        activities   = new HashMap<>();
 
-  private final Identity               userIdentity;
+  private final Identity                   identity;
 
-  private final Map<String, Identity>  userConnections;
+  private final Map<String, Identity>      connections;
 
-  private final Map<String, SpaceInfo> userSpaces;
+  private final Map<String, SpaceSnapshot> spaces;
 
   /**
    * Instantiates a new user influencers.
    *
-   * @param userIdentity the user identity
-   * @param userConnections the user connections
-   * @param userSpaces the user spaces
+   * @param identity the user identity
+   * @param connections the user connections
+   * @param spaces the user spaces
    */
-  public UserInfluencers(Identity userIdentity, Collection<Identity> userConnections, Collection<Space> userSpaces) {
-    this.userIdentity = userIdentity;
-    // Preload some common info
-    // Collector with merge function to solve duplicates in source collections
-    // (may have place for connections)
-    this.userConnections = userConnections.stream().collect(Collectors.toMap(c -> c.getId(), c -> c, (c1, c2) -> c1));
-    this.userSpaces = userSpaces.stream().collect(Collectors.toMap(s -> s.getId(), s -> new SpaceInfo(s), (s1, s2) -> s1));
-  }
-
-  public Map<String, Identity> getUserConnections() {
-    return Collections.unmodifiableMap(userConnections);
-  }
-
-  public Map<String, SpaceInfo> getUserSpaces() {
-    return Collections.unmodifiableMap(userSpaces);
-  }
-
-  public Identity getUserIdentity() {
-    return userIdentity;
+  public UserInfluencers(Identity identity, Map<String, Identity> connections, Map<String, SpaceSnapshot> spaces) {
+    this.identity = identity;
+    this.connections = connections;
+    this.spaces = spaces;
   }
 
   public boolean isWidelyLiked(int likes) {
@@ -300,7 +269,7 @@ public class UserInfluencers {
    *
    * @return the favorite streams ordered in descending order of user favor
    */
-  public Collection<String> getFavoriteStreams() {
+  public Set<String> getFavoriteStreams() {
     // TODO filter all the streams to only ones that have weight higher of some
     // trendy value (e.g. 0.75)
 
@@ -312,10 +281,10 @@ public class UserInfluencers {
     Map<String, Double> ordered = orderWeights(weights);
 
     // TODO test it to ensure order
-    return Collections.unmodifiableCollection(ordered.keySet());
+    return Collections.unmodifiableSet(ordered.keySet());
   }
 
-  public Collection<String> getFavoriteStreamsTop(int top) {
+  public Set<String> getFavoriteStreamsTop(int top) {
     // TODO test it to ensure order
     return getFavoriteStreams().stream().limit(top).collect(Collectors.toCollection(LinkedHashSet::new));
   }
@@ -328,7 +297,7 @@ public class UserInfluencers {
     return participants.containsKey(partId);
   }
 
-  public Collection<String> getAllParticipants() {
+  public Set<String> getAllParticipants() {
     return Collections.unmodifiableSet(participants.keySet());
   }
 
@@ -348,7 +317,7 @@ public class UserInfluencers {
     return weights;
   }
 
-  public Collection<String> getParticipants() {
+  public Set<String> getParticipants() {
     // TODO filter all the parts to only ones that have weight higher of some
     // trendy value (e.g. 0.75)
 
@@ -360,10 +329,10 @@ public class UserInfluencers {
     Map<String, Double> ordered = orderWeights(weights);
 
     // TODO test it to ensure order
-    return Collections.unmodifiableCollection(ordered.keySet());
+    return Collections.unmodifiableSet(ordered.keySet());
   }
 
-  public Collection<String> getParticipantsTop(int top) {
+  public Set<String> getParticipantsTop(int top) {
     // TODO test it to ensure order
     return getParticipants().stream().limit(top).collect(Collectors.toCollection(LinkedHashSet::new));
   }
@@ -388,13 +357,13 @@ public class UserInfluencers {
     // 3) find most "recent" user connections: those who more active last days
     // and possible have common interest with the user.
 
-    Identity conn = userConnections.get(id);
+    Identity conn = connections.get(id);
     if (conn != null) {
       weights.add(0.3);
     }
-    SpaceInfo spaceInfo = null;
+    SpaceSnapshot spaceInfo = null;
     if (streamId != null) {
-      spaceInfo = userSpaces.get(streamId);
+      spaceInfo = spaces.get(streamId);
       if (spaceInfo != null) {
         if (spaceInfo.managers.contains(id)) {
           weights.add(0.5);
