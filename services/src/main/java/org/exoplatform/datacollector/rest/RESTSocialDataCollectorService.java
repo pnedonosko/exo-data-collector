@@ -88,7 +88,7 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
                              @PathParam("username") String userName,
                              @QueryParam("train") String isTrain) {
     try {
-      dataCollector.startManualCollecting(userName, bucketName, isTrain != null ? Boolean.valueOf(isTrain) : false);
+      dataCollector.startUserCollector(userName, bucketName, isTrain != null ? Boolean.valueOf(isTrain) : false);
       return Response.ok().entity("{ \"status\": \"ACCEPTED\", \"userFoler\": " + bucketName + "/" + userName + "}").build();
     } catch (Exception e) {
       return Response.serverError().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
