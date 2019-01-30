@@ -196,13 +196,13 @@ public class TrainingService implements Startable {
   private void unpackTrainingScripts() {
     URL trainingScript = this.getClass().getClassLoader().getResource("scripts/user_feed_train.py");
     URL datasetutils = this.getClass().getClassLoader().getResource("scripts/datasetutils.py");
-    URL dockerScript = this.getClass().getClassLoader().getResource("scripts/docker_train.sh");
+    URL dockerScript = this.getClass().getClassLoader().getResource("scripts/docker_run.sh");
     try {
       File scriptsDir = fileStorage.getScriptsDir();
       scriptsDir.mkdirs();
       File localTrainingScript = new File(scriptsDir, "user_feed_train.py");
       File localDatasetutils = new File(scriptsDir, "datasetutils.py");
-      File localDockerScript = new File(scriptsDir, "docker_train.sh");
+      File localDockerScript = new File(scriptsDir, "docker_run.sh");
       FileUtils.copyURLToFile(trainingScript, localTrainingScript);
       FileUtils.copyURLToFile(datasetutils, localDatasetutils);
       FileUtils.copyURLToFile(dockerScript, localDockerScript);

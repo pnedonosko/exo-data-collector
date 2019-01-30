@@ -34,6 +34,10 @@
   <component>
     <type>org.exoplatform.prediction.TrainingService</type>
   </component>
+  
+    <component>
+    <type>org.exoplatform.prediction.PredictionService</type>
+  </component>
 
   <component>
     <type>org.exoplatform.datacollector.SocialDataCollectorService</type>
@@ -97,9 +101,9 @@
   <!--external-component-plugins>
     <target-component>org.exoplatform.prediction.TrainingService</target-component>
     <component-plugin>
-    <name>set.nativeexecutor</name>
+    <name>set.nativeexecutor.train</name>
     <set-method>addPlugin</set-method>
-    <type>org.exoplatform.prediction.NativeTrainingExecutor</type>
+    <type>org.exoplatform.prediction.NativeScriptsExecutor</type>
     <description>Native training executor calls the scripts natively on host machine using bash.</description>
     </component-plugin>
     </external-component-plugins -->
@@ -107,9 +111,9 @@
   <!--external-component-plugins>
     <target-component>org.exoplatform.prediction.PredictionService</target-component>
     <component-plugin>
-    <name>set.nativeexecutor</name>
+    <name>set.nativeexecutor.predict</name>
     <set-method>addPlugin</set-method>
-    <type>org.exoplatform.prediction.NativeTrainingExecutor</type>
+    <type>org.exoplatform.prediction.NativeScriptsExecutor</type>
     <description>Native scripts executor calls the scripts natively on host machine using bash.</description>
     </component-plugin>
     </external-component-plugins -->
@@ -118,9 +122,9 @@
   <external-component-plugins>
     <target-component>org.exoplatform.prediction.TrainingService</target-component>
     <component-plugin>
-      <name>set.dockerexecutor</name>
+      <name>set.dockerexecutor.train</name>
       <set-method>addPlugin</set-method>
-      <type>org.exoplatform.prediction.DockerTrainingExecutor</type>
+      <type>org.exoplatform.prediction.DockerScriptsExecutor</type>
       <description>Native scripts executor runs the scripts in a docker container.</description>
     </component-plugin>
   </external-component-plugins>
@@ -128,9 +132,9 @@
   <external-component-plugins>
     <target-component>org.exoplatform.prediction.PredictionService</target-component>
     <component-plugin>
-      <name>set.dockerexecutor</name>
+      <name>set.dockerexecutor.predict</name>
       <set-method>addPlugin</set-method>
-      <type>org.exoplatform.prediction.DockerTrainingExecutor</type>
+      <type>org.exoplatform.prediction.DockerScriptsExecutor</type>
       <description>Native scripts executor runs the scripts in a docker container.</description>
     </component-plugin>
   </external-component-plugins>

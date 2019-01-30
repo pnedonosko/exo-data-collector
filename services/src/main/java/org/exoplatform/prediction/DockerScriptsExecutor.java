@@ -12,15 +12,15 @@ import org.exoplatform.datacollector.storage.FileStorage;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 
-public class DockerTrainingExecutor extends BaseComponentPlugin implements ScriptsExecutor {
+public class DockerScriptsExecutor extends BaseComponentPlugin implements ScriptsExecutor {
 
-  protected static final Log  LOG = ExoLogger.getExoLogger(DockerTrainingExecutor.class);
+  protected static final Log  LOG = ExoLogger.getExoLogger(DockerScriptsExecutor.class);
 
   protected final FileStorage fileStorage;
 
   protected final File        dockerRunScript;
 
-  public DockerTrainingExecutor(FileStorage fileStorage) {
+  public DockerScriptsExecutor(FileStorage fileStorage) {
     this.fileStorage = fileStorage;
     this.dockerRunScript = fileStorage.getDockerRunScript();
   }
@@ -39,7 +39,7 @@ public class DockerTrainingExecutor extends BaseComponentPlugin implements Scrip
     executeScript(dataset, fileStorage.getPredictionScript());
   }
 
-  public void executeScript(File dataset, File script) {
+  protected void executeScript(File dataset, File script) {
     // The folder of a dataset is the work directory for docker
     File workDirectory = dataset.getParentFile();
     try {
@@ -49,7 +49,7 @@ public class DockerTrainingExecutor extends BaseComponentPlugin implements Scrip
     } catch (IOException e) {
       LOG.error("Cannot copy scripts to the work directory {}, {}", workDirectory.getPath(), e.getMessage());
     }
-    
+
     String[] cmd = { "/bin/sh", dockerRunScript.getAbsolutePath(), workDirectory.getAbsolutePath(), script.getName(),
         dataset.getName() };
     try {
@@ -61,9 +61,9 @@ public class DockerTrainingExecutor extends BaseComponentPlugin implements Scrip
 
       LOG.info("Container finished working for {}", dataset.getName());
       new File(workDirectory.getAbsolutePath() + "/" + script.getName()).delete();
-      new File(workDirectory.getAbsolutePath() + fileStorage.getDatasetutilsScript().getName()).delete();
+      new File(workDirectory.getAbsolutePath() + "/" + fileStorage.getDatasetutilsScript().getName()).delete();
       // Compiled python script ends with .pyc.
-      new File(workDirectory.getAbsolutePath() + fileStorage.getDatasetutilsScript().getName() + "c").delete();
+      new File(workDirectory.getAbsolutePath() + "/" + fileStorage.getDatasetutilsScript().getName() + "c").delete();
 
     } catch (IOException e) {
       LOG.warn("Error occured while running docker container for {}", dataset.getName());

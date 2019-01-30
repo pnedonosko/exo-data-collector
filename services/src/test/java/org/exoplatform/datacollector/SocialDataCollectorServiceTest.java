@@ -73,7 +73,7 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
         PrintWriter writer = new PrintWriter(file);
 
         begin();
-        dataCollector.collectUserActivities(dataCollector.getUserIdentityById(jasonId), writer);
+        dataCollector.collectUserActivities(dataCollector.getUserIdentityById(jasonId), writer, true);
         writer.close();
         activitiesFile.set(file.getAbsolutePath());
         LOG.info("PATH: " + file.getAbsolutePath());

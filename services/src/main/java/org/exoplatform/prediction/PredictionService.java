@@ -24,6 +24,7 @@ import org.picocontainer.Startable;
 
 import org.exoplatform.commons.utils.ListAccess;
 import org.exoplatform.container.component.ComponentPlugin;
+import org.exoplatform.datacollector.SocialDataCollectorService;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
@@ -73,27 +74,24 @@ public class PredictionService implements Startable {
     }
   }
 
-  protected final TrainingService training;
+  protected final TrainingService            training;
+
+  protected final SocialDataCollectorService collector;
 
   /**
    * 
    */
-  public PredictionService(TrainingService training) {
+  public PredictionService(TrainingService training, SocialDataCollectorService collector) {
     this.training = training;
+    this.collector = collector;
   }
 
   public ListAccess<ExoSocialActivity> getUserFeed(Identity userIdentity) {
-    // TODO when this method called we do following:
-    // 1) getting this user inferring dataset from Collector service (should be
-    // implemented in SocialDataCollectorService)
-    // 2) use this dataset with prediction script, at end of the script work,
-    // this dataset will be updated (added column 'rank_predicted')
-    // 3) load the updated data (CSV file) and order the user feed according the
-    // rank
-    // 4) return ordered feed as LazyPredictFileListAccess
-
-    File dataset = new File("path-to-dataset");
+    File dataset = new File(collector.collectUserFeed(userIdentity.getRemoteId()));
     scriptsExecutor.predict(dataset);
+    // TODO:
+    // 1) load the updated data (CSV) and order the user feed according the rank
+    // 2) return ordered feed as LazyPredictFileListAccess
     return new LazyPredictFileListAccess(userIdentity.getRemoteId());
   }
 

@@ -218,10 +218,6 @@ public class SocialDataCollectorService implements Startable {
 
       Map<String, Date> targetUsers = getTargetUsers();
 
-      LOG.info("BucketRecords:");
-      targetUsers.keySet().forEach(LOG::info);
-      LOG.info("Login queue: ");
-      loginsQueue.forEach(LOG::info);
       while (!loginsQueue.isEmpty() && runMainLoop.get()) {
         String userName = loginsQueue.poll();
         Date loginDate = targetUsers.get(userName);
