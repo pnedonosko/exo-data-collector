@@ -62,4 +62,5 @@ rebel.xml
 /.metadata/
 /models/developer_data/model*
 /models/developer_data/model/*
+/models/developer_data/predicted.csv
 __pycache__

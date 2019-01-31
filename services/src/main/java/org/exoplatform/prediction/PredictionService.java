@@ -27,8 +27,6 @@ import java.util.List;
 
 import org.picocontainer.Startable;
 
-import com.googlecode.mp4parser.authoring.tracks.TextTrackImpl.Line;
-
 import org.exoplatform.container.component.ComponentPlugin;
 import org.exoplatform.datacollector.SocialDataCollectorService;
 import org.exoplatform.services.log.ExoLogger;
