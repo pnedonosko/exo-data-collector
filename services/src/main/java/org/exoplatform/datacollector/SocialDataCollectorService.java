@@ -729,9 +729,25 @@ public class SocialDataCollectorService implements Startable {
     return bucketDir.getAbsolutePath();
   }
 
-//  public String collectUser() {
-//
-//  }
+  /**
+   * Gets the user by username on Organization service.
+   *
+   * @param userName the user name
+   * @return the user by name
+   */
+  public Identity getUserByName(String userName) {
+    return getUserIdentityByName(userName);
+  }
+  
+  /**
+   * Gets the user by Social ID.
+   *
+   * @param socialId the social id
+   * @return the user by id
+   */
+  public Identity getUserById(String socialId) {
+    return getUserIdentityById(socialId);
+  }
 
   /**
    * Collect user activities into given files bucketRecords in Platform data
@@ -842,6 +858,12 @@ public class SocialDataCollectorService implements Startable {
    * @throws Exception the exception
    */
   protected void collectUserActivities(UserIdentity id, PrintWriter out, boolean withRank) throws Exception {
+    // TODO split this method on parts:
+    // 1) consume parameter with UserSnapshot and Iterator<ExoSocialActivity>
+    // 2) go over the iterator and write the dataset
+    // 3) UserSnapshot should obtained in separate method (and used where required)
+    // 4) activities iterator - it's all we want put in the dataset
+    
     LOG.info("> Collecting user activities for {}", id.getRemoteId());
     out.println(activityHeader(withRank));
 
@@ -1548,7 +1570,8 @@ public class SocialDataCollectorService implements Startable {
                          socId -> socId.getRemoteId());
   }
 
-  protected UserIdentity getUserIdentityByName(String userName) {
+  @Deprecated
+  protected UserIdentity getUserIdentityByName_OLD(String userName) {
     return getMapped_OLD(userIdentities,
                          userName,
                          name -> identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, name, false),
@@ -1556,7 +1579,7 @@ public class SocialDataCollectorService implements Startable {
                          socId -> socId.getId());
   }
 
-  protected UserIdentity getUserIdentityByName_NEW(String userName) {
+  protected UserIdentity getUserIdentityByName(String userName) {
     return getMapped(userIdentities, userName, name -> {
       // Reading from the storage, if not exists - getting from Social API
       IdentityProfileEntity persisted = identityProfileStorage.findByName(userName);
@@ -1594,7 +1617,8 @@ public class SocialDataCollectorService implements Startable {
     }, socId -> socId.getId());
   }
 
-  protected UserIdentity getUserIdentityById(String identityId) {
+  @Deprecated
+  protected UserIdentity getUserIdentityById_OLD(String identityId) {
     return getMapped_OLD(userIdentities,
                          identityId,
                          id -> identityManager.getIdentity(id, false),
@@ -1602,7 +1626,7 @@ public class SocialDataCollectorService implements Startable {
                          socId -> socId.getRemoteId());
   }
 
-  protected UserIdentity getUserIdentityById_NEW(String identityId) {
+  protected UserIdentity getUserIdentityById(String identityId) {
     return getMapped(userIdentities, identityId, id -> {
       // Reading from the storage, if not exists - getting from Social API
       IdentityProfileEntity persisted = identityProfileStorage.findById(identityId);

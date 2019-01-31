@@ -19,16 +19,19 @@
 package org.exoplatform.prediction;
 
 import java.io.File;
+import java.util.Collections;
+import java.util.List;
 
 import org.picocontainer.Startable;
 
-import org.exoplatform.commons.utils.ListAccess;
 import org.exoplatform.container.component.ComponentPlugin;
 import org.exoplatform.datacollector.SocialDataCollectorService;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.social.core.activity.ActivitiesRealtimeListAccess;
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
 import org.exoplatform.social.core.identity.model.Identity;
+import org.exoplatform.social.core.storage.api.ActivityStorage;
 
 /**
  * Service to predict predefined targets on already trained models (see
@@ -40,59 +43,157 @@ import org.exoplatform.social.core.identity.model.Identity;
  */
 public class PredictionService implements Startable {
 
-  protected static final Log LOG = ExoLogger.getExoLogger(PredictionService.class);
+  public static final int    MAX_BATCH_SIZE = 100;
+
+  protected static final Log LOG            = ExoLogger.getExoLogger(PredictionService.class);
 
   protected ScriptsExecutor  scriptsExecutor;
 
   /**
    * Load predictions from a file result on demand.
    */
-  protected class LazyPredictFileListAccess implements ListAccess<ExoSocialActivity> {
+  protected class LazyPredictFileListAccess extends ActivitiesRealtimeListAccess {
 
-    protected final String userId;
+    protected final Identity userIdentity;
 
-    protected LazyPredictFileListAccess(String userId) {
-      this.userId = userId;
+    protected List<String>   loadIdsAsList;
+
+    protected int            loadIdsAsListIndex = 0;
+
+    /**
+     * Instantiates a new lazy predict file list access.
+     *
+     * @param userIdentity the user identity
+     */
+    protected LazyPredictFileListAccess(Identity userIdentity) {
+      super(activityStorage, ActivityType.ACTIVITY_FEED, userIdentity);
+      this.userIdentity = userIdentity;
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public ExoSocialActivity[] load(int index, int length) throws Exception, IllegalArgumentException {
-      // TODO Do actual prediction here (what will be first load or getSize)
-      return null;
+    public List<String> loadIdsAsList(int index, int limit) {
+      // TODO this method is important, it is used by Social's
+      // UIUserActivitiesDisplay and we'll use it in Smart Activity Stream
+
+      // We preload first 100 activities, sort them in predicted order and keep
+      // in this access list, so each invocation of loadIdsAsList() will consume
+      // it. If loaded 100 activities ends we return empty list.
+      // TODO it's not very smart indeed, as need preload all by time period
+
+      if (loadIdsAsList != null && (index + limit) > loadIdsAsList.size()) {
+        loadIdsAsList = null;
+        loadIdsAsListIndex = index;
+      }
+
+      if (loadIdsAsList == null) {
+        int feedLimit = limit < MAX_BATCH_SIZE ? MAX_BATCH_SIZE : limit;
+        loadIdsAsList = predictActivityIdOrder(super.loadIdsAsList(loadIdsAsListIndex, feedLimit));
+      }
+
+      List<String> batch = loadIdsAsList.subList(index, limit);
+      return Collections.unmodifiableList(batch); // should it be modifiable?
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public int getSize() throws Exception {
-      // TODO Do actual prediction here (what will be first load or getSize)
-      return 0;
+    public List<ExoSocialActivity> loadAsList(int index, int limit) {
+      // TODO do we really need for Smart Activity?
+      // return super.loadAsList(index, limit);
+      throw new PredictionNotSupportedException("Not implemented");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<ExoSocialActivity> loadNewer(ExoSocialActivity baseActivity, int length) {
+      // return super.loadNewer(baseActivity, length);
+      throw new PredictionNotSupportedException("Not implemented");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<ExoSocialActivity> loadOlder(ExoSocialActivity baseActivity, int length) {
+      // return super.loadOlder(baseActivity, length);
+      throw new PredictionNotSupportedException("Not implemented");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<ExoSocialActivity> getUpadtedActivities(Long sinceTime, int limit) {
+      // return super.getUpadtedActivities(sinceTime, limit);
+      throw new PredictionNotSupportedException("Not implemented");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<ExoSocialActivity> loadNewer(Long sinceTime, int limit) {
+      // return super.loadNewer(sinceTime, limit);
+      throw new PredictionNotSupportedException("Not implemented");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<ExoSocialActivity> loadOlder(Long sinceTime, int limit) {
+      // return super.loadOlder(sinceTime, limit);
+      throw new PredictionNotSupportedException("Not implemented");
+    }
+
+    // ******* internals *******
+
+    protected List<String> predictActivityIdOrder(List<String> origin) {
+      // TODO do this on demand in list access
+      File dataset = new File(collector.collectUserFeed(userIdentity.getRemoteId()));
+      scriptsExecutor.predict(dataset);
+
+      return origin;
     }
   }
+
+  /** The activityStorage. */
+  protected final ActivityStorage            activityStorage;
 
   protected final TrainingService            training;
 
   protected final SocialDataCollectorService collector;
 
   /**
-   * 
+   * Instantiates a new prediction service.
+   *
+   * @param training the training
+   * @param collector the collector
+   * @param activityStorage the activity storage
    */
-  public PredictionService(TrainingService training, SocialDataCollectorService collector) {
+  public PredictionService(TrainingService training, SocialDataCollectorService collector, ActivityStorage activityStorage) {
     this.training = training;
     this.collector = collector;
+    this.activityStorage = activityStorage;
   }
 
-  public ListAccess<ExoSocialActivity> getUserFeed(Identity userIdentity) {
-    File dataset = new File(collector.collectUserFeed(userIdentity.getRemoteId()));
-    scriptsExecutor.predict(dataset);
+  /**
+   * Gets the user activity stream feed predictions.
+   *
+   * @param userIdentity the user identity
+   * @return the user stream feed
+   */
+  public ActivitiesRealtimeListAccess getUserActivityFeed(Identity userIdentity) {
     // TODO:
     // 1) load the updated data (CSV) and order the user feed according the rank
     // 2) return ordered feed as LazyPredictFileListAccess
-    return new LazyPredictFileListAccess(userIdentity.getRemoteId());
+    return new LazyPredictFileListAccess(userIdentity);
   }
 
   /**
