@@ -19,10 +19,15 @@
 package org.exoplatform.prediction;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import org.picocontainer.Startable;
+
+import com.googlecode.mp4parser.authoring.tracks.TextTrackImpl.Line;
 
 import org.exoplatform.container.component.ComponentPlugin;
 import org.exoplatform.datacollector.SocialDataCollectorService;
@@ -158,8 +163,13 @@ public class PredictionService implements Startable {
       // TODO do this on demand in list access
       File dataset = new File(collector.collectUserFeed(userIdentity.getRemoteId()));
       scriptsExecutor.predict(dataset);
-
-      return origin;
+      List<String> ordered = new ArrayList<>();
+      try {
+        Files.lines(dataset.toPath()).skip(1).forEach(ordered::add);
+      } catch (IOException e) {
+        LOG.warn("Cannot read the dataset after prediction.");
+      }
+      return ordered;
     }
   }
 

@@ -193,7 +193,7 @@ public class FileStorage {
   }
 
   /**
-   * Unpacks scripts from JAR to tmp directory
+   * Unpacks scripts from JAR to scripts directory
    */
   protected void unpackScripts() {
     URL trainingScriptURL = this.getClass().getClassLoader().getResource("scripts/user_feed_train.py");
