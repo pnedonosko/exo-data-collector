@@ -48,15 +48,15 @@ public class FileStorage {
 
   public static final String FILE_TIMESTAMP_FORMAT  = "yyyy-MM-dd_HHmmss.SSSS";
 
-  protected final File       trainingScript;
+  protected File             trainingScript;
 
-  protected final File       predictionScript;
+  protected File             predictionScript;
 
-  protected final File       datasetutilsScript;
+  protected File             datasetutilsScript;
 
-  protected final File       dockerRunScript;
+  protected File             dockerRunScript;
 
-  protected final InitParams initParams;
+  protected InitParams       initParams;
 
   /**
    * Instantiates a new file storage.
@@ -65,12 +65,7 @@ public class FileStorage {
    */
   public FileStorage(InitParams initParams) {
     this.initParams = initParams;
-
     unpackScripts();
-    this.trainingScript = new File(getScriptsDir().getAbsolutePath() + "/user_feed_train.py");
-    this.predictionScript = new File(getScriptsDir().getAbsolutePath() + "/user_feed_predict.py");
-    this.datasetutilsScript = new File(getScriptsDir().getAbsolutePath() + "/datasetutils.py");
-    this.dockerRunScript = new File(getScriptsDir().getAbsolutePath() + "/docker_run.sh");
   }
 
   /**
@@ -201,21 +196,25 @@ public class FileStorage {
    * Unpacks scripts from JAR to tmp directory
    */
   protected void unpackScripts() {
-    URL trainingScript = this.getClass().getClassLoader().getResource("scripts/user_feed_train.py");
-    URL datasetutils = this.getClass().getClassLoader().getResource("scripts/datasetutils.py");
-    URL dockerScript = this.getClass().getClassLoader().getResource("scripts/docker_run.sh");
+    URL trainingScriptURL = this.getClass().getClassLoader().getResource("scripts/user_feed_train.py");
+    URL predictScriptURL = this.getClass().getClassLoader().getResource("scripts/user_feed_predict.py");
+    URL datasetutilsURL = this.getClass().getClassLoader().getResource("scripts/datasetutils.py");
+    URL dockerScriptURL = this.getClass().getClassLoader().getResource("scripts/docker_run.sh");
     try {
       File scriptsDir = getScriptsDir();
       scriptsDir.mkdirs();
-      File localTrainingScript = new File(scriptsDir, "user_feed_train.py");
-      File localDatasetutils = new File(scriptsDir, "datasetutils.py");
-      File localDockerScript = new File(scriptsDir, "docker_run.sh");
-      FileUtils.copyURLToFile(trainingScript, localTrainingScript);
-      FileUtils.copyURLToFile(datasetutils, localDatasetutils);
-      FileUtils.copyURLToFile(dockerScript, localDockerScript);
-      localTrainingScript.deleteOnExit();
-      localDatasetutils.deleteOnExit();
-      localDockerScript.deleteOnExit();
+      trainingScript = new File(scriptsDir, "user_feed_train.py");
+      predictionScript = new File(scriptsDir, "user_feed_predict.py");
+      datasetutilsScript = new File(scriptsDir, "datasetutils.py");
+      dockerRunScript = new File(scriptsDir, "docker_run.sh");
+      FileUtils.copyURLToFile(trainingScriptURL, trainingScript);
+      FileUtils.copyURLToFile(predictScriptURL, trainingScript);
+      FileUtils.copyURLToFile(datasetutilsURL, datasetutilsScript);
+      FileUtils.copyURLToFile(dockerScriptURL, dockerRunScript);
+      trainingScript.deleteOnExit();
+      predictionScript.deleteOnExit();
+      datasetutilsScript.deleteOnExit();
+      dockerRunScript.deleteOnExit();
       scriptsDir.deleteOnExit();
     } catch (IOException e) {
       LOG.error("Couldn't unpack training and prediction scripts: " + e.getMessage());

@@ -6,7 +6,28 @@
 
   <component>
     <type>org.exoplatform.datacollector.SocialDataCollectorService</type>
+    <init-params>
+      <value-param>
+        <name>autostart</name>
+        <value>${exo.datacollector.autostart:false}</value>
+      </value-param>
+      <value-param>
+        <name>train-period</name>
+        <value>${exo.datacollector.trainPeriod:180}</value>
+      </value-param>
+    </init-params>
   </component>
+
+  <component>
+    <type>org.exoplatform.datacollector.storage.FileStorage</type>
+    <!-- init-params>
+      <value-param>
+        <name>work-directorty</name>
+        <value>${exo.data.dir}/data-collector</value>
+      </value-param>
+    </init-params -->
+  </component>
+
 
   <component>
     <type>org.exoplatform.datacollector.dao.ActivityCommentedDAO</type>
@@ -32,6 +53,17 @@
   <component>
     <type>org.exoplatform.prediction.TrainingService</type>
   </component>
+  
+    <!-- DockerTrainingExecutor provider plugin -->
+  <external-component-plugins>
+    <target-component>org.exoplatform.prediction.TrainingService</target-component>
+    <component-plugin>
+      <name>set.dockerexecutor.train</name>
+      <set-method>addPlugin</set-method>
+      <type>org.exoplatform.prediction.DockerScriptsExecutor</type>
+      <description>Native scripts executor runs the scripts in a docker container.</description>
+    </component-plugin>
+  </external-component-plugins>
 
 
 </configuration>

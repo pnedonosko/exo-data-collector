@@ -45,7 +45,7 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
 
   private static final String[]          FLOAT_COLUMNS   = { "owner_influence", "number_of_likes", "number_of_comments",
       "reactivity", "poster_influence", "participant1_influence", "participant2_influence", "participant3_influence",
-      "participant4_influence", "participant5_influence" };
+      "participant4_influence", "participant5_influence, rank" };
 
   private static AtomicReference<String> activitiesFile  = new AtomicReference<>();
 
@@ -102,7 +102,7 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
         + "participant2_id,participant2_conversed,participant2_favored,participant2_gender_male,participant2_gender_female,participant2_is_employee,participant2_is_lead,participant2_is_in_connections,participant2_focus_engineering,participant2_focus_sales,participant2_focus_marketing,participant2_focus_management,participant2_focus_financial,participant2_focus_other,participant2_influence,"
         + "participant3_id,participant3_conversed,participant3_favored,participant3_gender_male,participant3_gender_female,participant3_is_employee,participant3_is_lead,participant3_is_in_connections,participant3_focus_engineering,participant3_focus_sales,participant3_focus_marketing,participant3_focus_management,participant3_focus_financial,participant3_focus_other,participant3_influence,"
         + "participant4_id,participant4_conversed,participant4_favored,participant4_gender_male,participant4_gender_female,participant4_is_employee,participant4_is_lead,participant4_is_in_connections,participant4_focus_engineering,participant4_focus_sales,participant4_focus_marketing,participant4_focus_management,participant4_focus_financial,participant4_focus_other,participant4_influence,"
-        + "participant5_id,participant5_conversed,participant5_favored,participant5_gender_male,participant5_gender_female,participant5_is_employee,participant5_is_lead,participant5_is_in_connections,participant5_focus_engineering,participant5_focus_sales,participant5_focus_marketing,participant5_focus_management,participant5_focus_financial,participant5_focus_other,participant5_influence";
+        + "participant5_id,participant5_conversed,participant5_favored,participant5_gender_male,participant5_gender_female,participant5_is_employee,participant5_is_lead,participant5_is_in_connections,participant5_focus_engineering,participant5_focus_sales,participant5_focus_marketing,participant5_focus_management,participant5_focus_financial,participant5_focus_other,participant5_influence,rank";
     String header = activitiesReader.readLine();
     assertEquals(validHeader, header);
   }
@@ -111,7 +111,7 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
   public void testColumnsNumber() throws IOException {
     activitiesReader.lines().forEach(line -> {
       String[] array = line.split(",");
-      assertEquals(110, array.length);
+      assertEquals(111, array.length);
     });
   }
 

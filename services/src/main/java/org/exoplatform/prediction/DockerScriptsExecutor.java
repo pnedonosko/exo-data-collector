@@ -67,7 +67,7 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements Script
       // Only for debugging purposes. Logs all docker output to the console
       logDockerOutput(trainingProcess);
 
-      LOG.info("Container finished working for {}", dataset.getName());
+      LOG.info("Container finished working for the model");
       new File(workDirectory.getAbsolutePath() + "/" + script.getName()).delete();
       new File(workDirectory.getAbsolutePath() + "/" + fileStorage.getDatasetutilsScript().getName()).delete();
       // Compiled python script ends with .pyc.
