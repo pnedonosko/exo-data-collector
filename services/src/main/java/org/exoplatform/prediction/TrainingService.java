@@ -161,11 +161,7 @@ public class TrainingService implements Startable {
    */
   public ModelEntity getLastModel(String userName) {
     Long lastVersion = modelEntityDAO.findLastModelVersion(userName);
-    if (lastVersion == null) {
-      return null;
-    }
-
-    return modelEntityDAO.find(new ModelId(userName, lastVersion));
+    return lastVersion != null ? modelEntityDAO.find(new ModelId(userName, lastVersion)) : null;
   }
 
   /**

@@ -29,6 +29,8 @@ import org.picocontainer.Startable;
 
 import org.exoplatform.container.component.ComponentPlugin;
 import org.exoplatform.datacollector.SocialDataCollectorService;
+import org.exoplatform.prediction.model.domain.ModelEntity;
+import org.exoplatform.prediction.model.domain.ModelEntity.Status;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.social.core.activity.ActivitiesRealtimeListAccess;
@@ -159,6 +161,8 @@ public class PredictionService implements Startable {
 
     protected List<String> predictActivityIdOrder(List<String> origin) {
       // TODO do this on demand in list access
+      LOG.info("ORIGIN: ");
+      origin.forEach(LOG::info);
       File dataset = new File(collector.collectUserFeed(userIdentity.getRemoteId()));
       scriptsExecutor.predict(dataset);
       List<String> ordered = new ArrayList<>();
@@ -167,6 +171,9 @@ public class PredictionService implements Startable {
       } catch (IOException e) {
         LOG.warn("Cannot read the dataset after prediction.");
       }
+
+      LOG.info("ORDERED: ");
+      ordered.forEach(LOG::info);
       return ordered;
     }
   }
@@ -220,6 +227,16 @@ public class PredictionService implements Startable {
   @Override
   public void stop() {
     // TODO any?
+  }
+
+  /**
+   * Checks if the model exists and has READY status
+   * @param userName of model
+   * @return true if the model exists and has READY status, false otherwise
+   */
+  public boolean canPredict(String userName) {
+    ModelEntity model = training.getLastModel(userName);
+    return model != null && Status.READY.equals(model.getStatus());
   }
 
   /**
