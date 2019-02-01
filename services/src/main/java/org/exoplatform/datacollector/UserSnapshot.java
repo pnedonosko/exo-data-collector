@@ -83,8 +83,12 @@ public class UserSnapshot {
     // TODO A problem with persisting and reading weights (streams and
     // participants) from DB - they never will be decreasing, but if calculate
     // from the scratch this problem will not appear. But at this stage we don't
-    // handle this problem. As a simplest solution, we would recollect from the
+    // handle this problem.
+    // As a simplest solution, we would recollect from the
     // scratch periodically (once a month for instance).
+    // Another solution (!): introduce weights aging in time and multiply them
+    // on decimal coefficient on a next incremental training. Coefficient is
+    // dynamic and calculated from a time difference between trainings.
 
     return this.influencers;
   }
