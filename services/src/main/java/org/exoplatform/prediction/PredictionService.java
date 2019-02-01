@@ -159,7 +159,7 @@ public class PredictionService implements Startable {
 
     protected List<String> predictActivityIdOrder(List<String> origin) {
       // TODO do this on demand in list access
-      File dataset = new File(collector.collectUserFeed(userIdentity.getRemoteId()));
+      File dataset = new File(collector.collectActivitiesByIds(userIdentity, origin));
       scriptsExecutor.predict(dataset);
       List<String> ordered = new ArrayList<>();
       try {

@@ -1,5 +1,7 @@
 package org.exoplatform.datacollector;
 
+import static org.exoplatform.datacollector.ListAccessUtil.loadActivitiesListIterator;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -8,6 +10,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,6 +27,8 @@ import org.exoplatform.component.test.ConfiguredBy;
 import org.exoplatform.component.test.ContainerScope;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.social.core.activity.model.ExoSocialActivity;
+import org.exoplatform.social.core.identity.model.Identity;
 
 @ConfiguredBy({ @ConfigurationUnit(scope = ContainerScope.ROOT, path = "conf/test-configuration.xml"),
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/portal/configuration.xml"),
@@ -41,7 +46,7 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
   public static final String[]           INTEGER_COLUMNS = { "id", "owner_id", "poster_id", "participant1_id", "participant2_id",
       "participant3_id", "participant4_id", "participant5_id" };
 
-  private static final String[]          STRING_COLUMNS  = {"owner_title" };
+  private static final String[]          STRING_COLUMNS  = { "owner_title" };
 
   private static final String[]          FLOAT_COLUMNS   = { "owner_influence", "number_of_likes", "number_of_comments",
       "reactivity", "poster_influence", "participant1_influence", "participant2_influence", "participant3_influence",
@@ -73,7 +78,13 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
         PrintWriter writer = new PrintWriter(file);
 
         begin();
-        dataCollector.collectUserActivities(dataCollector.getUserIdentityById(jasonId), writer, true);
+        long sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
+        Identity id = dataCollector.getUserIdentityById(jasonId);
+        UserSnapshot user = dataCollector.createUserSnapshot(id);
+        dataCollector.initializeUserSnapshot(user, sinceTime);
+        Iterator<ExoSocialActivity> activities = loadActivitiesListIterator(activityManager.getActivityFeedWithListAccess(id),
+                                                                            sinceTime);
+        dataCollector.writeUserActivities(user, activities, writer, true);
         writer.close();
         activitiesFile.set(file.getAbsolutePath());
         LOG.info("PATH: " + file.getAbsolutePath());

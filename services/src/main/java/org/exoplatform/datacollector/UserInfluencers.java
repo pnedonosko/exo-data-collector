@@ -160,11 +160,12 @@ public class UserInfluencers {
 
   private Map<String, ActivityInfo>        activities   = new HashMap<>();
 
+  @Deprecated // TODO not used
   private final Identity                   identity;
 
-  private final Map<String, Identity>      connections;
+  private transient final Map<String, Identity>      connections;
 
-  private final Map<String, SpaceSnapshot> spaces;
+  private transient final Map<String, SpaceSnapshot> spaces;
 
   /**
    * Instantiates a new user influencers.

@@ -75,11 +75,12 @@ public class TrainingService implements Startable {
    * Submits a new model to train in the training service. Respects current
    * model status: If NEW or PROCESSING - cleans up it If READY - creates a NEW
    * version
-   * 
+   *
    * @param userName the user name
-   * @param datasetFile the dataset file
+   * @param dataset the dataset
+   * @return the model entity
    */
-  public void addModel(String userName, String dataset) {
+  public ModelEntity addModel(String userName, String dataset) {
     ModelEntity currentModel = getLastModel(userName);
     if (currentModel != null) {
       if (currentModel.getStatus() == Status.NEW || currentModel.getStatus() == Status.PROCESSING) {
@@ -88,6 +89,7 @@ public class TrainingService implements Startable {
     }
     ModelEntity newModel = new ModelEntity(userName, dataset);
     modelEntityDAO.create(newModel);
+    return newModel;
   }
 
   /**
@@ -164,7 +166,6 @@ public class TrainingService implements Startable {
     if (lastVersion == null) {
       return null;
     }
-
     return modelEntityDAO.find(new ModelId(userName, lastVersion));
   }
 
@@ -216,6 +217,7 @@ public class TrainingService implements Startable {
    * @param userName
    */
   public void submitTrainModel(String dataset, String userName) {
+    // TODO name with submit* not clear for user of API, trainModel() is better
     // TODO sync manual and auto training
     setProcessing(userName);
     // If the training fails

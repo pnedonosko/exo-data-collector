@@ -31,7 +31,6 @@ import org.exoplatform.social.core.identity.model.Identity;
  * @version $Id: UserSnapshot.java 00000 Jan 30, 2019 pnedonosko $
  */
 public class UserSnapshot {
-  protected final UserInfluencers            influencers;
 
   protected final Identity                   identity;
 
@@ -39,22 +38,19 @@ public class UserSnapshot {
 
   protected final Map<String, SpaceSnapshot> spaces;
 
+  protected UserInfluencers                  influencers;
+
   private Set<String>                        favoriteStreams;
 
   /**
-   * Instantiates a new user snapshot.
+   * Instantiates a new user's snapshot.
    *
-   * @param influencers the influencers
    * @param identity the identity
    * @param connections the connections
    * @param spaces the spaces
    */
-  protected UserSnapshot(UserInfluencers influencers,
-                         Identity identity,
-                         Map<String, Identity> connections,
-                         Map<String, SpaceSnapshot> spaces) {
+  protected UserSnapshot(Identity identity, Map<String, Identity> connections, Map<String, SpaceSnapshot> spaces) {
     super();
-    this.influencers = influencers;
     this.identity = identity;
     this.connections = connections;
     this.spaces = spaces;
@@ -62,6 +58,35 @@ public class UserSnapshot {
 
   void setFavoriteStreams(Set<String> favoriteStreams) {
     this.favoriteStreams = favoriteStreams;
+  }
+
+  UserInfluencers initInfluencers() {
+    this.influencers = new UserInfluencers(identity, connections, spaces);
+    return this.influencers;
+  }
+
+  UserInfluencers initInfluencers(UserInfluencers entity /*
+                                                          * TODO
+                                                          * UserInfluencersEntity
+                                                          * here
+                                                          */) {
+    // TODO load UserInfluencers from the entity, then set conns and spaces into
+    // it
+    this.influencers = new UserInfluencers(identity, connections, spaces);
+
+    // influencers' streams and participants collections can be saved in
+    // aggregated state - a single weight per item
+    // activities - we need save all its fields: id, created (date), posted
+    // (bool), lastLiked (date) and lastCommented (date)
+    // Load them respectively here (create required setters if required)
+    //
+    // TODO A problem with persisting and reading weights (streams and
+    // participants) from DB - they never will be decreasing, but if calculate
+    // from the scratch this problem will not appear. But at this stage we don't
+    // handle this problem. As a simplest solution, we would recollect from the
+    // scratch periodically (once a month for instance).
+
+    return this.influencers;
   }
 
   /**

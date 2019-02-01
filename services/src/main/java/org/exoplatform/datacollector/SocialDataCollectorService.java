@@ -187,11 +187,24 @@ public class SocialDataCollectorService implements Startable {
 
   protected static final Integer RECENT_LOGINS_COUNT  = 20;                                                                                                                                                                       // 3600000L;
 
-  protected static final String  BUCKET_PREFIX        = "prod-";
+  protected static final String  MAIN_BUCKET_PREFIX   = "prod";
 
   protected static final String  AUTOSTART_MODE_PARAM = "autostart";
 
   protected static final String  TRAIN_PERIOD_PARAM   = "train-period";
+
+  /**
+   * Sneaky throw given exception. An idea grabbed from <a href=
+   * "https://www.baeldung.com/java-sneaky-throws">https://www.baeldung.com/java-sneaky-throws</a><br>
+   *
+   * @param <E> the element type
+   * @param e the e
+   * @throws E the e
+   */
+  @SuppressWarnings("unchecked")
+  static <E extends Throwable> void sneakyThrow(Throwable e) throws E {
+    throw (E) e;
+  }
 
   /**
    * The BucketWorker gets target users from login history or bucketRecords and
@@ -213,7 +226,7 @@ public class SocialDataCollectorService implements Startable {
       }
       if (runMainLoop.get()) {
         currentBucketIndex++;
-        LOG.info("Bucket processing time! Current bucket: {}", BUCKET_PREFIX + currentBucketIndex);
+        LOG.info("Bucket processing time! Current bucket: {}", MAIN_BUCKET_PREFIX + currentBucketIndex);
       }
 
       Map<String, Date> targetUsers = getTargetUsers();
@@ -225,7 +238,7 @@ public class SocialDataCollectorService implements Startable {
         ModelEntity existingModel = trainingService.getLastModel(userName);
 
         if (modelNeedsTraining(existingModel, loginDate)) {
-          submitUserCollector(userName, BUCKET_PREFIX + currentBucketIndex, true);
+          submitUserCollector(userName, MAIN_BUCKET_PREFIX + currentBucketIndex, true);
           LOG.info("Started processing {}", userName);
         } else {
           LOG.info("User's {} model doesn't need training ", userName);
@@ -372,6 +385,28 @@ public class SocialDataCollectorService implements Startable {
     }
   }
 
+  /**
+   * Internal class to be used within lambda-calculations in the collector.
+   */
+  @Deprecated // TODO not used
+  class DeferredProcessingException extends RuntimeException {
+
+    /** The Constant serialVersionUID. */
+    private static final long serialVersionUID = 3708618505744089276L;
+
+    DeferredProcessingException() {
+      super();
+    }
+
+    DeferredProcessingException(String message, Throwable cause) {
+      super(message, cause);
+    }
+
+    DeferredProcessingException(Throwable cause) {
+      super(cause);
+    }
+  }
+
   protected final FileStorage                               fileStorage;
 
   protected final IdentityManager                           identityManager;
@@ -425,7 +460,8 @@ public class SocialDataCollectorService implements Startable {
   protected final ConcurrentLinkedQueue<String>             loginsQueue         = new ConcurrentLinkedQueue<>();
 
   /** Calculated user influencers (aka runtime cache). */
-  protected final ConcurrentHashMap<String, UserSnapshot>   currentInfluencers  = new ConcurrentHashMap<>();
+  // TODO use exo cache with eviction instead of a map
+  protected final ConcurrentHashMap<String, UserSnapshot>   userSnapshots       = new ConcurrentHashMap<>();
 
   protected Integer                                         currentBucketIndex  = -1;
 
@@ -568,59 +604,77 @@ public class SocialDataCollectorService implements Startable {
    * Starts manual collecting and optionally training a user's model.
    * 
    * @param userName userName
-   * @param bucket bucket name
+   * @param bucketName bucket name
    * @param train trains the model if true
    * @throws Exception is thrown if the bucket is incorrect or user is not found
    *           or user's model is being processed
    */
-  public void startUserCollector(String userName, String bucket, boolean train) throws Exception {
-    if (bucket == null || bucket.startsWith(BUCKET_PREFIX)) {
-      throw new Exception("Bucket name cannot be null or start with " + BUCKET_PREFIX);
+  public void startUserCollector(String userName, String bucketName, boolean train) throws Exception {
+    if (bucketName == null || bucketName.startsWith(MAIN_BUCKET_PREFIX)) {
+      throw new Exception("Bucket name cannot be null or start with " + MAIN_BUCKET_PREFIX);
     }
     ModelEntity model = trainingService.getLastModel(userName);
     if (model == null || !Status.NEW.equals(model.getStatus()) && !Status.PROCESSING.equals(model.getStatus())) {
-      submitUserCollector(userName, bucket, train);
+      submitUserCollector(userName, bucketName, train);
     } else {
       throw new Exception("The user is not found or being processed right now");
     }
   }
 
   /**
-   * Collect user's current feed.
+   * Collect user activities into an inferring dataset (for prediction).
    *
-   * @param userName the user name
-   * @return the string
+   * @param id the social identity
+   * @param activities the activities
+   * @return the string with a path to inferring dataset
    */
-  public String collectUserFeed(String userName) {
-    final UserIdentity id = getUserIdentityByName(userName);
+  public String collectActivities(Identity id, Collection<ExoSocialActivity> activities) {
     if (id != null) {
-      ModelEntity model = trainingService.getLastModel(userName);
-      if (model != null) {
-        // TODO Find bucketName of active model (in main loop), it should be
-        // from prod bucket!
-        // File bucketDir = fileStorage.getBucketDir(bucketName);
-
+      ModelEntity model = trainingService.getLastModel(id.getRemoteId());
+      if (model != null && Status.READY.equals(model.getStatus())) {
+        // TODO Fix bucket name extraction after rework to relative paths
+        // Ready model should have a model file - extract bucket name from it
+        // TODO Should we store paths in the DB at all, may be bucket name will
+        // be enough? And then we use predefined sub-tree
+        // ($bucketName/$modelName/$dataFile).
+        String modelFile = model.getModelFile();
         // TODO compile path in FileStorage?
-        final File userFile = new File(model.getDatasetFile().replace(id.getRemoteId() + ".csv", "predict.csv"));
+        // File bucketDir = fileStorage.getBucketDir(bucketName);
+        String bucketName = modelFile.substring(0, modelFile.lastIndexOf("/" + id.getRemoteId() + "/model"));
+        bucketName = bucketName.substring(bucketName.lastIndexOf("/"));
+
+        final File userFile = new File(modelFile.replace("/model", "/predict.csv"));
         try (PrintWriter writer = new PrintWriter(userFile)) {
-          // TODO it's bad idea to fetch and predict all the user feed here, we
-          // need make it lazy (on-demand), and do only for actually fetched
-          // but, at the same time we don't want predict for each fetched
-          // activity but for a batch (like what fetched to show in activity
-          // stream)
-          collectUserActivities(id, writer, false);
-          LOG.info("Saved user inferring dataset into bucket file: {}", userFile.getAbsolutePath());
-          return userFile.getAbsolutePath();
+          UserSnapshot user = getUserSnapshot(bucketName, id);
+          if (user != null) {
+            writeUserActivities(user, activities.iterator(), writer, false);
+            LOG.info("Saved user inferring dataset into bucket file: {}", userFile.getAbsolutePath());
+            return userFile.getAbsolutePath();
+          } else {
+            LOG.warn("User snapshot not found for {}", id.getRemoteId());
+          }
         } catch (Exception e) {
-          LOG.error("Cannot collect user inferring dataset for {} : {}", userName, e);
+          LOG.error("Cannot collect user inferring dataset for {} : {}", id.getRemoteId(), e);
           userFile.delete();
-          return null;
         }
       } else {
-        LOG.warn("User model not found for {}", userName);
+        LOG.warn("User model not found or not ready for {}", id.getRemoteId());
       }
-    } else {
-      LOG.warn("User social identity not found for {}", userName);
+    }
+    return null;
+  }
+
+  /**
+   * Collect user activities into an inferring dataset (for prediction).
+   *
+   * @param id the social identity
+   * @param activityIds the activity IDs
+   * @return the string with a path to inferring dataset
+   */
+  public String collectActivitiesByIds(Identity id, List<String> activityIds) {
+    if (id != null) {
+      List<ExoSocialActivity> activities = activityManager.getActivities(activityIds);
+      return collectActivities(id, activities);
     }
     return null;
   }
@@ -738,7 +792,7 @@ public class SocialDataCollectorService implements Startable {
   public Identity getUserByName(String userName) {
     return getUserIdentityByName(userName);
   }
-  
+
   /**
    * Gets the user by Social ID.
    *
@@ -755,27 +809,40 @@ public class SocialDataCollectorService implements Startable {
    *
    * @param bucketName the bucketRecords name
    * @param userName the user name
+   * @param sinceTime the since time
    * @param withRank collect with rank if <code>true</code>
    * @return the dataset file
    */
-  protected String collectUserActivities(String bucketName, String userName, boolean withRank) {
+  protected String collectUserActivities(String bucketName, String userName, long sinceTime, boolean withRank) {
     File bucketDir = fileStorage.getBucketDir(bucketName);
     LOG.info("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
       // TODO compile path in FileStorage?
-      final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/train.csv");
+      final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/training.csv");
       userFile.getParentFile().mkdirs();
 
-      // Set the dataset path to the latest model in DB if exists
-      // TODO Don't use absolute path but use relative to
-      // data-collector/datasets path, so it will be possible to relocate file
-      // storage w/o modifying DB. Relative path should start from a bucket
-      // name.
-      trainingService.setDatasetToLatestModel(userName, userFile.getAbsolutePath());
-
       try (PrintWriter writer = new PrintWriter(userFile)) {
-        collectUserActivities(id, writer, withRank);
+        // Prepare an user state snapshot, it should not be modified until
+        // another collecting
+        UserSnapshot user = getUserSnapshot(bucketName, id);
+        // XXX sinceTime here may not be the same as for activities until we'll
+        // make UserInfluecners incrementally maintained and load them from DB
+        initializeUserSnapshot(user, System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE);
+        
+        Iterator<ExoSocialActivity> activities = loadActivitiesListIterator(activityManager.getActivityFeedWithListAccess(id),
+                                                                            sinceTime);
+        writeUserActivities(user, activities, writer, withRank);
+
+        // Set the dataset path to the latest model in DB if exists
+        // TODO Don't use absolute path but use relative to
+        // data-collector/datasets path, so it will be possible to relocate file
+        // storage w/o modifying DB. Relative path should start from a bucket
+        // name.
+        trainingService.setDatasetToLatestModel(userName, userFile.getAbsolutePath());
+
+        // save/cache user snapshot only after successful write
+        saveUserSnapshot(bucketName, user);
       } catch (Exception e) {
         LOG.error("Cannot collect user activities for {} : {}", userName, e);
         userFile.delete();
@@ -802,16 +869,33 @@ public class SocialDataCollectorService implements Startable {
     workers.submit(new ContainerCommand(containerName) {
       @Override
       void execute(ExoContainer exoContainer) {
-        if (train) {
-          trainingService.addModel(userName, null);
+        long sinceTime;
+        ModelEntity currentModel = trainingService.getLastModel(userName);
+        if (currentModel != null && Status.READY.equals(currentModel.getStatus())) {
+          // TODO do we need subtract a time gap (e.g. 100ms) from the created
+          // time to catch in calculation activities that happened while the
+          // previous model collected and saved?
+          // In fact we create a model first, then collect and save, thus it may
+          // be actually desired to add a time gap (best if of actually spent
+          // time by previous model).
+          // In general case it's question of how critical if some activities
+          // will be lost or repeatedly taken in account by the model and
+          // influencers?
+          sinceTime = currentModel.getCreated().getTime();
+        } else {
+          sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
         }
-        String dataset = collectUserActivities(bucket, userName, true);
+        if (train) {
+          currentModel = trainingService.addModel(userName, null);
+        }
+        String dataset = collectUserActivities(bucket, userName, sinceTime, true);
         if (dataset != null && train) {
           copyModelFile(trainingService.getPreviousModel(userName), new File(dataset).getParentFile());
           trainingService.submitTrainModel(dataset, userName);
         }
         if (dataset == null) {
-          ModelEntity currentModel = trainingService.getLastModel(userName);
+          // TODO need re-get it?
+          // currentModel = trainingService.getLastModel(userName);
           if (Status.RETRY.equals(currentModel.getStatus())) {
             currentModel.setStatus(Status.FAILED_DATASET);
             LOG.warn("Model {} got status FAILED_DATASET. Cannot collect dataset. ", userName);
@@ -850,6 +934,35 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
+   * Write user activities to given writer.
+   *
+   * @param user the user state snapshot
+   * @param activities the activities to process
+   * @param out the writer where spool the user activities dataset
+   * @param withRank if <code>true</code> then collect dataset with rank
+   * @throws Exception the exception
+   */
+  protected void writeUserActivities(UserSnapshot user,
+                                     Iterator<ExoSocialActivity> activities,
+                                     PrintWriter out,
+                                     boolean withRank) throws Exception {
+    LOG.info("> Writing user activities for {}", user.getIdentity().getRemoteId());
+    out.println(activityHeader(withRank));
+
+    // load identity's activities and collect its data
+    while (activities.hasNext() && !Thread.currentThread().isInterrupted()) {
+      ExoSocialActivity activity = activities.next();
+      out.println(activityLine(user, activity, withRank));
+    }
+
+    if (Thread.currentThread().isInterrupted()) {
+      LOG.warn("< Interrupted collector of user activities for {}", user.getIdentity().getRemoteId());
+    } else {
+      LOG.info("< Wrote user activities for {}", user.getIdentity().getRemoteId());
+    }
+  }
+
+  /**
    * Collect user activities.
    *
    * @param id the user identity in Social
@@ -857,13 +970,15 @@ public class SocialDataCollectorService implements Startable {
    * @param withRank if <code>true</code> then collect dataset with rank
    * @throws Exception the exception
    */
-  protected void collectUserActivities(UserIdentity id, PrintWriter out, boolean withRank) throws Exception {
+  @Deprecated
+  protected void collectUserActivities_OLD(UserIdentity id, PrintWriter out, boolean withRank) throws Exception {
     // TODO split this method on parts:
     // 1) consume parameter with UserSnapshot and Iterator<ExoSocialActivity>
     // 2) go over the iterator and write the dataset
-    // 3) UserSnapshot should obtained in separate method (and used where required)
+    // 3) UserSnapshot should obtained in separate method (and used where
+    // required)
     // 4) activities iterator - it's all we want put in the dataset
-    
+
     LOG.info("> Collecting user activities for {}", id.getRemoteId());
     out.println(activityHeader(withRank));
 
@@ -873,7 +988,7 @@ public class SocialDataCollectorService implements Startable {
     Collection<Space> spaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
     final long sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
 
-    UserSnapshot user = currentInfluencers.computeIfAbsent(id.getRemoteId(), userName -> {
+    UserSnapshot user = userSnapshots.computeIfAbsent(id.getRemoteId(), userName -> {
       // Prepare an user state snapshot, it should not be modified until another
       // collecting
       // XXX Collector with merge function to solve duplicates in source
@@ -929,7 +1044,7 @@ public class SocialDataCollectorService implements Startable {
                                                                                            favoriteStreams));
       }
       LOG.info("<< Built user influencers for {}", id.getRemoteId());
-      UserSnapshot userSnapshot = new UserSnapshot(influencers, id, connsSnapshot, spacesSnapshot);
+      UserSnapshot userSnapshot = new UserSnapshot(id, connsSnapshot, spacesSnapshot);
       // Favorite streams calculated before addStream* methods call
       userSnapshot.setFavoriteStreams(Collections.unmodifiableSet(favoriteStreams));
       return userSnapshot;
@@ -948,6 +1063,115 @@ public class SocialDataCollectorService implements Startable {
     } else {
       LOG.info("< Collected user activities for {}", id.getRemoteId());
     }
+  }
+
+  protected String snapshotId(String bucket, String id) {
+    return new StringBuilder(bucket).append('-').append(id).toString();
+  }
+
+  protected UserSnapshot getUserSnapshot(String bucket, Identity id) throws Exception {
+    // TODO use exo cache with eviction instead of a map
+    return userSnapshots.computeIfAbsent(snapshotId(bucket, id.getRemoteId()), sid -> {
+      try {
+        return readUserSnapshot(id);
+      } catch (Exception e) {
+        sneakyThrow(e);
+        return null; // it will not happen
+      }
+    });
+  }
+
+  private UserSnapshot readUserSnapshot(Identity id) throws Exception {
+    // TODO read user snapshot from DB:
+    // 1) connections and spaces from Social
+    // 2) influencers from collector tables
+    LOG.info("> Reading user snapshot for {}", id.getRemoteId());
+    // TODO if not found in DB then return null
+    UserSnapshot user = createUserSnapshot(id);
+    // otherwise init from tables
+    // user.initInfluencers(entity); 
+    user.initInfluencers(); // XXX temporal until will load from DB
+    LOG.info("< Read user snapshot for {}", id.getRemoteId());
+    return user;
+  }
+
+  private void saveUserSnapshot(String buketName, UserSnapshot user) throws Exception {
+    String userId = user.getIdentity().getRemoteId();
+    LOG.info("> Saving user snapshot for {}", userId);
+    // TODO read user snapshot from DB:
+    // 1) save in the DB
+    // 2) cache in runtime
+    userSnapshots.put(snapshotId(buketName, userId), user);
+    LOG.info("< Saved user snapshot for {}", userId);
+  }
+
+  protected void initializeUserSnapshot(UserSnapshot user, long sinceTime) throws Exception {
+    String userId = user.getIdentity().getRemoteId();
+    LOG.info(">> Initializing user snapshot for {}", userId);
+
+    // TODO read user influencers from DB and if found set conns/spaces into it
+    UserInfluencers influencers = user.initInfluencers();
+
+    influencers.addUserPosts(postStorage.findUserPosts(userId, sinceTime));
+
+    influencers.addCommentedPoster(commentStorage.findPartIsCommentedPoster(userId, sinceTime));
+    influencers.addCommentedCommenter(commentStorage.findPartIsCommentedCommenter(userId, sinceTime));
+    influencers.addCommentedConvoPoster(commentStorage.findPartIsCommentedConvoPoster(userId, sinceTime));
+
+    influencers.addPostCommenter(commentStorage.findPartIsPostCommenter(userId, sinceTime));
+    influencers.addCommentCommenter(commentStorage.findPartIsCommentCommenter(userId, sinceTime));
+    influencers.addConvoCommenter(commentStorage.findPartIsConvoCommenter(userId, sinceTime));
+
+    influencers.addMentioner(mentionStorage.findPartIsMentioner(userId, sinceTime));
+    influencers.addMentioned(mentionStorage.findPartIsMentioned(userId, sinceTime));
+
+    influencers.addLikedPoster(likeStorage.findPartIsLikedPoster(userId, sinceTime));
+    influencers.addLikedCommenter(likeStorage.findPartIsLikedCommenter(userId, sinceTime));
+    influencers.addLikedConvoPoster(likeStorage.findPartIsLikedConvoPoster(userId, sinceTime));
+
+    influencers.addPostLiker(likeStorage.findPartIsPostLiker(userId, sinceTime));
+    influencers.addCommentLiker(likeStorage.findPartIsCommentLiker(userId, sinceTime));
+    influencers.addConvoLiker(likeStorage.findPartIsConvoLiker(userId, sinceTime));
+
+    influencers.addSamePostLiker(likeStorage.findPartIsSamePostLiker(userId, sinceTime));
+    influencers.addSameCommentLiker(likeStorage.findPartIsSameCommentLiker(userId, sinceTime));
+    influencers.addSameConvoLiker(likeStorage.findPartIsSameConvoLiker(userId, sinceTime));
+
+    // Here the influencers object knows favorite streams of the user
+    Set<String> favoriteStreams = influencers.getFavoriteStreamsTop(10);
+    if (favoriteStreams.size() < 10) {
+      // TODO add required (to 10) streams where user has most of its
+      // connections
+    }
+    if (favoriteStreams.size() > 0) {
+      influencers.addStreamPoster(postStorage.findPartIsFavoriteStreamPoster(userId, sinceTime, favoriteStreams));
+      influencers.addStreamCommenter(commentStorage.findPartIsFavoriteStreamCommenter(userId, sinceTime, favoriteStreams));
+      influencers.addStreamPostLiker(likeStorage.findPartIsFavoriteStreamPostLiker(userId, sinceTime, favoriteStreams));
+      influencers.addStreamCommentLiker(likeStorage.findPartIsFavoriteStreamCommentLiker(userId, sinceTime, favoriteStreams));
+    }
+
+    // Favorite streams calculated before addStream* methods call
+    user.setFavoriteStreams(Collections.unmodifiableSet(favoriteStreams));
+    LOG.info("<< Initialized user snapshot for {}", userId);
+  }
+
+  protected UserSnapshot createUserSnapshot(Identity id) throws Exception {
+    Collection<Identity> conns = loadListAll(relationshipManager.getConnections(id));
+    Collection<Space> spaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
+
+    // XXX Collector with merge function to solve duplicates in source
+    // collections (may have place for connections)
+    Map<String, Identity> connsSnapshot = Collections.unmodifiableMap(conns.stream()
+                                                                           .collect(Collectors.toMap(c -> c.getId(),
+                                                                                                     c -> c,
+                                                                                                     (c1, c2) -> c1)));
+    Map<String, SpaceSnapshot> spacesSnapshot =
+                                              Collections.unmodifiableMap(spaces.stream()
+                                                                                .collect(Collectors.toMap(s -> s.getId(),
+                                                                                                          s -> new SpaceSnapshot(s),
+                                                                                                          (s1, s2) -> s1)));
+    UserSnapshot userSnapshot = new UserSnapshot(id, connsSnapshot, spacesSnapshot);
+    return userSnapshot;
   }
 
   protected String activityHeader(boolean withRank) {
@@ -1719,9 +1943,8 @@ public class SocialDataCollectorService implements Startable {
           I inst = reader.apply(existingKey);
           if (inst != null) {
             newRef = new SoftReference<I>(inst);
-            map.put(extraKeySupplier.apply(inst), new SoftReference<I>(inst)); // map
-                                                                               // by
-                                                                               // Name/ID
+            // also map by Name/ID
+            map.put(extraKeySupplier.apply(inst), new SoftReference<I>(inst));
           } else {
             newRef = null;
           }
