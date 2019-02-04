@@ -608,14 +608,14 @@ public class SocialDataCollectorService implements Startable {
         // File bucketDir = fileStorage.getBucketDir(bucketName);
 
         // TODO compile path in FileStorage?
-        final File userFile = new File(model.getDatasetFile().replace("train.csv", "predict.csv"));
+        final File userFile = new File(model.getModelFile().replace("/model", "/predict.csv"));
         try (PrintWriter writer = new PrintWriter(userFile)) {
           // TODO it's bad idea to fetch and predict all the user feed here, we
           // need make it lazy (on-demand), and do only for actually fetched
           // but, at the same time we don't want predict for each fetched
           // activity but for a batch (like what fetched to show in activity
           // stream)
-          collectUserActivities(id, writer, false);
+          collectUserActivities(id, writer, true); // The last arg should be false
           LOG.info("Saved user inferring dataset into bucket file: {}", userFile.getAbsolutePath());
           return userFile.getAbsolutePath();
         } catch (Exception e) {

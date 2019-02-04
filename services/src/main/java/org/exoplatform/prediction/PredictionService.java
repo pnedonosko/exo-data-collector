@@ -164,10 +164,10 @@ public class PredictionService implements Startable {
       LOG.info("ORIGIN: ");
       origin.forEach(LOG::info);
       File dataset = new File(collector.collectUserFeed(userIdentity.getRemoteId()));
-      scriptsExecutor.predict(dataset);
+      File predicted = new File(scriptsExecutor.predict(dataset));
       List<String> ordered = new ArrayList<>();
       try {
-        Files.lines(dataset.toPath()).skip(1).forEach(ordered::add);
+        Files.lines(predicted.toPath()).skip(1).forEach(ordered::add);
       } catch (IOException e) {
         LOG.warn("Cannot read the dataset after prediction.");
       }

@@ -38,8 +38,9 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements Script
   }
 
   @Override
-  public void predict(File dataset) {
+  public String predict(File dataset) {
     executeScript(dataset, fileStorage.getPredictionScript());
+    return dataset.getAbsolutePath().replace(dataset.getName(), "predicted.csv");
   }
 
   /**
