@@ -208,7 +208,7 @@ public class FileStorage {
       datasetutilsScript = new File(scriptsDir, "datasetutils.py");
       dockerRunScript = new File(scriptsDir, "docker_run.sh");
       FileUtils.copyURLToFile(trainingScriptURL, trainingScript);
-      FileUtils.copyURLToFile(predictScriptURL, trainingScript);
+      FileUtils.copyURLToFile(predictScriptURL, predictionScript);
       FileUtils.copyURLToFile(datasetutilsURL, datasetutilsScript);
       FileUtils.copyURLToFile(dockerScriptURL, dockerRunScript);
       trainingScript.deleteOnExit();

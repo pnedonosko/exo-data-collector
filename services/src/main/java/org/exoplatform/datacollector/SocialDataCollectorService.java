@@ -38,6 +38,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.Timer;
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,6 +60,8 @@ import com.google.common.collect.Lists;
 
 import org.exoplatform.container.ExoContainer;
 import org.exoplatform.container.ExoContainerContext;
+import org.exoplatform.container.PortalContainer;
+import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.container.xml.InitParams;
 import org.exoplatform.container.xml.ValueParam;
 import org.exoplatform.datacollector.dao.ActivityCommentedDAO;
@@ -531,6 +534,8 @@ public class SocialDataCollectorService implements Startable {
    */
   @Override
   public void start() {
+    RequestLifeCycle.begin(PortalContainer.getInstance());
+
     // Pre-read constant things
     Set<String> admins = getGroupMemberIds(userACL.getAdminGroups(), "manager", "member");
     this.focusGroups.put(userACL.getAdminGroups(), admins);
@@ -554,6 +559,8 @@ public class SocialDataCollectorService implements Startable {
     } else {
       LOG.info("Data Collector started (in manual mode)");
     }
+
+    RequestLifeCycle.end();
   }
 
   /**
@@ -601,7 +608,7 @@ public class SocialDataCollectorService implements Startable {
         // File bucketDir = fileStorage.getBucketDir(bucketName);
 
         // TODO compile path in FileStorage?
-        final File userFile = new File(model.getDatasetFile().replace(id.getRemoteId() + ".csv", "predict.csv"));
+        final File userFile = new File(model.getDatasetFile().replace("train.csv", "predict.csv"));
         try (PrintWriter writer = new PrintWriter(userFile)) {
           // TODO it's bad idea to fetch and predict all the user feed here, we
           // need make it lazy (on-demand), and do only for actually fetched
@@ -738,7 +745,7 @@ public class SocialDataCollectorService implements Startable {
   public Identity getUserByName(String userName) {
     return getUserIdentityByName(userName);
   }
-  
+
   /**
    * Gets the user by Social ID.
    *
@@ -861,9 +868,10 @@ public class SocialDataCollectorService implements Startable {
     // TODO split this method on parts:
     // 1) consume parameter with UserSnapshot and Iterator<ExoSocialActivity>
     // 2) go over the iterator and write the dataset
-    // 3) UserSnapshot should obtained in separate method (and used where required)
+    // 3) UserSnapshot should obtained in separate method (and used where
+    // required)
     // 4) activities iterator - it's all we want put in the dataset
-    
+
     LOG.info("> Collecting user activities for {}", id.getRemoteId());
     out.println(activityHeader(withRank));
 
@@ -1586,13 +1594,15 @@ public class SocialDataCollectorService implements Startable {
       if (persisted != null) {
         String gender = null;
         if (persisted.getContext() != null) {
-          gender = Arrays.asList(persisted.getContext().split(";"))
+          gender = Arrays.asList("gendser:null".split(";"))
                          .stream()
                          .filter(key -> key.contains("gender:"))
-                         .map(genderStr -> genderStr.split(":")[1])
                          .findFirst()
                          .orElse(null);
-
+          if (gender != null) {
+            String[] genderParam = gender.split(":");
+            gender = genderParam.length > 1 ? genderParam[1] : null;
+          }
         }
 
         return new UserIdentity(persisted.getId(), persisted.getName(), gender, persisted.getFocus());
@@ -1633,12 +1643,15 @@ public class SocialDataCollectorService implements Startable {
       if (persisted != null) {
         String gender = null;
         if (persisted.getContext() != null) {
-          gender = Arrays.asList(persisted.getContext().split(";"))
+          gender = Arrays.asList("gendser:null".split(";"))
                          .stream()
                          .filter(key -> key.contains("gender:"))
-                         .map(genderStr -> genderStr.split(":")[1])
                          .findFirst()
                          .orElse(null);
+          if (gender != null) {
+            String[] genderParam = gender.split(":");
+            gender = genderParam.length > 1 ? genderParam[1] : null;
+          }
 
         }
 
