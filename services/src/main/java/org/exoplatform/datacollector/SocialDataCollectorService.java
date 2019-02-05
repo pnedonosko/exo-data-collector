@@ -38,7 +38,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.Timer;
 import java.util.concurrent.ConcurrentHashMap;
@@ -535,32 +534,33 @@ public class SocialDataCollectorService implements Startable {
   @Override
   public void start() {
     RequestLifeCycle.begin(PortalContainer.getInstance());
-
-    // Pre-read constant things
-    Set<String> admins = getGroupMemberIds(userACL.getAdminGroups(), "manager", "member");
-    this.focusGroups.put(userACL.getAdminGroups(), admins);
-    Set<String> employees = getGroupMemberIds(EMPLOYEES_GROUPID);
-    this.focusGroups.put(EMPLOYEES_GROUPID, employees);
-
     try {
-      organization.addListenerPlugin(new MembershipListener());
-    } catch (Exception e) {
-      LOG.error("Cannot add the MembershipListener: {}", e.getMessage());
+      // Pre-read constant things
+      Set<String> admins = getGroupMemberIds(userACL.getAdminGroups(), "manager", "member");
+      this.focusGroups.put(userACL.getAdminGroups(), admins);
+      Set<String> employees = getGroupMemberIds(EMPLOYEES_GROUPID);
+      this.focusGroups.put(EMPLOYEES_GROUPID, employees);
+
+      try {
+        organization.addListenerPlugin(new MembershipListener());
+      } catch (Exception e) {
+        LOG.error("Cannot add the MembershipListener: {}", e.getMessage());
+      }
+
+      listenerService.addListener(new LoginListener());
+
+      if (runMainLoop.get()) {
+        // TODO use(reuse) startMainLoop()
+        final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
+        currentWorker = new StartWorker(containerName);
+        workers.submit(currentWorker);
+        LOG.info("Data Collector started (in automatic mode)");
+      } else {
+        LOG.info("Data Collector started (in manual mode)");
+      }
+    } finally {
+      RequestLifeCycle.end();
     }
-
-    listenerService.addListener(new LoginListener());
-
-    if (runMainLoop.get()) {
-      // TODO use(reuse) startMainLoop()
-      final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
-      currentWorker = new StartWorker(containerName);
-      workers.submit(currentWorker);
-      LOG.info("Data Collector started (in automatic mode)");
-    } else {
-      LOG.info("Data Collector started (in manual mode)");
-    }
-
-    RequestLifeCycle.end();
   }
 
   /**
@@ -615,7 +615,7 @@ public class SocialDataCollectorService implements Startable {
           // but, at the same time we don't want predict for each fetched
           // activity but for a batch (like what fetched to show in activity
           // stream)
-          collectUserActivities(id, writer, true); // The last arg should be false
+          collectUserActivities(id, writer, false);
           LOG.info("Saved user inferring dataset into bucket file: {}", userFile.getAbsolutePath());
           return userFile.getAbsolutePath();
         } catch (Exception e) {
