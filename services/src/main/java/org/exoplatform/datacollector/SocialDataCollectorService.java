@@ -533,6 +533,7 @@ public class SocialDataCollectorService implements Startable {
    */
   @Override
   public void start() {
+    LOG.info("Start " + this.getClass().getSimpleName() + "...");
     RequestLifeCycle.begin(PortalContainer.getInstance());
     try {
       // Pre-read constant things
@@ -554,9 +555,9 @@ public class SocialDataCollectorService implements Startable {
         final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
         currentWorker = new StartWorker(containerName);
         workers.submit(currentWorker);
-        LOG.info("Data Collector started (in automatic mode)");
+        LOG.info("Started " + this.getClass().getSimpleName() + " in automatic mode");
       } else {
-        LOG.info("Data Collector started (in manual mode)");
+        LOG.info("Started " + this.getClass().getSimpleName() + " in manual mode");
       }
     } finally {
       RequestLifeCycle.end();
@@ -568,7 +569,9 @@ public class SocialDataCollectorService implements Startable {
    */
   @Override
   public void stop() {
-    // Nothing
+    LOG.info("Stop " + this.getClass().getSimpleName() + "...");
+    // stop mail loop
+    stopMainLoop();
   }
 
   /**

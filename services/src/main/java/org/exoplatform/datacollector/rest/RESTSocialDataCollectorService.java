@@ -115,7 +115,7 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   // @RolesAllowed("administrators") // TODO only super users in PROD mode
   @RolesAllowed("users")
   @Path("/start")
-  public Response run() {
+  public Response start() {
     try {
       dataCollector.startMainLoop();
       return Response.ok().entity("{ \"status\": \"OK\"}").build();

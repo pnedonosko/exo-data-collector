@@ -88,6 +88,9 @@ public class PredictionService implements Startable {
       // it. If loaded 100 activities ends we return empty list.
       // TODO it's not very smart indeed, as need preload all by time period
 
+      // FIXME this logic will not work for pagination larger of MAX_BATCH_SIZE
+      // We need merge already fetched and a next batch to let index + limit
+      // work correctly.
       if (loadIdsAsList != null && (index + limit) > loadIdsAsList.size()) {
         loadIdsAsList = null;
         loadIdsAsListIndex = index;
@@ -98,7 +101,12 @@ public class PredictionService implements Startable {
         loadIdsAsList = predictActivityIdOrder(super.loadIdsAsList(loadIdsAsListIndex, feedLimit));
       }
 
-      List<String> batch = loadIdsAsList.subList(index, limit);
+      List<String> batch;
+      if (loadIdsAsList.size() >= limit) {
+        batch = loadIdsAsList.subList(index, limit);
+      } else {
+        batch = loadIdsAsList;
+      }
       return Collections.unmodifiableList(batch); // should it be modifiable?
     }
 
@@ -231,6 +239,7 @@ public class PredictionService implements Startable {
 
   /**
    * Checks if the model exists and has READY status
+   * 
    * @param userName of model
    * @return true if the model exists and has READY status, false otherwise
    */
