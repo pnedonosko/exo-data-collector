@@ -58,7 +58,7 @@ print(feed_dataset.describe(percentiles=[.10, .25, .5, .75, .90]))
 ##########################
 # Load the existing model
 def load_model(input_feature):
-  """Trains a linear regression model.
+  """Loads a linear regression model.
 
   Args:
     learning_rate: A `float`, the learning rate.
@@ -87,6 +87,7 @@ def load_model(input_feature):
   return linear_regressor
 
 # Infer a prediction:
+feed_dataset["rank"] = 1
 my_targets = feed_dataset["rank"]
 linear_regressor = load_model(input_feature="activity_influence")
 
