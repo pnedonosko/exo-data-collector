@@ -5,9 +5,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
-import org.apache.commons.io.FileUtils;
-
 import org.exoplatform.container.component.BaseComponentPlugin;
+import org.exoplatform.container.xml.InitParams;
+import org.exoplatform.container.xml.ValueParam;
 import org.exoplatform.datacollector.storage.FileStorage;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
@@ -18,15 +18,22 @@ import org.exoplatform.services.log.Log;
  */
 public class DockerScriptsExecutor extends BaseComponentPlugin implements ScriptsExecutor {
 
-  protected static final Log  LOG = ExoLogger.getExoLogger(DockerScriptsExecutor.class);
+  protected static final Log    LOG                  = ExoLogger.getExoLogger(DockerScriptsExecutor.class);
 
-  protected final FileStorage fileStorage;
+  protected static final String CONTAINER_NAME_PARAM = "container-name";
 
-  protected final File        dockerRunScript;
+  protected final FileStorage   fileStorage;
 
-  public DockerScriptsExecutor(FileStorage fileStorage) {
+  protected final File          dockerRunScript;
+
+  protected final String        containerName;
+
+  public DockerScriptsExecutor(FileStorage fileStorage, InitParams initParams) {
     this.fileStorage = fileStorage;
     this.dockerRunScript = fileStorage.getDockerRunScript();
+
+    ValueParam containerNameParam = initParams.getValueParam(CONTAINER_NAME_PARAM);
+    this.containerName = containerNameParam.getValue();
   }
 
   @Override
@@ -49,36 +56,23 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements Script
    * @param script to be executed
    */
   protected void executeScript(File dataset, File script) {
-    // The folder of a dataset is the work directory for docker
-    File workDirectory = dataset.getParentFile();
+    String scriptRelativePath = fileStorage.getScriptsDir().getName() + "/" + script.getName();
+    // Refactor. It's better to keep relative path to a dataset insdead of
+    // absolute one.
+    int startIndex = dataset.getAbsolutePath().indexOf(fileStorage.getDatasetsDir().getName());
+    String datasetRelativePath = dataset.getAbsolutePath().substring(startIndex);
+
+    String[] cmd = { "/bin/sh", dockerRunScript.getAbsolutePath(), containerName, scriptRelativePath,
+        datasetRelativePath };
+    LOG.info("Running {} in the container {} for dataset {}", script.getName(), containerName, dataset.getName());
     try {
-      // Copy scripts to the docker work directory
-      FileUtils.copyFileToDirectory(script, workDirectory);
-      FileUtils.copyFileToDirectory(fileStorage.getDatasetutilsScript(), workDirectory);
-    } catch (IOException e) {
-      LOG.error("Cannot copy scripts to the work directory {}, {}", workDirectory.getPath(), e.getMessage());
+      Process process = Runtime.getRuntime().exec(cmd);
+      process.waitFor();
+      logDockerOutput(process);
+    } catch (Exception e) {
+      LOG.warn("Eror occured in the docker container.", e);
     }
-
-    String[] cmd = { "/bin/sh", dockerRunScript.getAbsolutePath(), workDirectory.getAbsolutePath(), script.getName(),
-        dataset.getName() };
-    try {
-      LOG.info("Running docker container to train the model....");
-      Process trainingProcess = Runtime.getRuntime().exec(cmd);
-      trainingProcess.waitFor();
-      // Only for debugging purposes. Logs all docker output to the console
-      logDockerOutput(trainingProcess);
-
-      LOG.info("Container finished working for the model");
-      new File(workDirectory.getAbsolutePath() + "/" + script.getName()).delete();
-      new File(workDirectory.getAbsolutePath() + "/" + fileStorage.getDatasetutilsScript().getName()).delete();
-      // Compiled python script ends with .pyc.
-      new File(workDirectory.getAbsolutePath() + "/" + fileStorage.getDatasetutilsScript().getName() + "c").delete();
-
-    } catch (IOException e) {
-      LOG.warn("Error occured while running docker container for {}", dataset.getName());
-    } catch (InterruptedException e) {
-      LOG.warn("The script {} execution has been interrupted", script.getName());
-    }
+    LOG.info("Container finished working for the model");
   }
 
   /**
