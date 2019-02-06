@@ -129,7 +129,7 @@
       <init-params>
         <value-param>
           <name>container-name</name>
-          <value>${exo.datacollector.containerName:tensorflow}</value>
+          <value>${exo.prediction.docker.containerName:exo-prediction-tensorflow}</value>
         </value-param>
       </init-params>
     </component-plugin>

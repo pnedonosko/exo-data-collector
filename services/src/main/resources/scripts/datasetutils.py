@@ -117,10 +117,11 @@ def preprocess_features(feed_dataframe, withRank=True):
      #"participant5_focus_other",
      "participant5_influence"
      ]]
-  if withRank:
-    selected_features["rank"] = feed_dataframe["rank"]
 
   processed_features = selected_features.copy()
+
+  if withRank:
+    processed_features["rank"] = feed_dataframe["rank"]
 
   # Arithmetic regression with single feature:
   # Make synthetic feature as a arithmetic mean of all influencers:
