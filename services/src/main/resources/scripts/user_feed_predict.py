@@ -36,7 +36,7 @@ elif len(sys.argv) == 3:
     my_predicted_file = os.path.dirname(os.path.realpath(my_data_file)) + "/predicted.csv"
 else :
     # Only for developer mode, in prod it should return error
-    my_data_file = "./developer_data/testing.csv"
+    my_data_file = "./developer_data/predict.csv"
     my_model_dir = "./developer_data/model"
     my_predicted_file = "./developer_data/predicted.csv"
 
@@ -45,7 +45,7 @@ feed_dataframe = pd.read_csv(my_data_file, sep=",")
 loadtime = datetime.datetime.now()
 print("Loaded data in {}ms".format(deltatime_ms(loadtime, starttime)))
 
-feed_dataset = preprocess_features(feed_dataframe)
+feed_dataset = preprocess_features(feed_dataframe, withRank=False)
 print("Training data:")
 print(feed_dataset.describe(percentiles=[.10, .25, .5, .75, .90]))
 

@@ -47,6 +47,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -210,34 +211,37 @@ public class SocialDataCollectorService implements Startable {
 
     @Override
     void execute(ExoContainer exoContainer) {
-      if (!runWorker.get()) {
-        return;
-      }
-      if (runMainLoop.get()) {
-        currentBucketIndex++;
-        LOG.info("Bucket processing time! Current bucket: {}", BUCKET_PREFIX + currentBucketIndex);
-      }
-
-      Map<String, Date> targetUsers = getTargetUsers();
-
-      while (!loginsQueue.isEmpty() && runMainLoop.get()) {
-        String userName = loginsQueue.poll();
-        Date loginDate = targetUsers.get(userName);
-        LOG.info("Getting user from bucket: {}", userName);
-        ModelEntity existingModel = trainingService.getLastModel(userName);
-
-        if (modelNeedsTraining(existingModel, loginDate)) {
-          submitUserCollector(userName, BUCKET_PREFIX + currentBucketIndex, true);
-          LOG.info("Started processing {}", userName);
-        } else {
-          LOG.info("User's {} model doesn't need training ", userName);
+      if (runMainLoop.get() && runWorker.get()) {
+        final String bucketName = BUCKET_PREFIX + currentBucketIndex.incrementAndGet();
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Bucket processing time: {}", bucketName);
         }
-        targetUsers.remove(userName);
-      }
+        final Map<String, Date> targetUsers = getTargetUsers();
+        while (!loginsQueue.isEmpty() && runMainLoop.get() && runWorker.get()) {
+          String userName = loginsQueue.poll();
+          Date loginDate = targetUsers.get(userName);
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Getting user from bucket: {}", userName);
+          }
+          ModelEntity existingModel = trainingService.getLastModel(userName);
 
-      if (runMainLoop.get()) {
-        currentWorker = new BucketWorker(containerName);
-        timer.schedule(currentWorker, trainPeriod);
+          if (modelNeedsTraining(existingModel, loginDate)) {
+            submitUserCollector(userName, bucketName, true);
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Started processing {} model", userName);
+            }
+          } else {
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("User model of {} doesn't need processing ", userName);
+            }
+          }
+          targetUsers.remove(userName);
+        }
+
+        if (runMainLoop.get()) {
+          currentWorker = new BucketWorker(containerName);
+          timer.schedule(currentWorker, trainPeriod);
+        }
       }
     }
 
@@ -429,7 +433,7 @@ public class SocialDataCollectorService implements Startable {
   /** Calculated user influencers (aka runtime cache). */
   protected final ConcurrentHashMap<String, UserSnapshot>   currentInfluencers  = new ConcurrentHashMap<>();
 
-  protected Integer                                         currentBucketIndex  = -1;
+  protected AtomicInteger                                   currentBucketIndex  = new AtomicInteger(-1);
 
   /** The timer for scheduled tasks execution */
   protected final Timer                                     timer               = new Timer();
@@ -619,9 +623,12 @@ public class SocialDataCollectorService implements Startable {
           // activity but for a batch (like what fetched to show in activity
           // stream)
           collectUserActivities(id, writer, false);
-          LOG.info("Saved user inferring dataset into bucket file: {}", userFile.getAbsolutePath());
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Saved user predicting dataset into bucket file: {}", userFile.getAbsolutePath());
+          }
           return userFile.getAbsolutePath();
         } catch (Exception e) {
+          // TODO will this print a stacktrace?
           LOG.error("Cannot collect user inferring dataset for {} : {}", userName, e);
           userFile.delete();
           return null;
@@ -687,14 +694,20 @@ public class SocialDataCollectorService implements Startable {
         && !Status.PROCESSING.equals(currentModel.getStatus())) {
       currentModel.setStatus(Status.RETRY);
       trainingService.update(currentModel);
-      LOG.info("Model {} version {} got status RETRY.", currentModel.getName(), currentModel.getVersion());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Model {} version {} got status RETRY.", currentModel.getName(), currentModel.getVersion());
+      }
     }
     if (!bucketRecords.containsKey(userName)) {
       bucketRecords.put(userName, new Date());
       loginsQueue.add(userName);
-      LOG.info("User {} has beed added to the main queue for collecting and training", userName);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("User {} has beed added to the main queue for collecting and training", userName);
+      }
     } else {
-      LOG.info("User {} is already in the main queue for collecting and training", userName);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("User {} is already in the main queue for collecting and training", userName);
+      }
     }
   }
 
@@ -735,7 +748,9 @@ public class SocialDataCollectorService implements Startable {
       }
       return null;
     }
-    LOG.info("Saved dataset successfully into bucketRecords folder: {}", bucketDir.getAbsolutePath());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Saved dataset successfully into bucketRecords folder: {}", bucketDir.getAbsolutePath());
+    }
     return bucketDir.getAbsolutePath();
   }
 
@@ -770,7 +785,9 @@ public class SocialDataCollectorService implements Startable {
    */
   protected String collectUserActivities(String bucketName, String userName, boolean withRank) {
     File bucketDir = fileStorage.getBucketDir(bucketName);
-    LOG.info("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
+    }
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
       // TODO compile path in FileStorage?
@@ -787,12 +804,14 @@ public class SocialDataCollectorService implements Startable {
       try (PrintWriter writer = new PrintWriter(userFile)) {
         collectUserActivities(id, writer, withRank);
       } catch (Exception e) {
-        LOG.error("Cannot collect user activities for {} : {}", userName, e);
+        // TODO will this print a stacktrace?
+        LOG.error("Cannot collect user activities for {} : {}", userName, e); 
         userFile.delete();
         return null;
       }
-
-      LOG.info("Saved user dataset into bucket file: {}", userFile.getAbsolutePath());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Saved user dataset into bucket file: {}", userFile.getAbsolutePath());
+      }
       return userFile.getAbsolutePath();
     }
     LOG.warn("User social identity not found for {}", userName);
@@ -852,9 +871,11 @@ public class SocialDataCollectorService implements Startable {
     if (model != null && model.getModelFile() != null && model.getStatus().equals(Status.READY)) {
       try {
         FileUtils.copyDirectoryToDirectory(new File(model.getModelFile()), dest);
-        LOG.info("Old model file copied for {}", model.getName());
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Old model file copied for {}", model.getName());
+        }
       } catch (IOException e) {
-        LOG.info("Failed to copy old model file for {}, {}", model.getName(), e.getMessage());
+        LOG.error("Failed to copy old model file for: " + model.getName(), e);
       }
     }
   }
@@ -875,11 +896,15 @@ public class SocialDataCollectorService implements Startable {
     // required)
     // 4) activities iterator - it's all we want put in the dataset
 
-    LOG.info("> Collecting user activities for {}", id.getRemoteId());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("> Collecting user activities for {}", id.getRemoteId());
+    }
     out.println(activityHeader(withRank));
 
     // Find this user favorite participants (influencers) and streams
-    LOG.info(">> Buidling user influencers for {}", id.getRemoteId());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug(">> Buidling user influencers for {}", id.getRemoteId());
+    }
     Collection<Identity> conns = loadListAll(relationshipManager.getConnections(id));
     Collection<Space> spaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
     final long sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
@@ -939,7 +964,9 @@ public class SocialDataCollectorService implements Startable {
                                                                                            sinceTime,
                                                                                            favoriteStreams));
       }
-      LOG.info("<< Built user influencers for {}", id.getRemoteId());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("<< Built user influencers for {}", id.getRemoteId());
+      }
       UserSnapshot userSnapshot = new UserSnapshot(influencers, id, connsSnapshot, spacesSnapshot);
       // Favorite streams calculated before addStream* methods call
       userSnapshot.setFavoriteStreams(Collections.unmodifiableSet(favoriteStreams));
@@ -955,9 +982,11 @@ public class SocialDataCollectorService implements Startable {
     }
 
     if (Thread.currentThread().isInterrupted()) {
-      LOG.warn("< Interrupted collector of user activities for {}", id.getRemoteId());
+      LOG.warn("Interrupted collector of user activities for {}", id.getRemoteId());
     } else {
-      LOG.info("< Collected user activities for {}", id.getRemoteId());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("< Collected user activities for {}", id.getRemoteId());
+      }
     }
   }
 
@@ -1482,7 +1511,7 @@ public class SocialDataCollectorService implements Startable {
     for (String name : names) {
       UserIdentity socId = getUserIdentityByName(name);
       if (socId == null) {
-        LOG.error("Cannot find social identity (userIds): {}", name);
+        LOG.warn("Cannot find social identity (userIds): {}", name);
       } else {
         res.add(socId.getId());
       }
@@ -1776,7 +1805,9 @@ public class SocialDataCollectorService implements Startable {
   protected UserIdentity userIdentity(Identity socId) {
     String id = socId.getId();
     String userName = socId.getRemoteId();
-    LOG.info(">> Get social profile: {} ( {} ) <<", id, userName);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug(">> Get social profile: {} ( {} ) <<", id, userName);
+    }
     Profile socProfile = identityManager.getProfile(socId);
     if (socProfile != null) {
       return new UserIdentity(id, userName, socProfile.getGender(), findFocus(socProfile.getPosition()));

@@ -10,7 +10,6 @@ import org.exoplatform.services.log.Log;
 
 /**
  * The NativeScriptsExecutor executes scripts natively on the host machine
- *
  */
 public class NativeScriptsExecutor extends BaseComponentPlugin implements ScriptsExecutor {
 
@@ -39,19 +38,28 @@ public class NativeScriptsExecutor extends BaseComponentPlugin implements Script
 
   /**
    * Executes the script and passes the dataset as an argument
+   * 
    * @param dataset to be processed
    * @param script to be executed
    */
   protected void executeScript(File dataset, File script) {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug(">> Executing command " + script.getName() + " for " + dataset.getName());
+    }
     String[] cmd = { "python", script.getAbsolutePath(), dataset.getAbsolutePath() };
     try {
-      LOG.info("Running an external script {}...", script.getName());
-      Process trainingProcess = Runtime.getRuntime().exec(cmd);
-      trainingProcess.waitFor();
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Running an external script {}...", script.getName());
+      }
+      Process process = Runtime.getRuntime().exec(cmd);
+      process.waitFor();
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("<< Command complete " + script.getName());
+      }
     } catch (IOException e) {
-      LOG.error("Cannot execute an external script: ", e.getMessage());
+      LOG.warn("Error occured while running command " + script.getName() + " for " + dataset.getName(), e);
     } catch (InterruptedException e) {
-      LOG.warn("The script {} execution has been interrupted", script.getName());
+      LOG.warn("Command execution has been interrupted " + script.getName() + " for " + dataset.getName(), e);
     }
   }
 }

@@ -4,7 +4,7 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow.python.data import Dataset
 
-def preprocess_features(feed_dataframe):
+def preprocess_features(feed_dataframe, withRank=True):
   """Prepares input features.
 
   Args:
@@ -115,9 +115,10 @@ def preprocess_features(feed_dataframe):
      #"participant5_focus_management",
      #"participant5_focus_financial",
      #"participant5_focus_other",
-     "participant5_influence",
-     "rank"
+     "participant5_influence"
      ]]
+  if withRank:
+    selected_features["rank"] = feed_dataframe["rank"]
 
   processed_features = selected_features.copy()
 
