@@ -17,7 +17,7 @@ public class ListAccessUtil {
   /** Logger */
   private static final Log LOG        = ExoLogger.getExoLogger(ListAccessUtil.class);
 
-  public static final int  BATCH_SIZE = 200;
+  public static final int  BATCH_SIZE = 100;
 
   /**
    * Load all given access list to a {@link List} instance. Use carefully for

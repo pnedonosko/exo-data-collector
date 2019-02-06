@@ -47,6 +47,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -59,6 +60,8 @@ import com.google.common.collect.Lists;
 
 import org.exoplatform.container.ExoContainer;
 import org.exoplatform.container.ExoContainerContext;
+import org.exoplatform.container.PortalContainer;
+import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.container.xml.InitParams;
 import org.exoplatform.container.xml.ValueParam;
 import org.exoplatform.datacollector.dao.ActivityCommentedDAO;
@@ -221,34 +224,37 @@ public class SocialDataCollectorService implements Startable {
 
     @Override
     void execute(ExoContainer exoContainer) {
-      if (!runWorker.get()) {
-        return;
-      }
-      if (runMainLoop.get()) {
-        currentBucketIndex++;
-        LOG.info("Bucket processing time! Current bucket: {}", MAIN_BUCKET_PREFIX + currentBucketIndex);
-      }
-
-      Map<String, Date> targetUsers = getTargetUsers();
-
-      while (!loginsQueue.isEmpty() && runMainLoop.get()) {
-        String userName = loginsQueue.poll();
-        Date loginDate = targetUsers.get(userName);
-        LOG.info("Getting user from bucket: {}", userName);
-        ModelEntity existingModel = trainingService.getLastModel(userName);
-
-        if (modelNeedsTraining(existingModel, loginDate)) {
-          submitUserCollector(userName, MAIN_BUCKET_PREFIX + currentBucketIndex, true);
-          LOG.info("Started processing {}", userName);
-        } else {
-          LOG.info("User's {} model doesn't need training ", userName);
+      if (runMainLoop.get() && runWorker.get()) {
+        final String bucketName = MAIN_BUCKET_PREFIX + currentBucketIndex.incrementAndGet();
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Bucket processing time: {}", bucketName);
         }
-        targetUsers.remove(userName);
-      }
+        final Map<String, Date> targetUsers = getTargetUsers();
+        while (!loginsQueue.isEmpty() && runMainLoop.get() && runWorker.get()) {
+          String userName = loginsQueue.poll();
+          Date loginDate = targetUsers.get(userName);
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Getting user from bucket: {}", userName);
+          }
+          ModelEntity existingModel = trainingService.getLastModel(userName);
 
-      if (runMainLoop.get()) {
-        currentWorker = new BucketWorker(containerName);
-        timer.schedule(currentWorker, trainPeriod);
+          if (modelNeedsTraining(existingModel, loginDate)) {
+            submitUserCollector(userName, bucketName, true);
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Started processing {} model", userName);
+            }
+          } else {
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("User model of {} doesn't need processing ", userName);
+            }
+          }
+          targetUsers.remove(userName);
+        }
+
+        if (runMainLoop.get()) {
+          currentWorker = new BucketWorker(containerName);
+          timer.schedule(currentWorker, trainPeriod);
+        }
       }
     }
 
@@ -463,7 +469,7 @@ public class SocialDataCollectorService implements Startable {
   // TODO use exo cache with eviction instead of a map
   protected final ConcurrentHashMap<String, UserSnapshot>   userSnapshots       = new ConcurrentHashMap<>();
 
-  protected Integer                                         currentBucketIndex  = -1;
+  protected AtomicInteger                                   currentBucketIndex  = new AtomicInteger(-1);
 
   /** The timer for scheduled tasks execution */
   protected final Timer                                     timer               = new Timer();
@@ -567,28 +573,34 @@ public class SocialDataCollectorService implements Startable {
    */
   @Override
   public void start() {
-    // Pre-read constant things
-    Set<String> admins = getGroupMemberIds(userACL.getAdminGroups(), "manager", "member");
-    this.focusGroups.put(userACL.getAdminGroups(), admins);
-    Set<String> employees = getGroupMemberIds(EMPLOYEES_GROUPID);
-    this.focusGroups.put(EMPLOYEES_GROUPID, employees);
-
+    LOG.info("Start " + this.getClass().getSimpleName() + "...");
+    RequestLifeCycle.begin(PortalContainer.getInstance());
     try {
-      organization.addListenerPlugin(new MembershipListener());
-    } catch (Exception e) {
-      LOG.error("Cannot add the MembershipListener: {}", e.getMessage());
-    }
+      // Pre-read constant things
+      Set<String> admins = getGroupMemberIds(userACL.getAdminGroups(), "manager", "member");
+      this.focusGroups.put(userACL.getAdminGroups(), admins);
+      Set<String> employees = getGroupMemberIds(EMPLOYEES_GROUPID);
+      this.focusGroups.put(EMPLOYEES_GROUPID, employees);
 
-    listenerService.addListener(new LoginListener());
+      try {
+        organization.addListenerPlugin(new MembershipListener());
+      } catch (Exception e) {
+        LOG.error("Cannot add the MembershipListener: {}", e.getMessage());
+      }
 
-    if (runMainLoop.get()) {
-      // TODO use(reuse) startMainLoop()
-      final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
-      currentWorker = new StartWorker(containerName);
-      workers.submit(currentWorker);
-      LOG.info("Data Collector started (in automatic mode)");
-    } else {
-      LOG.info("Data Collector started (in manual mode)");
+      listenerService.addListener(new LoginListener());
+
+      if (runMainLoop.get()) {
+        // TODO use(reuse) startMainLoop()
+        final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
+        currentWorker = new StartWorker(containerName);
+        workers.submit(currentWorker);
+        LOG.info("Started " + this.getClass().getSimpleName() + " in automatic mode");
+      } else {
+        LOG.info("Started " + this.getClass().getSimpleName() + " in manual mode");
+      }
+    } finally {
+      RequestLifeCycle.end();
     }
   }
 
@@ -597,7 +609,9 @@ public class SocialDataCollectorService implements Startable {
    */
   @Override
   public void stop() {
-    // Nothing
+    LOG.info("Stop " + this.getClass().getSimpleName() + "...");
+    // stop mail loop
+    stopMainLoop();
   }
 
   /**
@@ -643,12 +657,15 @@ public class SocialDataCollectorService implements Startable {
         String bucketName = modelFile.substring(0, modelFile.lastIndexOf("/" + id.getRemoteId() + "/model"));
         bucketName = bucketName.substring(bucketName.lastIndexOf("/"));
 
+        // TODO compile path in FileStorage?
         final File userFile = new File(modelFile.replace("/model", "/predict.csv"));
         try (PrintWriter writer = new PrintWriter(userFile)) {
           UserSnapshot user = getUserSnapshot(bucketName, id);
           if (user != null) {
             writeUserActivities(user, activities.iterator(), writer, false);
-            LOG.info("Saved user inferring dataset into bucket file: {}", userFile.getAbsolutePath());
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Saved user predicting dataset into bucket file: {}", userFile.getAbsolutePath());
+            }
             return userFile.getAbsolutePath();
           } else {
             LOG.warn("User snapshot not found for {}", id.getRemoteId());
@@ -731,14 +748,20 @@ public class SocialDataCollectorService implements Startable {
         && !Status.PROCESSING.equals(currentModel.getStatus())) {
       currentModel.setStatus(Status.RETRY);
       trainingService.update(currentModel);
-      LOG.info("Model {} version {} got status RETRY.", currentModel.getName(), currentModel.getVersion());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Model {} version {} got status RETRY.", currentModel.getName(), currentModel.getVersion());
+      }
     }
     if (!bucketRecords.containsKey(userName)) {
       bucketRecords.put(userName, new Date());
       loginsQueue.add(userName);
-      LOG.info("User {} has beed added to the main queue for collecting and training", userName);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("User {} has beed added to the main queue for collecting and training", userName);
+      }
     } else {
-      LOG.info("User {} is already in the main queue for collecting and training", userName);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("User {} is already in the main queue for collecting and training", userName);
+      }
     }
   }
 
@@ -779,7 +802,9 @@ public class SocialDataCollectorService implements Startable {
       }
       return null;
     }
-    LOG.info("Saved dataset successfully into bucketRecords folder: {}", bucketDir.getAbsolutePath());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Saved dataset successfully into bucketRecords folder: {}", bucketDir.getAbsolutePath());
+    }
     return bucketDir.getAbsolutePath();
   }
 
@@ -815,7 +840,9 @@ public class SocialDataCollectorService implements Startable {
    */
   protected String collectUserActivities(String bucketName, String userName, long sinceTime, boolean withRank) {
     File bucketDir = fileStorage.getBucketDir(bucketName);
-    LOG.info("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
+    }
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
       // TODO compile path in FileStorage?
@@ -829,7 +856,7 @@ public class SocialDataCollectorService implements Startable {
         // XXX sinceTime here may not be the same as for activities until we'll
         // make UserInfluecners incrementally maintained and load them from DB
         initializeUserSnapshot(user, System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE);
-        
+
         Iterator<ExoSocialActivity> activities = loadActivitiesListIterator(activityManager.getActivityFeedWithListAccess(id),
                                                                             sinceTime);
         writeUserActivities(user, activities, writer, withRank);
@@ -844,12 +871,14 @@ public class SocialDataCollectorService implements Startable {
         // save/cache user snapshot only after successful write
         saveUserSnapshot(bucketName, user);
       } catch (Exception e) {
+        // TODO will this print a stacktrace?
         LOG.error("Cannot collect user activities for {} : {}", userName, e);
         userFile.delete();
         return null;
       }
-
-      LOG.info("Saved user dataset into bucket file: {}", userFile.getAbsolutePath());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Saved user dataset into bucket file: {}", userFile.getAbsolutePath());
+      }
       return userFile.getAbsolutePath();
     }
     LOG.warn("User social identity not found for {}", userName);
@@ -926,9 +955,11 @@ public class SocialDataCollectorService implements Startable {
     if (model != null && model.getModelFile() != null && model.getStatus().equals(Status.READY)) {
       try {
         FileUtils.copyDirectoryToDirectory(new File(model.getModelFile()), dest);
-        LOG.info("Old model file copied for {}", model.getName());
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Old model file copied for {}", model.getName());
+        }
       } catch (IOException e) {
-        LOG.info("Failed to copy old model file for {}, {}", model.getName(), e.getMessage());
+        LOG.error("Failed to copy old model file for: " + model.getName(), e);
       }
     }
   }
@@ -979,11 +1010,15 @@ public class SocialDataCollectorService implements Startable {
     // required)
     // 4) activities iterator - it's all we want put in the dataset
 
-    LOG.info("> Collecting user activities for {}", id.getRemoteId());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("> Collecting user activities for {}", id.getRemoteId());
+    }
     out.println(activityHeader(withRank));
 
     // Find this user favorite participants (influencers) and streams
-    LOG.info(">> Buidling user influencers for {}", id.getRemoteId());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug(">> Buidling user influencers for {}", id.getRemoteId());
+    }
     Collection<Identity> conns = loadListAll(relationshipManager.getConnections(id));
     Collection<Space> spaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
     final long sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
@@ -1043,7 +1078,9 @@ public class SocialDataCollectorService implements Startable {
                                                                                            sinceTime,
                                                                                            favoriteStreams));
       }
-      LOG.info("<< Built user influencers for {}", id.getRemoteId());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("<< Built user influencers for {}", id.getRemoteId());
+      }
       UserSnapshot userSnapshot = new UserSnapshot(id, connsSnapshot, spacesSnapshot);
       // Favorite streams calculated before addStream* methods call
       userSnapshot.setFavoriteStreams(Collections.unmodifiableSet(favoriteStreams));
@@ -1059,9 +1096,11 @@ public class SocialDataCollectorService implements Startable {
     }
 
     if (Thread.currentThread().isInterrupted()) {
-      LOG.warn("< Interrupted collector of user activities for {}", id.getRemoteId());
+      LOG.warn("Interrupted collector of user activities for {}", id.getRemoteId());
     } else {
-      LOG.info("< Collected user activities for {}", id.getRemoteId());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("< Collected user activities for {}", id.getRemoteId());
+      }
     }
   }
 
@@ -1089,7 +1128,7 @@ public class SocialDataCollectorService implements Startable {
     // TODO if not found in DB then return null
     UserSnapshot user = createUserSnapshot(id);
     // otherwise init from tables
-    // user.initInfluencers(entity); 
+    // user.initInfluencers(entity);
     user.initInfluencers(); // XXX temporal until will load from DB
     LOG.info("< Read user snapshot for {}", id.getRemoteId());
     return user;
@@ -1695,7 +1734,7 @@ public class SocialDataCollectorService implements Startable {
     for (String name : names) {
       UserIdentity socId = getUserIdentityByName(name);
       if (socId == null) {
-        LOG.error("Cannot find social identity (userIds): {}", name);
+        LOG.warn("Cannot find social identity (userIds): {}", name);
       } else {
         res.add(socId.getId());
       }
@@ -1810,13 +1849,15 @@ public class SocialDataCollectorService implements Startable {
       if (persisted != null) {
         String gender = null;
         if (persisted.getContext() != null) {
-          gender = Arrays.asList(persisted.getContext().split(";"))
+          gender = Arrays.asList("gendser:null".split(";"))
                          .stream()
                          .filter(key -> key.contains("gender:"))
-                         .map(genderStr -> genderStr.split(":")[1])
                          .findFirst()
                          .orElse(null);
-
+          if (gender != null) {
+            String[] genderParam = gender.split(":");
+            gender = genderParam.length > 1 ? genderParam[1] : null;
+          }
         }
 
         return new UserIdentity(persisted.getId(), persisted.getName(), gender, persisted.getFocus());
@@ -1857,12 +1898,15 @@ public class SocialDataCollectorService implements Startable {
       if (persisted != null) {
         String gender = null;
         if (persisted.getContext() != null) {
-          gender = Arrays.asList(persisted.getContext().split(";"))
+          gender = Arrays.asList("gendser:null".split(";"))
                          .stream()
                          .filter(key -> key.contains("gender:"))
-                         .map(genderStr -> genderStr.split(":")[1])
                          .findFirst()
                          .orElse(null);
+          if (gender != null) {
+            String[] genderParam = gender.split(":");
+            gender = genderParam.length > 1 ? genderParam[1] : null;
+          }
 
         }
 
@@ -1983,7 +2027,9 @@ public class SocialDataCollectorService implements Startable {
   protected UserIdentity userIdentity(Identity socId) {
     String id = socId.getId();
     String userName = socId.getRemoteId();
-    LOG.info(">> Get social profile: {} ( {} ) <<", id, userName);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug(">> Get social profile: {} ( {} ) <<", id, userName);
+    }
     Profile socProfile = identityManager.getProfile(socId);
     if (socProfile != null) {
       return new UserIdentity(id, userName, socProfile.getGender(), findFocus(socProfile.getPosition()));

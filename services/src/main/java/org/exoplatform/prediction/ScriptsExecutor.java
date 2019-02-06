@@ -9,5 +9,5 @@ public interface ScriptsExecutor {
 
   String train(File dataset);
 
-  void predict(File dataset);
+  String predict(File dataset);
 }

@@ -129,7 +129,6 @@ public class TrainingService implements Startable {
     } else {
       LOG.warn("Cannot activate model (name: {}, version: {}) - the model not found", userName, version);
     }
-
   }
 
   /**
@@ -144,8 +143,9 @@ public class TrainingService implements Startable {
       model.setArchived(new Date());
       model.setStatus(Status.ARCHIEVED);
       modelEntityDAO.update(model);
-      LOG.info("Model (name: " + userName + ", version: " + version + ") archived");
-
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Model (name: " + userName + ", version: " + version + ") archived");
+      }
       // Delete old models (version = current version - MAX_STORED_MODELS to be
       // deleted)
       ModelEntity oldModel = modelEntityDAO.find(new ModelId(userName, version - MAX_STORED_MODELS));
@@ -162,11 +162,7 @@ public class TrainingService implements Startable {
    * @return modelEntity or null
    */
   public ModelEntity getLastModel(String userName) {
-    Long lastVersion = modelEntityDAO.findLastModelVersion(userName);
-    if (lastVersion == null) {
-      return null;
-    }
-    return modelEntityDAO.find(new ModelId(userName, lastVersion));
+    return modelEntityDAO.findLastModel(userName);
   }
 
   /**
@@ -226,7 +222,9 @@ public class TrainingService implements Startable {
       if (currentModel != null) {
         ModelEntity prevModel = modelEntityDAO.find(new ModelId(userName, currentModel.getVersion() - 1L));
         if (prevModel != null && Status.READY.equals(prevModel.getStatus())) {
-          LOG.info("Retraining model for {}", userName);
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Retraining model for {}", userName);
+          }
           // Retrain model
           if (!trainModel(new File(dataset), userName)) {
             LOG.warn("Model {} failed in retraining. Set status FAILED_TRAINING", userName);
@@ -262,7 +260,9 @@ public class TrainingService implements Startable {
         JSONObject resultModel = (JSONObject) parser.parse(new FileReader(modelFile));
         String result = (String) resultModel.get("status");
         if (Status.READY.name().equals(result)) {
-          LOG.info("Model {} successfuly trained", userName);
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Model {} successfuly trained", userName);
+          }
           ModelEntity model = getLastModel(userName);
           activateModel(userName, model.getVersion(), modelFolder);
           return true;
@@ -305,7 +305,9 @@ public class TrainingService implements Startable {
     if (model != null) {
       model.setStatus(Status.PROCESSING);
       modelEntityDAO.update(model);
-      LOG.info("Model {} got status PROCESSING", userName);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Model {} got status PROCESSING", userName);
+      }
     } else {
       LOG.info("Cannot set PROCESSING status to the model {} - model not found", userName);
     }
@@ -321,7 +323,9 @@ public class TrainingService implements Startable {
     if (model != null) {
       model.setStatus(Status.RETRY);
       modelEntityDAO.update(model);
-      LOG.info("Model {} got status RETRY", userName);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Model {} got status RETRY", userName);
+      }
     } else {
       LOG.info("Cannot set RETRY status to the model {} - model not found", userName);
     }

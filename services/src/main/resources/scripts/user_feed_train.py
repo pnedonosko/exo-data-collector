@@ -112,7 +112,7 @@ elif len(sys.argv) == 3:
   my_model_dir = sys.argv[2]
 else :
   # Only for developer mode, in prod it should return error
-  my_dataset_file = "./developer_data/user3.csv"
+  my_dataset_file = "./developer_data/training.csv"
   my_model_dir = "./developer_data/model"
   # Try to remove model dir; if failed show an error using try...except on screen
   # TODO clean model folder only for development

@@ -208,7 +208,7 @@ public class FileStorage {
       datasetutilsScript = new File(scriptsDir, "datasetutils.py");
       dockerRunScript = new File(scriptsDir, "docker_run.sh");
       FileUtils.copyURLToFile(trainingScriptURL, trainingScript);
-      FileUtils.copyURLToFile(predictScriptURL, trainingScript);
+      FileUtils.copyURLToFile(predictScriptURL, predictionScript);
       FileUtils.copyURLToFile(datasetutilsURL, datasetutilsScript);
       FileUtils.copyURLToFile(dockerScriptURL, dockerRunScript);
       trainingScript.deleteOnExit();
@@ -219,7 +219,9 @@ public class FileStorage {
     } catch (IOException e) {
       LOG.error("Couldn't unpack training and prediction scripts: " + e.getMessage());
     }
-    LOG.info("Unpacked training and prediction scripts to: " + getScriptsDir());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Unpacked training and prediction scripts to: " + getScriptsDir());
+    }
   }
 
 }

@@ -18,6 +18,8 @@
  */
 package org.exoplatform.prediction;
 
+import static org.exoplatform.datacollector.ListAccessUtil.BATCH_SIZE;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,6 +31,8 @@ import org.picocontainer.Startable;
 
 import org.exoplatform.container.component.ComponentPlugin;
 import org.exoplatform.datacollector.SocialDataCollectorService;
+import org.exoplatform.prediction.model.domain.ModelEntity;
+import org.exoplatform.prediction.model.domain.ModelEntity.Status;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.social.core.activity.ActivitiesRealtimeListAccess;
@@ -46,9 +50,7 @@ import org.exoplatform.social.core.storage.api.ActivityStorage;
  */
 public class PredictionService implements Startable {
 
-  public static final int    MAX_BATCH_SIZE = 100;
-
-  protected static final Log LOG            = ExoLogger.getExoLogger(PredictionService.class);
+  protected static final Log LOG = ExoLogger.getExoLogger(PredictionService.class);
 
   protected ScriptsExecutor  scriptsExecutor;
 
@@ -57,11 +59,9 @@ public class PredictionService implements Startable {
    */
   protected class LazyPredictFileListAccess extends ActivitiesRealtimeListAccess {
 
-    protected final Identity userIdentity;
+    protected final Identity     userIdentity;
 
-    protected List<String>   loadIdsAsList;
-
-    protected int            loadIdsAsListIndex = 0;
+    protected final List<String> idsOrdered = new ArrayList<>();
 
     /**
      * Instantiates a new lazy predict file list access.
@@ -78,26 +78,27 @@ public class PredictionService implements Startable {
      */
     @Override
     public List<String> loadIdsAsList(int index, int limit) {
-      // TODO this method is important, it is used by Social's
+      // This method is important, it is used by Social's
       // UIUserActivitiesDisplay and we'll use it in Smart Activity Stream
 
       // We preload first 100 activities, sort them in predicted order and keep
-      // in this access list, so each invocation of loadIdsAsList() will consume
-      // it. If loaded 100 activities ends we return empty list.
+      // in this access list, so each invocation of idsOrdered() will consume
+      // it. If loaded 100 activities ends we load next batch and so on.
       // TODO it's not very smart indeed, as need preload all by time period
 
-      if (loadIdsAsList != null && (index + limit) > loadIdsAsList.size()) {
-        loadIdsAsList = null;
-        loadIdsAsListIndex = index;
+      if ((index + limit) > idsOrdered.size()) {
+        int feedLimit = limit < BATCH_SIZE ? BATCH_SIZE : limit;
+        List<String> nextBatch = predictActivityIdOrder(super.loadIdsAsList(index, feedLimit));
+        idsOrdered.addAll(nextBatch);
       }
 
-      if (loadIdsAsList == null) {
-        int feedLimit = limit < MAX_BATCH_SIZE ? MAX_BATCH_SIZE : limit;
-        loadIdsAsList = predictActivityIdOrder(super.loadIdsAsList(loadIdsAsListIndex, feedLimit));
+      List<String> theList;
+      if (idsOrdered.size() >= limit) {
+        theList = idsOrdered.subList(index, limit);
+      } else {
+        theList = idsOrdered;
       }
-
-      List<String> batch = loadIdsAsList.subList(index, limit);
-      return Collections.unmodifiableList(batch); // should it be modifiable?
+      return Collections.unmodifiableList(theList); // should it be modifiable?
     }
 
     /**
@@ -158,14 +159,22 @@ public class PredictionService implements Startable {
     // ******* internals *******
 
     protected List<String> predictActivityIdOrder(List<String> origin) {
-      // TODO do this on demand in list access
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Activities order before prediction: ");
+        origin.forEach(LOG::info);
+      }
       File dataset = new File(collector.collectActivitiesByIds(userIdentity, origin));
-      scriptsExecutor.predict(dataset);
+      File predicted = new File(scriptsExecutor.predict(dataset));
       List<String> ordered = new ArrayList<>();
       try {
-        Files.lines(dataset.toPath()).skip(1).forEach(ordered::add);
+        // We skip a header at first line
+        Files.lines(predicted.toPath()).skip(1).forEach(ordered::add);
       } catch (IOException e) {
-        LOG.warn("Cannot read the dataset after prediction.");
+        LOG.error("Cannot read the dataset after prediction", e);
+      }
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Activities order after prediction: ");
+        ordered.forEach(LOG::info);
       }
       return ordered;
     }
@@ -220,6 +229,17 @@ public class PredictionService implements Startable {
   @Override
   public void stop() {
     // TODO any?
+  }
+
+  /**
+   * Checks if the model exists and has READY status
+   * 
+   * @param userName of model
+   * @return true if the model exists and has READY status, false otherwise
+   */
+  public boolean canPredict(String userName) {
+    ModelEntity model = training.getLastModel(userName);
+    return model != null && Status.READY.equals(model.getStatus());
   }
 
   /**
