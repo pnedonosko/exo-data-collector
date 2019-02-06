@@ -7,10 +7,11 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
-import org.apache.commons.io.FileUtils;
+import java.util.stream.Collectors;
 
 import org.exoplatform.container.component.BaseComponentPlugin;
+import org.exoplatform.container.xml.InitParams;
+import org.exoplatform.container.xml.ValueParam;
 import org.exoplatform.datacollector.storage.FileStorage;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
@@ -20,15 +21,22 @@ import org.exoplatform.services.log.Log;
  */
 public class DockerScriptsExecutor extends BaseComponentPlugin implements ScriptsExecutor {
 
-  protected static final Log  LOG = ExoLogger.getExoLogger(DockerScriptsExecutor.class);
+  protected static final Log    LOG                  = ExoLogger.getExoLogger(DockerScriptsExecutor.class);
 
-  protected final FileStorage fileStorage;
+  protected static final String CONTAINER_NAME_PARAM = "container-name";
 
-  protected final File        dockerRunScript;
+  protected final FileStorage   fileStorage;
 
-  public DockerScriptsExecutor(FileStorage fileStorage) {
+  protected final File          dockerRunScript;
+
+  protected final String        containerName;
+
+  public DockerScriptsExecutor(FileStorage fileStorage, InitParams initParams) {
     this.fileStorage = fileStorage;
     this.dockerRunScript = fileStorage.getDockerRunScript();
+
+    ValueParam containerNameParam = initParams.getValueParam(CONTAINER_NAME_PARAM);
+    this.containerName = containerNameParam.getValue();
   }
 
   @Override
@@ -51,41 +59,24 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements Script
    * @param dataset to be processed
    * @param script to be executed
    */
+
   protected void executeCommand(File dataset, File script) {
     if (LOG.isDebugEnabled()) {
-      LOG.debug(">> Executing docker command " + script.getName() + " for " + dataset.getName());
+      LOG.debug(">> Executing docker command {} for {} in {} container", script.getName(), dataset.getName(), containerName);
     }
+    String scriptRelativePath = fileStorage.getScriptsDir().getName() + "/" + script.getName();
+    // Refactor. It's better to keep relative path to a dataset insdead of
+    // absolute one.
+    int startIndex = dataset.getAbsolutePath().indexOf(fileStorage.getDatasetsDir().getName());
+    String datasetRelativePath = dataset.getAbsolutePath().substring(startIndex);
 
-    // The folder of a dataset is the work directory for docker
-    File workDirectory = dataset.getParentFile();
-    try {
-      // Copy scripts to the docker work directory
-      FileUtils.copyFileToDirectory(script, workDirectory);
-      FileUtils.copyFileToDirectory(fileStorage.getDatasetutilsScript(), workDirectory);
-    } catch (IOException e) {
-      LOG.error("Cannot copy scripts to the work directory {}, {}", workDirectory.getPath(), e.getMessage());
-    }
-
-    String[] cmd = { "/bin/sh", dockerRunScript.getAbsolutePath(), workDirectory.getAbsolutePath(), script.getName(),
-        dataset.getName() };
+    String[] cmd = { "/bin/sh", dockerRunScript.getAbsolutePath(), containerName, scriptRelativePath, datasetRelativePath };
     try {
       Process process = Runtime.getRuntime().exec(cmd);
       process.waitFor();
-      // Only for debugging purposes. Logs all docker output to the console
       logDockerOutput(process);
-
-      new File(workDirectory.getAbsolutePath() + "/" + script.getName()).delete();
-      new File(workDirectory.getAbsolutePath() + "/" + fileStorage.getDatasetutilsScript().getName()).delete();
-      // Compiled python script ends with .pyc.
-      new File(workDirectory.getAbsolutePath() + "/" + fileStorage.getDatasetutilsScript().getName() + "c").delete();
-
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("<< Docker command complete " + script.getName());
-      }
-    } catch (IOException e) {
-      LOG.warn("Error occured while running docker command " + script.getName() + " for " + dataset.getName(), e);
-    } catch (InterruptedException e) {
-      LOG.warn("Docker command execution has been interrupted " + script.getName() + " for " + dataset.getName(), e);
+    } catch (Exception e) {
+      LOG.warn("Eror occured in the docker container: ", e);
     }
   }
 
@@ -95,36 +86,23 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements Script
    * @param process docker process
    */
   protected void logDockerOutput(Process process) {
-    try {
-      if (LOG.isDebugEnabled()) {
-        BufferedReader processOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        Collection<String> allOut = readAll(processOut);
-        if (allOut.size() > 0) {
-          LOG.debug("Standard output of docker command:\n");
-          for (String s : allOut) {
-            LOG.info("> " + s);
-          }
-        }
-      }
-      BufferedReader processErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-      Collection<String> allErr = readAll(processErr);
-      if (allErr.size() > 0) {
-        LOG.info("Error output of docker command:\n");
-        for (String s : allErr) {
+    if (LOG.isDebugEnabled()) {
+      BufferedReader processOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
+      Collection<String> allOut = processOut.lines().collect(Collectors.toList());
+      if (allOut.size() > 0) {
+        LOG.debug("Standard output of docker command:\n");
+        for (String s : allOut) {
           LOG.info("> " + s);
         }
       }
-    } catch (IOException e) {
-      LOG.error("Cannot read docker command output", e);
     }
-  }
-
-  private Collection<String> readAll(BufferedReader input) throws IOException {
-    String s = null;
-    List<String> res = new ArrayList<>();
-    while ((s = input.readLine()) != null) {
-      res.add(s);
+    BufferedReader processErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+    List<String> allErr = processErr.lines().collect(Collectors.toList());
+    if (allErr.size() > 0) {
+      LOG.info("Error output of docker command:\n");
+      for (String s : allErr) {
+        LOG.info("> " + s);
+      }
     }
-    return res;
   }
 }

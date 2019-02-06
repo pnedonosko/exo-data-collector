@@ -34,8 +34,8 @@
   <component>
     <type>org.exoplatform.prediction.TrainingService</type>
   </component>
-  
-    <component>
+
+  <component>
     <type>org.exoplatform.prediction.PredictionService</type>
   </component>
 
@@ -126,6 +126,12 @@
       <set-method>addPlugin</set-method>
       <type>org.exoplatform.prediction.DockerScriptsExecutor</type>
       <description>Native scripts executor runs the scripts in a docker container.</description>
+      <init-params>
+        <value-param>
+          <name>container-name</name>
+          <value>${exo.datacollector.containerName:tensorflow}</value>
+        </value-param>
+      </init-params>
     </component-plugin>
   </external-component-plugins>
 
@@ -136,6 +142,12 @@
       <set-method>addPlugin</set-method>
       <type>org.exoplatform.prediction.DockerScriptsExecutor</type>
       <description>Native scripts executor runs the scripts in a docker container.</description>
+      <init-params>
+        <value-param>
+          <name>container-name</name>
+          <value>${exo.datacollector.containerName:tensorflow}</value>
+        </value-param>
+      </init-params>
     </component-plugin>
   </external-component-plugins>
 

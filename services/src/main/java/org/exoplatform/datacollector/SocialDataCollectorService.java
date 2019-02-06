@@ -332,7 +332,7 @@ public class SocialDataCollectorService implements Startable {
         loginsQueue.forEach(LOG::info);
 
       } catch (Exception e) {
-        LOG.error("Cannot get last users login: {}", e.getMessage());
+        LOG.error("Cannot get last users login", e.getMessage());
       }
       return recentLogins;
     }
@@ -556,15 +556,14 @@ public class SocialDataCollectorService implements Startable {
       String pval = autostartParam.getValue();
       this.runMainLoop.set(pval != null ? Boolean.valueOf(pval) : false);
     } catch (Exception e) {
-      LOG.warn("Cannot set manual mode to {}, using auto mode by default", autostartParam.getValue());
+      LOG.warn("Cannot set manual mode to " + autostartParam.getValue() + ", using auto mode by default", e);
     }
     try {
       String pval = trainPeroidParam.getValue();
       this.trainPeriod = Integer.parseInt(pval) * 60000L;
     } catch (Exception e) {
-      LOG.warn("Cannot set the train period to {}, using {} min. by default",
-               trainPeroidParam.getValue(),
-               this.trainPeriod / 60000L);
+      LOG.warn("Cannot set the train period to " + trainPeroidParam.getValue() + ", using " + this.trainPeriod / 60000L
+          + " min. by default", e);
     }
   }
 
@@ -585,7 +584,7 @@ public class SocialDataCollectorService implements Startable {
       try {
         organization.addListenerPlugin(new MembershipListener());
       } catch (Exception e) {
-        LOG.error("Cannot add the MembershipListener: {}", e.getMessage());
+        LOG.error("Cannot add the MembershipListener:", e);
       }
 
       listenerService.addListener(new LoginListener());
@@ -671,7 +670,7 @@ public class SocialDataCollectorService implements Startable {
             LOG.warn("User snapshot not found for {}", id.getRemoteId());
           }
         } catch (Exception e) {
-          LOG.error("Cannot collect user inferring dataset for {} : {}", id.getRemoteId(), e);
+          LOG.error("Cannot collect user inferring dataset for " + id.getRemoteId(), e);
           userFile.delete();
         }
       } else {
@@ -798,7 +797,7 @@ public class SocialDataCollectorService implements Startable {
         Arrays.asList(bucketDir.listFiles()).stream().forEach(f -> f.delete());
         bucketDir.delete();
       } catch (Exception e) {
-        LOG.error("Error removing canceled bucketRecords folder: {}", bucketName);
+        LOG.error("Error removing canceled bucketRecords folder: " + bucketName, e);
       }
       return null;
     }
@@ -871,8 +870,7 @@ public class SocialDataCollectorService implements Startable {
         // save/cache user snapshot only after successful write
         saveUserSnapshot(bucketName, user);
       } catch (Exception e) {
-        // TODO will this print a stacktrace?
-        LOG.error("Cannot collect user activities for {} : {}", userName, e);
+        LOG.error("Cannot collect user activities for " + userName, e);
         userFile.delete();
         return null;
       }
@@ -959,7 +957,7 @@ public class SocialDataCollectorService implements Startable {
           LOG.debug("Old model file copied for {}", model.getName());
         }
       } catch (IOException e) {
-        LOG.error("Failed to copy old model file for: " + model.getName(), e);
+        LOG.error("Failed to copy old model file for " + model.getName(), e);
       }
     }
   }
@@ -1758,7 +1756,7 @@ public class SocialDataCollectorService implements Startable {
       // return false;
       return phistory.size() > 0;
     } catch (Exception e) {
-      LOG.warn("Error reading login history for {}", userId);
+      LOG.warn("Error reading login history for " + userId, e);
       return false;
     }
   }
@@ -1812,7 +1810,7 @@ public class SocialDataCollectorService implements Startable {
         return members;
       }
     } catch (Exception e) {
-      LOG.warn("Error reading group members for {} of types {} : {}", groupId, membershipTypes, e);
+      LOG.warn("Error reading group members for " + groupId + " of types: " + membershipTypes, e);
       return null;
     }
   }
