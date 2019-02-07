@@ -924,7 +924,9 @@ public class SocialDataCollectorService implements Startable {
           // In general case it's question of how critical if some activities
           // will be lost or repeatedly taken in account by the model and
           // influencers?
-          sinceTime = currentModel.getCreated().getTime();
+          
+          //sinceTime = currentModel.getCreated().getTime();
+          sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
         } else {
           sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
         }
