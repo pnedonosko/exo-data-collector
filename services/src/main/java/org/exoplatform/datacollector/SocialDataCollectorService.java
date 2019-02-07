@@ -253,7 +253,7 @@ public class SocialDataCollectorService implements Startable {
 
         if (runMainLoop.get()) {
           currentWorker = new BucketWorker(containerName);
-          timer.schedule(currentWorker, trainPeriod);
+          timer.schedule(currentWorker, trainingPeriod);
         }
       }
     }
@@ -292,7 +292,7 @@ public class SocialDataCollectorService implements Startable {
         return false;
       }
 
-      return model.getActivated() == null || Math.abs(model.getActivated().getTime() - loginDate.getTime()) > trainPeriod;
+      return model.getActivated() == null || Math.abs(model.getActivated().getTime() - loginDate.getTime()) > trainingPeriod;
     }
 
     void stop() {
@@ -478,10 +478,10 @@ public class SocialDataCollectorService implements Startable {
   protected AtomicBoolean                                   runMainLoop         = new AtomicBoolean(false);
 
   /**
-   * The train period. It's the delay between processing buckets. 180 min. by
+   * The training period. It's the delay between processing buckets. 180 min. by
    * default
    */
-  protected Long                                            trainPeriod         = 180 * 60000L;
+  protected Long                                            trainingPeriod      = 180 * 60000L;
 
   /**
    * The current worker that executes or is going to execute the main loop of
@@ -560,9 +560,9 @@ public class SocialDataCollectorService implements Startable {
     }
     try {
       String pval = trainPeroidParam.getValue();
-      this.trainPeriod = Integer.parseInt(pval) * 60000L;
+      this.trainingPeriod = Integer.parseInt(pval) * 60000L;
     } catch (Exception e) {
-      LOG.warn("Cannot set the train period to " + trainPeroidParam.getValue() + ", using " + this.trainPeriod / 60000L
+      LOG.warn("Cannot set the train period to " + trainPeroidParam.getValue() + ", using " + this.trainingPeriod / 60000L
           + " min. by default", e);
     }
   }
