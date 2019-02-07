@@ -836,50 +836,66 @@ public class SocialDataCollectorService implements Startable {
    * @param sinceTime the since time
    * @param withRank collect with rank if <code>true</code>
    * @return the dataset file
+   * @throws DatasetException the dataset exception
    */
-  protected String collectUserActivities(String bucketName, String userName, long sinceTime, boolean withRank) {
+  protected String collectUserActivities(String bucketName,
+                                         String userName,
+                                         long sinceTime,
+                                         boolean withRank) throws DatasetException {
     File bucketDir = fileStorage.getBucketDir(bucketName);
     if (LOG.isDebugEnabled()) {
       LOG.debug("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
     }
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
-      // TODO compile path in FileStorage?
-      final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/training.csv");
-      userFile.getParentFile().mkdirs();
-
-      try (PrintWriter writer = new PrintWriter(userFile)) {
-        // Prepare an user state snapshot, it should not be modified until
-        // another collecting
-        UserSnapshot user = getUserSnapshot(bucketName, id);
-        // XXX sinceTime here may not be the same as for activities until we'll
-        // make UserInfluecners incrementally maintained and load them from DB
-        initializeUserSnapshot(user, System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE);
-
-        Iterator<ExoSocialActivity> activities = loadActivitiesListIterator(activityManager.getActivityFeedWithListAccess(id),
-                                                                            sinceTime);
-        writeUserActivities(user, activities, writer, withRank);
-
-        // Set the dataset path to the latest model in DB if exists
-        // TODO Don't use absolute path but use relative to
-        // data-collector/datasets path, so it will be possible to relocate file
-        // storage w/o modifying DB. Relative path should start from a bucket
-        // name.
-        trainingService.setDatasetToLatestModel(userName, userFile.getAbsolutePath());
-
-        // save/cache user snapshot only after successful write
-        saveUserSnapshot(bucketName, user);
+      Iterator<ExoSocialActivity> activities;
+      try {
+        activities = loadActivitiesListIterator(activityManager.getActivityFeedWithListAccess(id), sinceTime);
       } catch (Exception e) {
-        LOG.error("Cannot collect user activities for " + userName, e);
-        userFile.delete();
-        return null;
+        throw new DatasetException("Error reading user activities for " + userName, e);
       }
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Saved user dataset into bucket file: {}", userFile.getAbsolutePath());
+
+      if (activities.hasNext()) {
+        // TODO compile path in FileStorage?
+        final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/training.csv");
+        userFile.getParentFile().mkdirs();
+
+        try (PrintWriter writer = new PrintWriter(userFile)) {
+          // Prepare an user state snapshot, it should not be modified until
+          // another collecting
+          UserSnapshot user = getUserSnapshot(bucketName, id);
+          // XXX sinceTime here may not be the same as for activities until
+          // we'll
+          // make UserInfluecners incrementally maintained and load them from DB
+
+          initializeUserSnapshot(user, System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE);
+
+          writeUserActivities(user, activities, writer, withRank);
+
+          // Set the dataset path to the latest model in DB if exists
+          // TODO Don't use absolute path but use relative to
+          // data-collector/datasets path, so it will be possible to relocate
+          // file
+          // storage w/o modifying DB. Relative path should start from a bucket
+          // name.
+          trainingService.setDatasetToLatestModel(userName, userFile.getAbsolutePath());
+
+          // save/cache user snapshot only after successful write
+          saveUserSnapshot(bucketName, user);
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Saved user dataset into bucket file: {}", userFile.getAbsolutePath());
+          }
+          return userFile.getAbsolutePath();
+        } catch (Exception e) {
+          userFile.delete();
+          throw new DatasetException("Cannot collect user activities for " + userName, e);
+        }
+      } else if (LOG.isDebugEnabled()) {
+        LOG.debug("Has no activities to collect for {}", userName);
       }
-      return userFile.getAbsolutePath();
+    } else {
+      LOG.warn("User social identity not found for {}", userName);
     }
-    LOG.warn("User social identity not found for {}", userName);
     return null;
   }
 
@@ -915,12 +931,14 @@ public class SocialDataCollectorService implements Startable {
         if (train) {
           currentModel = trainingService.addModel(userName, null);
         }
-        String dataset = collectUserActivities(bucket, userName, sinceTime, true);
-        if (dataset != null && train) {
-          copyModelFile(trainingService.getPreviousModel(userName), new File(dataset).getParentFile());
-          trainingService.submitTrainModel(dataset, userName);
-        }
-        if (dataset == null) {
+        try {
+          String dataset = collectUserActivities(bucket, userName, sinceTime, true);
+          if (dataset != null && train) {
+            copyModelFile(trainingService.getPreviousModel(userName), new File(dataset).getParentFile());
+            trainingService.submitTrainModel(dataset, userName);
+          } // else, otherwise
+        } catch (DatasetException e) {
+          LOG.error("User activities collector failed for " + bucket + "/" + userName, e);
           // TODO need re-get it?
           // currentModel = trainingService.getLastModel(userName);
           if (Status.RETRY.equals(currentModel.getStatus())) {
@@ -975,7 +993,9 @@ public class SocialDataCollectorService implements Startable {
                                      Iterator<ExoSocialActivity> activities,
                                      PrintWriter out,
                                      boolean withRank) throws Exception {
-    LOG.info("> Writing user activities for {}", user.getIdentity().getRemoteId());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("> Writing user activities for {}", user.getIdentity().getRemoteId());
+    }
     out.println(activityHeader(withRank));
 
     // load identity's activities and collect its data
@@ -987,7 +1007,9 @@ public class SocialDataCollectorService implements Startable {
     if (Thread.currentThread().isInterrupted()) {
       LOG.warn("< Interrupted collector of user activities for {}", user.getIdentity().getRemoteId());
     } else {
-      LOG.info("< Wrote user activities for {}", user.getIdentity().getRemoteId());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("< Wrote user activities for {}", user.getIdentity().getRemoteId());
+      }
     }
   }
 
@@ -1122,29 +1144,39 @@ public class SocialDataCollectorService implements Startable {
     // TODO read user snapshot from DB:
     // 1) connections and spaces from Social
     // 2) influencers from collector tables
-    LOG.info("> Reading user snapshot for {}", id.getRemoteId());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("> Reading user snapshot for {}", id.getRemoteId());
+    }
     // TODO if not found in DB then return null
     UserSnapshot user = createUserSnapshot(id);
     // otherwise init from tables
     // user.initInfluencers(entity);
     user.initInfluencers(); // XXX temporal until will load from DB
-    LOG.info("< Read user snapshot for {}", id.getRemoteId());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("< Read user snapshot for {}", id.getRemoteId());
+    }
     return user;
   }
 
   private void saveUserSnapshot(String buketName, UserSnapshot user) throws Exception {
     String userId = user.getIdentity().getRemoteId();
-    LOG.info("> Saving user snapshot for {}", userId);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("> Saving user snapshot for {}", userId);
+    }
     // TODO read user snapshot from DB:
     // 1) save in the DB
     // 2) cache in runtime
     userSnapshots.put(snapshotId(buketName, userId), user);
-    LOG.info("< Saved user snapshot for {}", userId);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("< Saved user snapshot for {}", userId);
+    }
   }
 
   protected void initializeUserSnapshot(UserSnapshot user, long sinceTime) throws Exception {
     String userId = user.getIdentity().getRemoteId();
-    LOG.info(">> Initializing user snapshot for {}", userId);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug(">> Initializing user snapshot for {}", userId);
+    }
 
     // TODO read user influencers from DB and if found set conns/spaces into it
     UserInfluencers influencers = user.initInfluencers();
@@ -1189,7 +1221,9 @@ public class SocialDataCollectorService implements Startable {
 
     // Favorite streams calculated before addStream* methods call
     user.setFavoriteStreams(Collections.unmodifiableSet(favoriteStreams));
-    LOG.info("<< Initialized user snapshot for {}", userId);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("<< Initialized user snapshot for {}", userId);
+    }
   }
 
   protected UserSnapshot createUserSnapshot(Identity id) throws Exception {
