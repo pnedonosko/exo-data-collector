@@ -22,9 +22,9 @@ package org.exoplatform.datacollector;
  * Created by The eXo Platform SAS.
  *
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
- * @version $Id: ActivityDataException.java 00000 Dec 13, 2018 pnedonosko $
+ * @version $Id: DatasetException.java 00000 Dec 13, 2018 pnedonosko $
  */
-public class ActivityDataException extends Exception {
+public class DatasetException extends Exception {
 
   /** The Constant serialVersionUID. */
   private static final long serialVersionUID = -2120871397066227799L;
@@ -34,7 +34,7 @@ public class ActivityDataException extends Exception {
    *
    * @param message the message
    */
-  public ActivityDataException(String message) {
+  public DatasetException(String message) {
     super(message);
   }
 
@@ -44,20 +44,7 @@ public class ActivityDataException extends Exception {
    * @param message the message
    * @param cause the cause
    */
-  public ActivityDataException(String message, Throwable cause) {
+  public DatasetException(String message, Throwable cause) {
     super(message, cause);
   }
-
-  /**
-   * Instantiates a new activity data exception.
-   *
-   * @param message the message
-   * @param cause the cause
-   * @param enableSuppression the enable suppression
-   * @param writableStackTrace the writable stack trace
-   */
-  public ActivityDataException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-    super(message, cause, enableSuppression, writableStackTrace);
-  }
-
 }

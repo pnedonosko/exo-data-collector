@@ -836,50 +836,66 @@ public class SocialDataCollectorService implements Startable {
    * @param sinceTime the since time
    * @param withRank collect with rank if <code>true</code>
    * @return the dataset file
+   * @throws DatasetException the dataset exception
    */
-  protected String collectUserActivities(String bucketName, String userName, long sinceTime, boolean withRank) {
+  protected String collectUserActivities(String bucketName,
+                                         String userName,
+                                         long sinceTime,
+                                         boolean withRank) throws DatasetException {
     File bucketDir = fileStorage.getBucketDir(bucketName);
     if (LOG.isDebugEnabled()) {
       LOG.debug("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
     }
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
-      // TODO compile path in FileStorage?
-      final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/training.csv");
-      userFile.getParentFile().mkdirs();
-
-      try (PrintWriter writer = new PrintWriter(userFile)) {
-        // Prepare an user state snapshot, it should not be modified until
-        // another collecting
-        UserSnapshot user = getUserSnapshot(bucketName, id);
-        // XXX sinceTime here may not be the same as for activities until we'll
-        // make UserInfluecners incrementally maintained and load them from DB
-        initializeUserSnapshot(user, System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE);
-
-        Iterator<ExoSocialActivity> activities = loadActivitiesListIterator(activityManager.getActivityFeedWithListAccess(id),
-                                                                            sinceTime);
-        writeUserActivities(user, activities, writer, withRank);
-
-        // Set the dataset path to the latest model in DB if exists
-        // TODO Don't use absolute path but use relative to
-        // data-collector/datasets path, so it will be possible to relocate file
-        // storage w/o modifying DB. Relative path should start from a bucket
-        // name.
-        trainingService.setDatasetToLatestModel(userName, userFile.getAbsolutePath());
-
-        // save/cache user snapshot only after successful write
-        saveUserSnapshot(bucketName, user);
+      Iterator<ExoSocialActivity> activities;
+      try {
+        activities = loadActivitiesListIterator(activityManager.getActivityFeedWithListAccess(id), sinceTime);
       } catch (Exception e) {
-        LOG.error("Cannot collect user activities for " + userName, e);
-        userFile.delete();
-        return null;
+        throw new DatasetException("Error reading user activities for " + userName, e);
       }
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Saved user dataset into bucket file: {}", userFile.getAbsolutePath());
+
+      if (activities.hasNext()) {
+        // TODO compile path in FileStorage?
+        final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/training.csv");
+        userFile.getParentFile().mkdirs();
+
+        try (PrintWriter writer = new PrintWriter(userFile)) {
+          // Prepare an user state snapshot, it should not be modified until
+          // another collecting
+          UserSnapshot user = getUserSnapshot(bucketName, id);
+          // XXX sinceTime here may not be the same as for activities until
+          // we'll
+          // make UserInfluecners incrementally maintained and load them from DB
+
+          initializeUserSnapshot(user, System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE);
+
+          writeUserActivities(user, activities, writer, withRank);
+
+          // Set the dataset path to the latest model in DB if exists
+          // TODO Don't use absolute path but use relative to
+          // data-collector/datasets path, so it will be possible to relocate
+          // file
+          // storage w/o modifying DB. Relative path should start from a bucket
+          // name.
+          trainingService.setDatasetToLatestModel(userName, userFile.getAbsolutePath());
+
+          // save/cache user snapshot only after successful write
+          saveUserSnapshot(bucketName, user);
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Saved user dataset into bucket file: {}", userFile.getAbsolutePath());
+          }
+          return userFile.getAbsolutePath();
+        } catch (Exception e) {
+          userFile.delete();
+          throw new DatasetException("Cannot collect user activities for " + userName, e);
+        }
+      } else if (LOG.isDebugEnabled()) {
+        LOG.debug("Has no activities to collect for {}", userName);
       }
-      return userFile.getAbsolutePath();
+    } else {
+      LOG.warn("User social identity not found for {}", userName);
     }
-    LOG.warn("User social identity not found for {}", userName);
     return null;
   }
 
@@ -915,12 +931,14 @@ public class SocialDataCollectorService implements Startable {
         if (train) {
           currentModel = trainingService.addModel(userName, null);
         }
-        String dataset = collectUserActivities(bucket, userName, sinceTime, true);
-        if (dataset != null && train) {
-          copyModelFile(trainingService.getPreviousModel(userName), new File(dataset).getParentFile());
-          trainingService.submitTrainModel(dataset, userName);
-        }
-        if (dataset == null) {
+        try {
+          String dataset = collectUserActivities(bucket, userName, sinceTime, true);
+          if (dataset != null && train) {
+            copyModelFile(trainingService.getPreviousModel(userName), new File(dataset).getParentFile());
+            trainingService.submitTrainModel(dataset, userName);
+          } // else, otherwise
+        } catch (DatasetException e) {
+          LOG.error("User activities collector failed for " + bucket + "/" + userName, e);
           // TODO need re-get it?
           // currentModel = trainingService.getLastModel(userName);
           if (Status.RETRY.equals(currentModel.getStatus())) {
