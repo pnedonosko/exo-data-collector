@@ -55,6 +55,8 @@ public class FileStorage {
   protected File             datasetutilsScript;
 
   protected File             dockerRunScript;
+  
+  protected File             dockerExecScript;
 
   protected InitParams       initParams;
 
@@ -174,6 +176,13 @@ public class FileStorage {
   }
 
   /**
+   * Gets the dockerExec script
+   * @return the dockerRun script
+   */
+  public File getDockerExecScript() {
+    return dockerExecScript;
+  }
+  /**
    * Gets the value of a param in the initParams
    * @param keyName of the param
    * @return the value
@@ -199,7 +208,8 @@ public class FileStorage {
     URL trainingScriptURL = this.getClass().getClassLoader().getResource("scripts/user_feed_train.py");
     URL predictScriptURL = this.getClass().getClassLoader().getResource("scripts/user_feed_predict.py");
     URL datasetutilsURL = this.getClass().getClassLoader().getResource("scripts/datasetutils.py");
-    URL dockerScriptURL = this.getClass().getClassLoader().getResource("scripts/docker_run.sh");
+    URL dockerRunScriptURL = this.getClass().getClassLoader().getResource("scripts/docker_run.sh");
+    URL dockerExecScriptURL = this.getClass().getClassLoader().getResource("scripts/docker_exec.sh");
     try {
       File scriptsDir = getScriptsDir();
       scriptsDir.mkdirs();
@@ -207,14 +217,17 @@ public class FileStorage {
       predictionScript = new File(scriptsDir, "user_feed_predict.py");
       datasetutilsScript = new File(scriptsDir, "datasetutils.py");
       dockerRunScript = new File(scriptsDir, "docker_run.sh");
+      dockerExecScript = new File(scriptsDir, "docker_exec.sh");
       FileUtils.copyURLToFile(trainingScriptURL, trainingScript);
       FileUtils.copyURLToFile(predictScriptURL, predictionScript);
       FileUtils.copyURLToFile(datasetutilsURL, datasetutilsScript);
-      FileUtils.copyURLToFile(dockerScriptURL, dockerRunScript);
+      FileUtils.copyURLToFile(dockerRunScriptURL, dockerRunScript);
+      FileUtils.copyURLToFile(dockerExecScriptURL, dockerExecScript);
       trainingScript.deleteOnExit();
       predictionScript.deleteOnExit();
       datasetutilsScript.deleteOnExit();
       dockerRunScript.deleteOnExit();
+      dockerExecScript.deleteOnExit();
       scriptsDir.deleteOnExit();
     } catch (IOException e) {
       LOG.error("Couldn't unpack training and prediction scripts: " + e.getMessage());

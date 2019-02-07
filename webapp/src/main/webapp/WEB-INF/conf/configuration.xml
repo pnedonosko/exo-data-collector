@@ -128,6 +128,10 @@
       <description>Native scripts executor runs the scripts in a docker container.</description>
       <init-params>
         <value-param>
+          <name>exec-in-container</name>
+          <value>${exo.prediction.docker.execInContainer:false}</value>
+        </value-param>
+        <value-param>
           <name>container-name</name>
           <value>${exo.prediction.docker.containerName:exo-prediction-tensorflow}</value>
         </value-param>
@@ -143,6 +147,10 @@
       <type>org.exoplatform.prediction.DockerScriptsExecutor</type>
       <description>Native scripts executor runs the scripts in a docker container.</description>
       <init-params>
+        <value-param>
+          <name>exec-in-container</name>
+          <value>${exo.prediction.docker.execInContainer:false}</value>
+        </value-param>
         <value-param>
           <name>container-name</name>
           <value>${exo.prediction.docker.containerName:exo-prediction-tensorflow}</value>

@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -21,22 +22,32 @@ import org.exoplatform.services.log.Log;
  */
 public class DockerScriptsExecutor extends BaseComponentPlugin implements ScriptsExecutor {
 
-  protected static final Log    LOG                  = ExoLogger.getExoLogger(DockerScriptsExecutor.class);
+  protected static final Log    LOG                     = ExoLogger.getExoLogger(DockerScriptsExecutor.class);
 
-  protected static final String CONTAINER_NAME_PARAM = "container-name";
+  protected static final String CONTAINER_NAME_PARAM    = "container-name";
+
+  protected static final String EXEC_IN_CONTAINER_PARAM = "exec-in-container";
 
   protected final FileStorage   fileStorage;
 
-  protected final File          dockerRunScript;
+  protected final String        dockerScriptPath;
 
-  protected final String        containerName;
+  protected final Boolean       execInContainer;
+
+  protected String              containerName;
 
   public DockerScriptsExecutor(FileStorage fileStorage, InitParams initParams) {
     this.fileStorage = fileStorage;
-    this.dockerRunScript = fileStorage.getDockerRunScript();
-
+    ValueParam execInContainerParam = initParams.getValueParam(EXEC_IN_CONTAINER_PARAM);
     ValueParam containerNameParam = initParams.getValueParam(CONTAINER_NAME_PARAM);
-    this.containerName = containerNameParam.getValue();
+
+    this.execInContainer = Boolean.valueOf(execInContainerParam.getValue());
+    if (execInContainer) {
+      this.containerName = containerNameParam.getValue();
+      this.dockerScriptPath = fileStorage.getDockerExecScript().getAbsolutePath();
+    } else {
+      this.dockerScriptPath = fileStorage.getDockerRunScript().getAbsolutePath();
+    }
   }
 
   @Override
@@ -62,7 +73,7 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements Script
 
   protected void executeCommand(File dataset, File script) {
     if (LOG.isDebugEnabled()) {
-      LOG.debug(">> Executing docker command {} for {} in {} container", script.getName(), dataset.getName(), containerName);
+      LOG.debug(">> Executing docker command {} for {}", script.getName(), dataset.getName());
     }
     String scriptRelativePath = fileStorage.getScriptsDir().getName() + "/" + script.getName();
     // Refactor. It's better to keep relative path to a dataset insdead of
@@ -70,9 +81,21 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements Script
     int startIndex = dataset.getAbsolutePath().indexOf(fileStorage.getDatasetsDir().getName());
     String datasetRelativePath = dataset.getAbsolutePath().substring(startIndex);
 
-    String[] cmd = { "/bin/sh", dockerRunScript.getAbsolutePath(), containerName, scriptRelativePath, datasetRelativePath };
-    try {
-      Process process = Runtime.getRuntime().exec(cmd);
+    List<String> cmdList = new ArrayList<>();
+    if (execInContainer) {
+      cmdList = Arrays.asList("/bin/sh", dockerScriptPath, containerName, scriptRelativePath, datasetRelativePath);
+    } else {
+      cmdList = Arrays.asList("/bin/sh",
+                              dockerScriptPath,
+                              fileStorage.getWorkDir().getAbsolutePath(),
+                              scriptRelativePath,
+                              datasetRelativePath);
+    }
+
+    try
+
+    {
+      Process process = Runtime.getRuntime().exec(cmdList.stream().toArray(String[]::new));
       process.waitFor();
       logDockerOutput(process);
     } catch (Exception e) {

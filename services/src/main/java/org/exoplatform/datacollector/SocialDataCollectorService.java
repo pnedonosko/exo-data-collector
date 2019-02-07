@@ -956,7 +956,7 @@ public class SocialDataCollectorService implements Startable {
         if (LOG.isDebugEnabled()) {
           LOG.debug("Old model file copied for {}", model.getName());
         }
-      } catch (IOException e) {
+      } catch (Throwable e) {
         LOG.error("Failed to copy old model file for " + model.getName(), e);
       }
     }
