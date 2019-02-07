@@ -941,16 +941,18 @@ public class SocialDataCollectorService implements Startable {
           LOG.error("User activities collector failed for " + bucket + "/" + userName, e);
           // TODO need re-get it?
           // currentModel = trainingService.getLastModel(userName);
-          if (Status.RETRY.equals(currentModel.getStatus())) {
-            currentModel.setStatus(Status.FAILED_DATASET);
-            LOG.warn("Model {} got status FAILED_DATASET. Cannot collect dataset. ", userName);
-          } else {
-            currentModel.setStatus(Status.RETRY);
-            bucketRecords.put(userName, new Date());
-            loginsQueue.add(userName);
-            LOG.warn("Model {} got status RETRY. Cannot collect dataset. Added to next bucket ", userName);
-          }
-          trainingService.update(currentModel);
+          if (currentModel != null) {
+            if (Status.RETRY.equals(currentModel.getStatus())) {
+              currentModel.setStatus(Status.FAILED_DATASET);
+              LOG.warn("Model {} got status FAILED_DATASET. Cannot collect dataset. ", userName);
+            } else {
+              currentModel.setStatus(Status.RETRY);
+              bucketRecords.put(userName, new Date());
+              loginsQueue.add(userName);
+              LOG.warn("Model {} got status RETRY. Cannot collect dataset. Added to next bucket ", userName);
+            }
+            trainingService.update(currentModel);
+          } // else, we already reported an error
         }
       }
 
