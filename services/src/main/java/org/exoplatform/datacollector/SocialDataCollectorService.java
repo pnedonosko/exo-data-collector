@@ -975,7 +975,9 @@ public class SocialDataCollectorService implements Startable {
                                      Iterator<ExoSocialActivity> activities,
                                      PrintWriter out,
                                      boolean withRank) throws Exception {
-    LOG.info("> Writing user activities for {}", user.getIdentity().getRemoteId());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("> Writing user activities for {}", user.getIdentity().getRemoteId());
+    }
     out.println(activityHeader(withRank));
 
     // load identity's activities and collect its data
@@ -987,7 +989,9 @@ public class SocialDataCollectorService implements Startable {
     if (Thread.currentThread().isInterrupted()) {
       LOG.warn("< Interrupted collector of user activities for {}", user.getIdentity().getRemoteId());
     } else {
-      LOG.info("< Wrote user activities for {}", user.getIdentity().getRemoteId());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("< Wrote user activities for {}", user.getIdentity().getRemoteId());
+      }
     }
   }
 
@@ -1122,29 +1126,39 @@ public class SocialDataCollectorService implements Startable {
     // TODO read user snapshot from DB:
     // 1) connections and spaces from Social
     // 2) influencers from collector tables
-    LOG.info("> Reading user snapshot for {}", id.getRemoteId());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("> Reading user snapshot for {}", id.getRemoteId());
+    }
     // TODO if not found in DB then return null
     UserSnapshot user = createUserSnapshot(id);
     // otherwise init from tables
     // user.initInfluencers(entity);
     user.initInfluencers(); // XXX temporal until will load from DB
-    LOG.info("< Read user snapshot for {}", id.getRemoteId());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("< Read user snapshot for {}", id.getRemoteId());
+    }
     return user;
   }
 
   private void saveUserSnapshot(String buketName, UserSnapshot user) throws Exception {
     String userId = user.getIdentity().getRemoteId();
-    LOG.info("> Saving user snapshot for {}", userId);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("> Saving user snapshot for {}", userId);
+    }
     // TODO read user snapshot from DB:
     // 1) save in the DB
     // 2) cache in runtime
     userSnapshots.put(snapshotId(buketName, userId), user);
-    LOG.info("< Saved user snapshot for {}", userId);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("< Saved user snapshot for {}", userId);
+    }
   }
 
   protected void initializeUserSnapshot(UserSnapshot user, long sinceTime) throws Exception {
     String userId = user.getIdentity().getRemoteId();
-    LOG.info(">> Initializing user snapshot for {}", userId);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug(">> Initializing user snapshot for {}", userId);
+    }
 
     // TODO read user influencers from DB and if found set conns/spaces into it
     UserInfluencers influencers = user.initInfluencers();
@@ -1189,7 +1203,9 @@ public class SocialDataCollectorService implements Startable {
 
     // Favorite streams calculated before addStream* methods call
     user.setFavoriteStreams(Collections.unmodifiableSet(favoriteStreams));
-    LOG.info("<< Initialized user snapshot for {}", userId);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("<< Initialized user snapshot for {}", userId);
+    }
   }
 
   protected UserSnapshot createUserSnapshot(Identity id) throws Exception {
