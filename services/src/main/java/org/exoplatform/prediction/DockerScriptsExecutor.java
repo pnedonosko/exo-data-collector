@@ -2,7 +2,6 @@ package org.exoplatform.prediction;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -22,30 +21,25 @@ import org.exoplatform.services.log.Log;
  */
 public class DockerScriptsExecutor extends BaseComponentPlugin implements ScriptsExecutor {
 
-  protected static final Log    LOG                     = ExoLogger.getExoLogger(DockerScriptsExecutor.class);
+  protected static final Log    LOG                       = ExoLogger.getExoLogger(DockerScriptsExecutor.class);
 
-  protected static final String CONTAINER_NAME_PARAM    = "container-name";
-
-  protected static final String EXEC_IN_CONTAINER_PARAM = "exec-in-container";
+  protected static final String EXEC_CONTAINER_NAME_PARAM = "exec-container-name";
 
   protected final FileStorage   fileStorage;
 
-  protected final String        dockerScriptPath;
+  protected String              dockerScriptPath;
 
-  protected final Boolean       execInContainer;
-
-  protected String              containerName;
+  protected String              execContainerName;
 
   public DockerScriptsExecutor(FileStorage fileStorage, InitParams initParams) {
     this.fileStorage = fileStorage;
-    ValueParam execInContainerParam = initParams.getValueParam(EXEC_IN_CONTAINER_PARAM);
-    ValueParam containerNameParam = initParams.getValueParam(CONTAINER_NAME_PARAM);
-
-    this.execInContainer = Boolean.valueOf(execInContainerParam.getValue());
-    if (execInContainer) {
-      this.containerName = containerNameParam.getValue();
+    try {
+      ValueParam execContainerNameParam = initParams.getValueParam(EXEC_CONTAINER_NAME_PARAM);
+      this.execContainerName = execContainerNameParam.getValue();
       this.dockerScriptPath = fileStorage.getDockerExecScript().getAbsolutePath();
-    } else {
+    } catch (Exception e) {
+      LOG.info("exec-container-name param isn't set. Docker containers will be created automatically");
+      this.execContainerName = null;
       this.dockerScriptPath = fileStorage.getDockerRunScript().getAbsolutePath();
     }
   }
@@ -82,8 +76,8 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements Script
     String datasetRelativePath = dataset.getAbsolutePath().substring(startIndex);
 
     List<String> cmdList = new ArrayList<>();
-    if (execInContainer) {
-      cmdList = Arrays.asList("/bin/sh", dockerScriptPath, containerName, scriptRelativePath, datasetRelativePath);
+    if (execContainerName != null && !execContainerName.isEmpty()) {
+      cmdList = Arrays.asList("/bin/sh", dockerScriptPath, execContainerName, scriptRelativePath, datasetRelativePath);
     } else {
       cmdList = Arrays.asList("/bin/sh",
                               dockerScriptPath,
