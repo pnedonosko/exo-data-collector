@@ -73,9 +73,10 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   // @RolesAllowed("administrators") // TODO only super users in PROD mode
   @RolesAllowed("users")
   @Path("/run/{bucketname}")
-  public Response runCollect(@PathParam("bucketname") String bucketName) {
+  @Deprecated // TODO no practical use for prod, but may be for developers
+  public Response runCollectAll(@PathParam("bucketname") String bucketName) {
     try {
-      String bucketPath = dataCollector.collectUsersActivities(bucketName);
+      String bucketPath = dataCollector.collectAllUsersActivities(bucketName);
       String actualBucketName = bucketPath.substring(bucketPath.lastIndexOf(File.separator));
       return Response.ok().entity("{ \"status\": \"OK\", \"bucketName\": " + actualBucketName + " }").build();
     } catch (Exception e) {
@@ -152,7 +153,7 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   @RolesAllowed("users")
   @Path("/start/{username}")
   public Response addUser(@PathParam("username") String userName) {
-    dataCollector.addUser(userName);
+    dataCollector.addUserCollector(userName);
     return Response.ok().entity("{ \"status\": \"OK\"}").build();
   }
 
@@ -161,8 +162,8 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   @RolesAllowed("users")
   @Path("/feed/{username}")
   public Response predictUserFeedIds(@PathParam("username") String userName,
-                                  @QueryParam("index") String sindex,
-                                  @QueryParam("limit") String slimit) {
+                                     @QueryParam("index") String sindex,
+                                     @QueryParam("limit") String slimit) {
     // TODO it's not a right place for this service - move to
     // Training/Prediction REST
     if (userName != null && userName.length() > 0) {

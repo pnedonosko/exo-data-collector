@@ -82,10 +82,12 @@ public class TrainingService implements Startable {
    */
   public ModelEntity addModel(String userName, String dataset) {
     ModelEntity currentModel = getLastModel(userName);
-    if (currentModel != null) {
-      if (currentModel.getStatus() == Status.NEW || currentModel.getStatus() == Status.PROCESSING) {
-        deleteModel(currentModel);
-      }
+    if (currentModel != null && (currentModel.getStatus() == Status.NEW || currentModel.getStatus() == Status.PROCESSING)) {
+      // FIXME is it correct to delete here? A model added but may be still
+      // collecting will be NEW, but it's correct state and we should return it
+      // instead if dataset the same or raise an exception otherwise.
+      deleteModel(currentModel);
+      LOG.warn("Removed previously added but complete model for {}", userName);
     }
     ModelEntity newModel = new ModelEntity(userName, dataset);
     modelEntityDAO.create(newModel);
@@ -97,69 +99,93 @@ public class TrainingService implements Startable {
    *
    * @return the model status
    */
-  public Status getModelStatus(String userName, Long version) {
+  @Deprecated // TODO not used
+  public Status getModelStatus(String userName, long version) {
     return modelEntityDAO.findStatusByNameAndVersion(userName, version);
   }
 
   /**
    * Activates model by setting the modelFile, activatedDate, READY status
    * Archives the old version of model, if exists. Deletes the dataset file.
-   * 
+   *
+   * @param model the model
    * @param userName of the model
    * @param version of the model
    * @param modelFile to be set up
    */
-  public void activateModel(String userName, Long version, String modelFile) {
-    ModelEntity modelEntity = modelEntityDAO.find(new ModelId(userName, version));
-    if (modelEntity != null) {
-      String dataset = modelEntity.getDatasetFile();
-      modelEntity.setActivated(new Date());
-      modelEntity.setModelFile(modelFile);
-      modelEntity.setDatasetFile(null);
-      modelEntity.setStatus(Status.READY);
-      modelEntityDAO.update(modelEntity);
-      // Archive old version
-      if (version != 1L) {
-        archiveModel(userName, version - 1L);
+  public void activateModel(ModelEntity model, String userName, long version, String modelFile) {
+    // ModelEntity modelEntity = modelEntityDAO.find(new ModelId(userName,
+    // version));
+    // if (modelEntity != null) {
+    String dataset = model.getDatasetFile();
+    model.setActivated(new Date());
+    model.setModelFile(modelFile);
+    model.setDatasetFile(null);
+    model.setStatus(Status.READY);
+    modelEntityDAO.update(model);
+    // Archive old version
+    if (version != 1L) {
+      ModelEntity prevModel = getPreviousModel(model);
+      if (prevModel != null) {
+        archiveModel(prevModel, userName, version - 1L);
+      } else {
+        LOG.warn("Cannot archive model (name: {}, version: {}) - the model not found", userName, version - 1L);
       }
-      // Delete the dataset file
-      if (dataset != null) {
-        new File(dataset).delete();
-      }
-    } else {
-      LOG.warn("Cannot activate model (name: {}, version: {}) - the model not found", userName, version);
     }
+    // Delete the dataset file
+    if (dataset != null) {
+      new File(dataset).delete();
+    }
+    // } else {
+    // LOG.warn("Cannot activate model (name: {}, version: {}) - the model not
+    // found", userName, version);
+    // }
   }
 
   /**
    * Archives a model by setting archived date. Deletes old models
-   * 
+   *
+   * @param model the model
    * @param userName of the model
    * @param version of the model
    */
-  public void archiveModel(String userName, Long version) {
-    ModelEntity model = modelEntityDAO.find(new ModelId(userName, version));
-    if (model != null) {
-      model.setArchived(new Date());
-      model.setStatus(Status.ARCHIEVED);
-      modelEntityDAO.update(model);
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Model (name: " + userName + ", version: " + version + ") archived");
-      }
-      // Delete old models (version = current version - MAX_STORED_MODELS to be
-      // deleted)
-      ModelEntity oldModel = modelEntityDAO.find(new ModelId(userName, version - MAX_STORED_MODELS));
-      deleteModel(oldModel);
-    } else {
-      LOG.warn("Cannot archive model (name: {}, version: {}) - the model not found", userName, version);
+  public void archiveModel(ModelEntity model, String userName, long version) {
+    // ModelEntity model = modelEntityDAO.find(new ModelId(userName, version));
+    // if (model != null) {
+    model.setArchived(new Date());
+    model.setStatus(Status.ARCHIEVED);
+    modelEntityDAO.update(model);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Model (name: " + userName + ", version: " + version + ") archived");
     }
+    // Delete old models (version = current version - MAX_STORED_MODELS to be
+    // deleted)
+    ModelEntity oldModel = getModel(userName, version - MAX_STORED_MODELS);
+    if (oldModel != null) {
+      deleteModel(oldModel);
+    }
+    // } else {
+    // LOG.warn("Cannot archive model (name: {}, version: {}) - the model not
+    // found", userName, version);
+    // }
   }
 
   /**
-   * Gets the model with latest version
-   * 
-   * @param userName
-   * @return modelEntity or null
+   * Gets the model for given user and by version.
+   *
+   * @param userName the user name
+   * @param version the version
+   * @return the model or null
+   */
+  public ModelEntity getModel(String userName, long version) {
+    return modelEntityDAO.find(new ModelId(userName, version));
+  }
+
+  /**
+   * Gets the model of latest version.
+   *
+   * @param userName the user name
+   * @return the model or null
    */
   public ModelEntity getLastModel(String userName) {
     return modelEntityDAO.findLastModel(userName);
@@ -184,12 +210,15 @@ public class TrainingService implements Startable {
   }
 
   /**
-   * Deletes a model from DB and clears its files
-   * 
-   * @param model
+   * Deletes a model from DB and clears its files.
+   *
+   * @param model the model
    */
-  private void deleteModel(ModelEntity model) {
-    if (model != null) {
+  protected void deleteModel(ModelEntity model) {
+    try {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Delete old model {}[{}]", model.getName(), model.getVersion());
+      }
       if (model.getDatasetFile() != null) {
         new File(model.getDatasetFile()).delete();
       }
@@ -198,58 +227,99 @@ public class TrainingService implements Startable {
           // Delete user's folder
           FileUtils.deleteDirectory(new File(model.getModelFile()).getParentFile());
         } catch (IOException e) {
-          LOG.warn("Cannot delete model folder: " + model.getModelFile());
+          LOG.warn("Cannot delete model folder: " + model.getModelFile(), e);
         }
       }
+    } finally {
       modelEntityDAO.delete(model);
     }
   }
 
   /**
-   * Submits model training. If the training fails, trains one more time. If
-   * fails again, model gets FAILED_TRAINING status
+   * Copies model file to new destination. Only if model has status READY
    * 
-   * @param dataset
-   * @param userName
+   * @param model contains model file to be copied
+   * @param dest new folder
    */
-  public void submitTrainModel(String dataset, String userName) {
-    // TODO name with submit* not clear for user of API, trainModel() is better
-    // TODO sync manual and auto training
-    setProcessing(userName);
-    // If the training fails
-    if (!trainModel(new File(dataset), userName)) {
-      ModelEntity currentModel = getLastModel(userName);
-      if (currentModel != null) {
-        ModelEntity prevModel = modelEntityDAO.find(new ModelId(userName, currentModel.getVersion() - 1L));
-        if (prevModel != null && Status.READY.equals(prevModel.getStatus())) {
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("Retraining model for {}", userName);
-          }
-          // Retrain model
-          if (!trainModel(new File(dataset), userName)) {
-            LOG.warn("Model {} failed in retraining. Set status FAILED_TRAINING", userName);
-            currentModel.setStatus(Status.FAILED_TRAINING);
-            modelEntityDAO.update(currentModel);
-          }
-        } else {
-          LOG.warn("Model {} got status FAILED_TRAINING", userName);
-          currentModel.setStatus(Status.FAILED_TRAINING);
-          modelEntityDAO.update(currentModel);
+  protected void copyModelFile(ModelEntity model, File dest) {
+    if (model.getStatus().equals(Status.READY) && model.getModelFile() != null) {
+      try {
+        FileUtils.copyDirectoryToDirectory(new File(model.getModelFile()), dest);
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Old model file copied for {}", model.getName());
         }
-      } else {
-        LOG.warn("Cannot find last model for {}", userName);
+      } catch (Throwable e) {
+        LOG.error("Failed to copy old model file for " + model.getName(), e);
       }
     }
   }
 
   /**
-   * Trains a model.
+   * Submits model for training. If the training fails, it will attempt to train
+   * one more time. If will fail again, the model will get FAILED_TRAINING
+   * status.
+   *
+   * @param model the model
+   * @param dataset the dataset file
+   * @param userName the user name
+   */
+  public void trainModel(ModelEntity model, File dataset, String userName) {
+    // First copy existing model files for incremental training
+    // TODO indeed this not always may be desired - we may need train from the
+    // scratch also.
+    ModelEntity prevModel = getPreviousModel(model);
+    if (prevModel != null) {
+      copyModelFile(prevModel, dataset.getParentFile());
+    }
+
+    // The dataset path to a model in DB
+    // TODO Don't use absolute path but use relative to
+    // data-collector/datasets path, so it will be possible to relocate
+    // file storage w/o modifying DB. Relative path should start from a
+    // bucke name.
+    model.setDatasetFile(dataset.getAbsolutePath());
+
+    // setProcessing(userName);
+    model.setStatus(Status.PROCESSING);
+    modelEntityDAO.update(model);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Model {} got status PROCESSING", userName);
+    }
+
+    if (!train(model, dataset, userName)) {
+      // If the training fails
+      // ModelEntity currentModel = getLastModel(userName);
+      // if (currentModel != null) {
+      // ModelEntity prevModel = getPreviousModel(model);
+      if (prevModel != null && Status.READY.equals(prevModel.getStatus())) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Retraining model for {}", userName);
+        }
+        // Retrain model
+        if (!train(model, dataset, userName)) {
+          LOG.warn("Model {} failed in retraining. Set status FAILED_TRAINING", userName);
+          model.setStatus(Status.FAILED_TRAINING);
+          modelEntityDAO.update(model);
+        }
+      } else {
+        LOG.warn("Model {} got status FAILED_TRAINING", userName);
+        model.setStatus(Status.FAILED_TRAINING);
+        modelEntityDAO.update(model);
+      }
+      // } else {
+      // LOG.warn("Cannot find last model for {}", userName);
+      // }
+    }
+  }
+
+  /**
+   * Trains a model in an executor.
    * 
    * @param dataset user dataset
    * @param userName userName
    * @return true if success
    */
-  protected boolean trainModel(File dataset, String userName) {
+  protected boolean train(ModelEntity model, File dataset, String userName) {
     // Train model
     String modelFolder = scriptsExecutor.train(dataset);
     // Check if model trained without errors
@@ -263,8 +333,8 @@ public class TrainingService implements Startable {
           if (LOG.isDebugEnabled()) {
             LOG.debug("Model {} successfuly trained", userName);
           }
-          ModelEntity model = getLastModel(userName);
-          activateModel(userName, model.getVersion(), modelFolder);
+          // ModelEntity model = getLastModel(userName); // TODO
+          activateModel(model, userName, model.getVersion(), modelFolder);
           return true;
         }
         LOG.warn("Model {} failed in training", userName);
@@ -296,10 +366,11 @@ public class TrainingService implements Startable {
   }
 
   /**
-   * Sets PROCESSING status to the last model
-   * 
-   * @param remoteId
+   * Sets PROCESSING status to the last model.
+   *
+   * @param userName a user name
    */
+  @Deprecated // TODO not required
   public void setProcessing(String userName) {
     ModelEntity model = getLastModel(userName);
     if (model != null) {
@@ -318,6 +389,7 @@ public class TrainingService implements Startable {
    * 
    * @param userName the model name
    */
+  @Deprecated // TODO not used
   public void setRetry(String userName) {
     ModelEntity model = getLastModel(userName);
     if (model != null) {
@@ -333,12 +405,12 @@ public class TrainingService implements Startable {
   }
 
   /**
-   * Updates ModelEntity
-   * 
-   * @param entity to be updated
+   * Updates model in database.
+   *
+   * @param model to be updated
    */
-  public void update(ModelEntity entity) {
-    modelEntityDAO.update(entity);
+  public void update(ModelEntity model) {
+    modelEntityDAO.update(model);
   }
 
   /**
@@ -347,6 +419,7 @@ public class TrainingService implements Startable {
    * @param userName of model
    * @param dataset to be set up
    */
+  @Deprecated // TODO not required
   public void setDatasetToLatestModel(String userName, String dataset) {
     ModelEntity lastModel = getLastModel(userName);
     if (lastModel != null) {
@@ -355,13 +428,12 @@ public class TrainingService implements Startable {
   }
 
   /**
-   * Gets the previous model of user
-   * 
-   * @param userName the name of model
-   * @return previous model
+   * Gets the previous model of user.
+   *
+   * @param model the model
+   * @return previous model or null
    */
-  public ModelEntity getPreviousModel(String userName) {
-    ModelEntity lastModel = getLastModel(userName);
-    return lastModel != null ? modelEntityDAO.find(new ModelId(userName, lastModel.getVersion() - 1L)) : null;
+  public ModelEntity getPreviousModel(ModelEntity model) {
+    return getModel(model.getName(), model.getVersion() - 1L);
   }
 }
