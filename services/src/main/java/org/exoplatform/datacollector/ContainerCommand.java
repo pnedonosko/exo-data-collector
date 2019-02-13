@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2003-2019 eXo Platform SAS.
+ *
+ * This is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2.1 of
+ * the License, or (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this software; if not, write to the Free
+ * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ */
 package org.exoplatform.datacollector;
 
 import java.util.TimerTask;
@@ -5,22 +23,33 @@ import java.util.TimerTask;
 import org.exoplatform.container.ExoContainer;
 import org.exoplatform.container.ExoContainerContext;
 import org.exoplatform.container.component.RequestLifeCycle;
+import org.exoplatform.services.log.ExoLogger;
+import org.exoplatform.services.log.Log;
 
 /**
  * The Class ContainerCommand.
  */
 public abstract class ContainerCommand extends TimerTask {
 
+  private static final Log LOG = ExoLogger.getExoLogger(ContainerCommand.class);
+
   /** The container name. */
-  final String containerName;
+  protected final String             containerName;
 
   /**
    * Instantiates a new container command.
    *
    * @param containerName the container name
    */
-  ContainerCommand(String containerName) {
+  protected ContainerCommand(String containerName) {
     this.containerName = containerName;
+  }
+
+  /**
+   * Instantiates a new command in current container.
+   */
+  protected ContainerCommand() {
+    this(ExoContainerContext.getCurrentContainer().getContext().getName());
   }
 
   /**
@@ -28,14 +57,25 @@ public abstract class ContainerCommand extends TimerTask {
    *
    * @param exoContainer the exo container
    */
-  abstract void execute(ExoContainer exoContainer);
+  protected abstract void execute(ExoContainer exoContainer);
 
   /**
    * Callback to execute on container error.
    *
    * @param error the error
    */
-  abstract void onContainerError(String error);
+  protected void onContainerError(String error) {
+    LOG.error("Cannot run command in {} container: {}", containerName, error);
+  }
+  
+  /**
+   * Callback to execute on execution error.
+   *
+   * @param error the error
+   */
+  protected void onError(Throwable error) {
+    LOG.error("Error running command in {}", containerName, error);
+  }
 
   /**
    * {@inheritDoc}
@@ -53,6 +93,8 @@ public abstract class ContainerCommand extends TimerTask {
         RequestLifeCycle.begin(exoContainer);
         // do the work here
         execute(exoContainer);
+      } catch (Throwable e) {
+        onError(e);
       } finally {
         // Restore context
         RequestLifeCycle.end();

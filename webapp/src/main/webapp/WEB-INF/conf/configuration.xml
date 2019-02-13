@@ -129,7 +129,7 @@
       <init-params>
         <value-param>
           <name>exec-container-name</name>
-          <value>${exo.prediction.docker.exec-container-name:exo-prediction-tensorflow}</value>
+          <value>${exo.prediction.docker.trainContainerName:}</value>
         </value-param>
       </init-params>
     </component-plugin>
@@ -145,7 +145,7 @@
       <init-params>
         <value-param>
           <name>exec-container-name</name>
-          <value>${exo.prediction.docker.exec-container-name:exo-prediction-tensorflow}</value>
+          <value>${exo.prediction.docker.predictContainerName:}</value>
         </value-param>
       </init-params>
     </component-plugin>

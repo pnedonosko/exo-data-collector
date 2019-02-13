@@ -33,6 +33,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import org.exoplatform.datacollector.SocialDataCollectorService;
+import org.exoplatform.datacollector.UserInfluencers;
 import org.exoplatform.prediction.PredictionService;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
@@ -76,7 +77,7 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   @Deprecated // TODO no practical use for prod, but may be for developers
   public Response runCollectAll(@PathParam("bucketname") String bucketName) {
     try {
-      String bucketPath = dataCollector.collectAllUsersActivities(bucketName);
+      String bucketPath = dataCollector.collectAllUsersFeeds(bucketName);
       String actualBucketName = bucketPath.substring(bucketPath.lastIndexOf(File.separator));
       return Response.ok().entity("{ \"status\": \"OK\", \"bucketName\": " + actualBucketName + " }").build();
     } catch (Exception e) {
@@ -99,8 +100,11 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   public Response runCollect(@PathParam("bucketname") String bucketName,
                              @PathParam("username") String userName,
                              @QueryParam("train") String isTrain) {
+    // TODO add @QueryParam("sinceTime") and use it to collect custom
+    // datasets/models for experiments
     try {
-      dataCollector.startUserCollector(userName, bucketName, isTrain != null ? Boolean.valueOf(isTrain) : false);
+      long sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
+      dataCollector.startUser(userName, bucketName, sinceTime, isTrain != null ? Boolean.valueOf(isTrain) : false);
       return Response.ok().entity("{ \"status\": \"ACCEPTED\", \"userFoler\": " + bucketName + "/" + userName + "}").build();
     } catch (Exception e) {
       return Response.serverError().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
@@ -151,9 +155,9 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
   @GET
   // @RolesAllowed("administrators") // TODO only super users in PROD mode
   @RolesAllowed("users")
-  @Path("/start/{username}")
+  @Path("/add/{username}")
   public Response addUser(@PathParam("username") String userName) {
-    dataCollector.addUserCollector(userName);
+    dataCollector.addUser(userName);
     return Response.ok().entity("{ \"status\": \"OK\"}").build();
   }
 

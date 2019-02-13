@@ -27,6 +27,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import javax.persistence.PersistenceException;
+
 import org.picocontainer.Startable;
 
 import org.exoplatform.container.component.ComponentPlugin;
@@ -52,7 +54,7 @@ public class PredictionService implements Startable {
 
   protected static final Log LOG = ExoLogger.getExoLogger(PredictionService.class);
 
-  protected ScriptsExecutor  scriptsExecutor;
+  protected ModelExecutor    scriptsExecutor;
 
   /**
    * Load predictions from a file result on demand.
@@ -86,17 +88,24 @@ public class PredictionService implements Startable {
       // it. If loaded 100 activities ends we load next batch and so on.
       // TODO it's not very smart indeed, as need preload all by time period
 
-      if ((index + limit) > idsOrdered.size()) {
-        int feedLimit = limit < BATCH_SIZE ? BATCH_SIZE : limit;
-        List<String> nextBatch = predictActivityIdOrder(super.loadIdsAsList(index, feedLimit));
+      int minSize = index + limit;
+      if (minSize > idsOrdered.size()) {
+        int batchIndex = idsOrdered.size();
+        int toRead = minSize - batchIndex;
+        int batchLimit = toRead < BATCH_SIZE ? BATCH_SIZE : toRead;
+        List<String> nextBatch = predictActivityIdOrder(super.loadIdsAsList(batchIndex, batchLimit));
         idsOrdered.addAll(nextBatch);
       }
 
       List<String> theList;
-      if (idsOrdered.size() >= limit) {
-        theList = idsOrdered.subList(index, limit);
-      } else {
+      if (idsOrdered.size() == minSize) {
         theList = idsOrdered;
+      } else if (idsOrdered.size() > minSize) {
+        theList = idsOrdered.subList(index, limit);
+      } else if (idsOrdered.size() > index) {
+        theList = idsOrdered.subList(index, idsOrdered.size());
+      } else {
+        theList = Collections.emptyList();
       }
       return Collections.unmodifiableList(theList); // should it be modifiable?
     }
@@ -163,18 +172,28 @@ public class PredictionService implements Startable {
         LOG.debug("Activities order before prediction: ");
         origin.forEach(LOG::info);
       }
-      File dataset = new File(collector.collectActivitiesByIds(userIdentity, origin));
-      File predicted = new File(scriptsExecutor.predict(dataset));
       List<String> ordered = new ArrayList<>();
+      File dataset = new File(collector.collectActivitiesByIds(userIdentity, origin));
       try {
-        // We skip a header at first line
-        Files.lines(predicted.toPath()).skip(1).forEach(ordered::add);
-      } catch (IOException e) {
-        LOG.error("Cannot read the dataset after prediction", e);
-      }
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Activities order after prediction: ");
-        ordered.forEach(LOG::info);
+        File predicted = scriptsExecutor.predict(dataset);
+        try {
+          // We skip a header at first line
+          Files.lines(predicted.toPath()).skip(1).forEach(ordered::add);
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Activities order after prediction: ");
+            ordered.forEach(LOG::info);
+          }
+        } catch (IOException e) {
+          LOG.error("Cannot read the dataset after prediction", e);
+        } finally {
+          if (!predicted.delete()) {
+            LOG.warn("Unabled to delete predicted dataset {}", dataset.getAbsolutePath());
+          }
+        }
+      } finally {
+        if (!dataset.delete()) {
+          LOG.warn("Unabled to delete prediction dataset {}", dataset.getAbsolutePath());
+        }
       }
       return ordered;
     }
@@ -219,7 +238,7 @@ public class PredictionService implements Startable {
   @Override
   public void start() {
     if (scriptsExecutor == null) {
-      throw new RuntimeException("ScriptsExecutor is not configured");
+      throw new RuntimeException("ModelExecutor is not configured");
     }
   }
 
@@ -235,27 +254,37 @@ public class PredictionService implements Startable {
    * Checks if the model exists and has READY status
    * 
    * @param userName of model
-   * @return true if the model exists and has READY status, false otherwise
+   * @return <code>true</code> if the model exists, with READY status and valid
+   *         files, <code>false</code> otherwise
    */
   public boolean canPredict(String userName) {
-    ModelEntity model = training.getLastModel(userName);
-    return model != null && Status.READY.equals(model.getStatus());
+    ModelEntity lastModel = lastModel(userName);
+    return lastModel != null && training.valid(lastModel) && lastModel.getStatus() == Status.READY;
   }
 
   /**
    * Adds a scriptsExecutor plugin. This method is safe in runtime: if
-   * configured scriptsExecutor is not an instance of {@link ScriptsExecutor}
-   * then it will log a warning and let server continue the start.
+   * configured scriptsExecutor is not an instance of {@link ModelExecutor} then
+   * it will log a warning and let server continue the start.
    *
    * @param plugin the plugin
    */
   public void addPlugin(ComponentPlugin plugin) {
-    Class<ScriptsExecutor> pclass = ScriptsExecutor.class;
+    Class<ModelExecutor> pclass = ModelExecutor.class;
     if (pclass.isAssignableFrom(plugin.getClass())) {
       scriptsExecutor = pclass.cast(plugin);
       LOG.info("Set scripts executor instance of " + plugin.getClass().getName());
     } else {
       LOG.warn("Scripts Executor plugin is not an instance of " + pclass.getName());
+    }
+  }
+
+  protected ModelEntity lastModel(String userName) {
+    try {
+      return training.getLastModel(userName);
+    } catch (PersistenceException e) {
+      LOG.error("Error reading last model for {}", userName, e);
+      return null;
     }
   }
 }

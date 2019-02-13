@@ -33,4 +33,18 @@ public class ModelEntityDAO extends GenericDAOJPAImpl<ModelEntity, ModelId> {
     }
   }
 
+  public ModelEntity findLastModelWithStatus(String name, Status status) {
+    TypedQuery<ModelEntity> query = getEntityManager()
+                                                      .createNamedQuery("PredictionModel.findLastModelWithStatus",
+                                                                        ModelEntity.class)
+                                                      .setParameter("name", name)
+                                                      .setParameter("status", status)
+                                                      .setMaxResults(1);
+
+    try {
+      return query.getSingleResult();
+    } catch (NoResultException e) {
+      return null;
+    }
+  }
 }

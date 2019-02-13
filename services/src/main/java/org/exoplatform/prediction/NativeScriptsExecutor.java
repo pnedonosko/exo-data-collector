@@ -11,7 +11,7 @@ import org.exoplatform.services.log.Log;
 /**
  * The NativeScriptsExecutor executes scripts natively on the host machine
  */
-public class NativeScriptsExecutor extends BaseComponentPlugin implements ScriptsExecutor {
+public class NativeScriptsExecutor extends BaseComponentPlugin implements ModelExecutor {
 
   /** Logger */
   protected static final Log LOG = ExoLogger.getExoLogger(NativeScriptsExecutor.class);
@@ -23,17 +23,17 @@ public class NativeScriptsExecutor extends BaseComponentPlugin implements Script
   }
 
   @Override
-  public String train(File dataset) {
+  public File train(File dataset) {
     File modelFolder = new File(dataset.getParentFile().getAbsolutePath() + "/model");
     modelFolder.mkdirs();
     executeScript(dataset, fileStorage.getTrainingScript());
-    return modelFolder.getAbsolutePath();
+    return modelFolder;
   }
 
   @Override
-  public String predict(File dataset) {
+  public File predict(File dataset) {
     executeScript(dataset, fileStorage.getPredictionScript());
-    return dataset.getAbsolutePath().replace(dataset.getName(), "predicted.csv");
+    return new File(dataset.getParentFile(), "predicted.csv");
   }
 
   /**

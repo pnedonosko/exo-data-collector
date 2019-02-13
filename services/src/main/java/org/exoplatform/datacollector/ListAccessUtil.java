@@ -109,11 +109,11 @@ public class ListAccessUtil {
           // faced with actual end-of-data, or already empty
           nextBatch = null;
         } catch (IllegalArgumentException e) {
-          LOG.warn("Unexpected index/size error during loading access list: {}", e);
+          LOG.warn("Unexpected index/size error during loading access list", e);
           nextBatch = null;
         } catch (Exception e) {
           // Here can be DB or network error
-          LOG.error("Unexpected error during loading access list: {}", e);
+          LOG.error("Unexpected error during loading access list", e);
           nextBatch = null;
         }
       }

@@ -230,7 +230,7 @@ public class FileStorage {
       dockerExecScript.deleteOnExit();
       scriptsDir.deleteOnExit();
     } catch (IOException e) {
-      LOG.error("Couldn't unpack training and prediction scripts: " + e.getMessage());
+      LOG.error("Couldn't unpack training and prediction scripts", e);
     }
     if (LOG.isDebugEnabled()) {
       LOG.debug("Unpacked training and prediction scripts to: " + getScriptsDir());

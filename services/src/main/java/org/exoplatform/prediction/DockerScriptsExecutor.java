@@ -19,7 +19,7 @@ import org.exoplatform.services.log.Log;
 /**
  * The DockerScriptsExecutor executes scripts in docker containers
  */
-public class DockerScriptsExecutor extends BaseComponentPlugin implements ScriptsExecutor {
+public class DockerScriptsExecutor extends BaseComponentPlugin implements ModelExecutor {
 
   protected static final Log    LOG                       = ExoLogger.getExoLogger(DockerScriptsExecutor.class);
 
@@ -27,35 +27,41 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements Script
 
   protected final FileStorage   fileStorage;
 
-  protected String              dockerScriptPath;
+  protected final String        dockerScriptPath;
 
-  protected String              execContainerName;
+  protected final String        execContainerName;
 
   public DockerScriptsExecutor(FileStorage fileStorage, InitParams initParams) {
     this.fileStorage = fileStorage;
+    String execContainerName;
     try {
       ValueParam execContainerNameParam = initParams.getValueParam(EXEC_CONTAINER_NAME_PARAM);
-      this.execContainerName = execContainerNameParam.getValue();
-      this.dockerScriptPath = fileStorage.getDockerExecScript().getAbsolutePath();
+      execContainerName = execContainerNameParam.getValue();
     } catch (Exception e) {
-      LOG.info("exec-container-name param isn't set. Docker containers will be created automatically");
+      LOG.info("Configuration of exec-container-name not found. Docker containers will be created automatically.");
+      execContainerName = null;
+    }
+    if (execContainerName == null || execContainerName.trim().isEmpty()) {
       this.execContainerName = null;
       this.dockerScriptPath = fileStorage.getDockerRunScript().getAbsolutePath();
+    } else {
+      this.execContainerName = execContainerName;
+      this.dockerScriptPath = fileStorage.getDockerExecScript().getAbsolutePath();
     }
   }
 
   @Override
-  public String train(File dataset) {
+  public File train(File dataset) {
     File modelFolder = new File(dataset.getParentFile().getAbsolutePath() + "/model");
     modelFolder.mkdirs();
     executeCommand(dataset, fileStorage.getTrainingScript());
-    return modelFolder.getAbsolutePath();
+    return modelFolder;
   }
 
   @Override
-  public String predict(File dataset) {
+  public File predict(File dataset) {
     executeCommand(dataset, fileStorage.getPredictionScript());
-    return dataset.getAbsolutePath().replace(dataset.getName(), "predicted.csv");
+    return new File(dataset.getParentFile(), "predicted.csv");
   }
 
   /**
@@ -70,13 +76,13 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements Script
       LOG.debug(">> Executing docker command {} for {}", script.getName(), dataset.getName());
     }
     String scriptRelativePath = fileStorage.getScriptsDir().getName() + "/" + script.getName();
-    // Refactor. It's better to keep relative path to a dataset insdead of
+    // Refactor. It's better to keep relative path to a dataset instead of
     // absolute one.
     int startIndex = dataset.getAbsolutePath().indexOf(fileStorage.getDatasetsDir().getName());
     String datasetRelativePath = dataset.getAbsolutePath().substring(startIndex);
 
     List<String> cmdList = new ArrayList<>();
-    if (execContainerName != null && !execContainerName.isEmpty()) {
+    if (execContainerName != null) {
       cmdList = Arrays.asList("/bin/sh", dockerScriptPath, execContainerName, scriptRelativePath, datasetRelativePath);
     } else {
       cmdList = Arrays.asList("/bin/sh",
@@ -85,10 +91,7 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements Script
                               scriptRelativePath,
                               datasetRelativePath);
     }
-
-    try
-
-    {
+    try {
       Process process = Runtime.getRuntime().exec(cmdList.stream().toArray(String[]::new));
       process.waitFor();
       logDockerOutput(process);
@@ -109,7 +112,7 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements Script
       if (allOut.size() > 0) {
         LOG.debug("Standard output of docker command:\n");
         for (String s : allOut) {
-          LOG.info("> " + s);
+          LOG.debug("> " + s);
         }
       }
     }

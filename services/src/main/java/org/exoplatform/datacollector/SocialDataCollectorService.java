@@ -48,16 +48,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import javax.persistence.PersistenceException;
 
 import org.picocontainer.Startable;
 
 import com.google.common.collect.Lists;
 
 import org.exoplatform.container.ExoContainer;
-import org.exoplatform.container.ExoContainerContext;
 import org.exoplatform.container.PortalContainer;
 import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.container.xml.InitParams;
@@ -71,6 +73,7 @@ import org.exoplatform.datacollector.domain.IdentityProfileEntity;
 import org.exoplatform.datacollector.identity.SpaceIdentity;
 import org.exoplatform.datacollector.identity.UserIdentity;
 import org.exoplatform.datacollector.storage.FileStorage;
+import org.exoplatform.datacollector.storage.StorageException;
 import org.exoplatform.platform.gadget.services.LoginHistory.LastLoginBean;
 import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryBean;
 import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryService;
@@ -151,6 +154,8 @@ public class SocialDataCollectorService implements Startable {
    */
   public static final String     WORKER_THREAD_PREFIX = "datacollector-worker-thread-";
 
+  public static final String     WORKER_TIMER_NAME    = "datacollector-worker-timer";
+
   public static final String     ENGINEERING_FOCUS    = "engineering".intern();
 
   public static final String     SALES_FOCUS          = "sales".intern();
@@ -186,9 +191,9 @@ public class SocialDataCollectorService implements Startable {
   /** The Constant for ACTIVE USERS virtual group. */
   protected static final String  ACTIVE_USERS         = "$active_users";
 
-  protected static final Integer RECENT_LOGINS_COUNT  = 20;                                                                                                                                                                       // 3600000L;
+  protected static final Integer RECENT_LOGINS_COUNT  = 100;                                                                                                                                                                      // 3600000L;
 
-  protected static final String  MAIN_BUCKET_PREFIX   = "prod";
+  protected static final String  MAIN_BUCKET_PREFIX   = "main";
 
   protected static final String  AUTOSTART_MODE_PARAM = "autostart";
 
@@ -209,89 +214,141 @@ public class SocialDataCollectorService implements Startable {
 
   /**
    * The BucketWorker gets target users from login history or bucketRecords and
-   * processes them in trainingQueue order. Collects a new dataset and sends it
-   * to TrainingService, if the user's model needs training. Schedules next
+   * processes them in mainQueue order. Collects a new dataset and sends it to
+   * TrainingService, if the user's model needs training. Schedules next
    * execution in TRAIN_PERIOD ms.
    */
   public class BucketWorker extends ContainerCommand {
     private AtomicBoolean runWorker = new AtomicBoolean(true);
 
+    public BucketWorker() {
+      super();
+    }
+
     public BucketWorker(String containerName) {
       super(containerName);
     }
 
+    /**
+     * Atomically poll a next job from queue and put to main loop.
+     *
+     * @return the process job
+     */
+    ProcessJob nextJob() {
+      ProcessJob job;
+      // don't modify the queue here - peek only the head!
+      while ((job = mainQueue.peek()) != null) {
+        ProcessJob candidateJob = job;
+        // Atomically poll from the queue and put in to main loop
+        if (candidateJob == mainLoop.compute(candidateJob.userName, (userName, currentJob) -> {
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Getting user from queue: {}", userName);
+          }
+          // poll (modify) the queue only here below!
+          if (currentJob == null || currentJob == candidateJob) {
+            // User not already processing by main loop
+            ModelEntity lastModel = lastModel(userName);
+            if (modelNeedsProcessing(lastModel, candidateJob.timestamp)) {
+              return mainQueue.poll();
+            } else {
+              // Model doesn't need to be (re)trained, return what main loop
+              // already has (null or another job)
+              if (LOG.isDebugEnabled()) {
+                LOG.debug("User {} doesn't need processing or in failed state", userName);
+              }
+              mainQueue.poll(); // and skip this one
+              return currentJob;
+            }
+          } else {
+            // if another job already processing the user, we let it do
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("User {} already processing ", userName);
+            }
+            mainQueue.poll(); // and skip this one
+            return currentJob;
+          }
+        })) {
+          break;
+        }
+      }
+      return job;
+    }
+
     @Override
-    void execute(ExoContainer exoContainer) {
+    protected void execute(ExoContainer exoContainer) {
       if (runMainLoop.get() && runWorker.get()) {
-        final String bucketName = MAIN_BUCKET_PREFIX + currentBucketIndex.incrementAndGet();
+        final String bucketName = nextMainBucketName();
         if (LOG.isDebugEnabled()) {
           LOG.debug("Bucket processing time: {}", bucketName);
         }
+        // Work in main loop
         ProcessJob job;
-        while (runMainLoop.get() && runWorker.get() && (job = trainingQueue.poll()) != null) {
-          String userName = job.userName;
+        while (runMainLoop.get() && runWorker.get() && (job = nextJob()) != null) {
+          job.bucketName.set(bucketName);
           if (LOG.isDebugEnabled()) {
-            LOG.debug("Getting user from bucket: {}", userName);
+            LOG.debug("Start {} model processing", job.userName);
           }
-          ModelEntity existingModel = trainingService.getLastModel(userName);
-          if (modelNeedsTraining(existingModel, job.timestamp)) {
-            submitUserCollector(userName, bucketName, true);
-            if (LOG.isDebugEnabled()) {
-              LOG.debug("Started processing {} model", userName);
-            }
-          } else {
-            if (LOG.isDebugEnabled()) {
-              LOG.debug("User model of {} doesn't need processing ", userName);
-            }
+          submitTraining(job);
+        }
+        // Schedule next worker
+        if (runMainLoop.get()) {
+          // Start another worker in the same container as this one
+          BucketWorker nextWorker = new BucketWorker(this.containerName);
+          if (currentWorker.compareAndSet(this, nextWorker)) {
+            timer.schedule(nextWorker, trainingPeriod);
           }
         }
-
-        if (runMainLoop.get()) {
-          currentWorker = new BucketWorker(containerName);
-          timer.schedule(currentWorker, trainingPeriod);
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Bucket worked done: {}", bucketName);
         }
       }
-    }
-
-    @Override
-    void onContainerError(String error) {
-      LOG.error("Container error has occured: {}", error);
     }
 
     /**
-     * Checks if the model needs (re)training
+     * Checks if the model needs (re)training.
      * 
      * @param model to be checked
-     * @param loginDate login date
+     * @param checkpoint checkpoint date, a difference between this date and
+     *          given model activation will be tested to decide for training if
+     *          the model has new or ready status.
      * @return true, if model needs (re)training, otherwise - false
      */
-    boolean modelNeedsTraining(ModelEntity model, Date loginDate) {
-      // TODO: refactor statements
-      if (model == null) {
+    boolean modelNeedsProcessing(ModelEntity model, Date checkpoint) {
+      if (model == null || model.getStatus() == Status.RETRY) {
         return true;
       }
-      if (Status.RETRY.equals(model.getStatus())) {
-        return true;
-      }
-      if (Status.FAILED_DATASET.equals(model.getStatus()) || Status.FAILED_TRAINING.equals(model.getStatus())
-          || Status.PROCESSING.equals(model.getStatus())) {
+      if (model.getStatus() == Status.FAILED_DATASET || model.getStatus() == Status.FAILED_TRAINING
+          || model.getStatus() == Status.PROCESSING) {
+        // If PROCESSING here it means that processing was interrupted and the
+        // status not updated in the DB - it should be started manually by
+        // startUser().
+        // TODO we may need a logic to restart PROCESSING automatically (cleanup
+        // the files and do like NEW?)
         return false;
       }
-
-      return model.getActivated() == null || Math.abs(model.getActivated().getTime() - loginDate.getTime()) > trainingPeriod;
+      // NEW will have null activated date, READY will have date of its training
+      return model.getActivated() == null || Math.abs(checkpoint.getTime() - model.getActivated().getTime()) > trainingPeriod;
     }
 
-    void stop() {
+    /**
+     * {@inheritDoc}
+     */
+    public boolean cancel() {
       runWorker.set(false);
+      return super.cancel();
     }
   }
 
   class ProcessJob {
-    final String userName;
+    final String                  userName;
 
-    final Date   timestamp;
+    final Date                    timestamp;
 
-    final int    hashCode;
+    final int                     hashCode;
+
+    final AtomicReference<String> bucketName = new AtomicReference<>();
+
+    final AtomicLong              sinceTime  = new AtomicLong();
 
     ProcessJob(String userName, Date timstamp) {
       super();
@@ -302,6 +359,12 @@ public class SocialDataCollectorService implements Startable {
       hk = hk * 31 + userName.hashCode();
       hk = hk * 31 + timestamp.hashCode();
       this.hashCode = hk;
+    }
+
+    ProcessJob(String userName, Date timstamp, String bucketName, Long sinceTime) {
+      this(userName, timstamp);
+      this.bucketName.set(bucketName);
+      this.sinceTime.set(sinceTime);
     }
 
     /**
@@ -344,61 +407,25 @@ public class SocialDataCollectorService implements Startable {
    */
   public class StartWorker extends BucketWorker {
 
-    public StartWorker(String containerName) {
-      super(containerName);
+    StartWorker() {
+      super();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    void execute(ExoContainer exoContainer) {
+    protected void execute(ExoContainer exoContainer) {
       try {
-        // Map<String, Date> recentLogins = new HashMap<>();
         // Last RECENT_LOGINS_COUNT logins
         List<LastLoginBean> lastLogins = loginHistory.getLastLogins(RECENT_LOGINS_COUNT, EMPTY_STRING);
-        // lastLogins.forEach(entity -> recentLogins.put(entity.getUserId(), new
-        // Date(entity.getLastLogin())));
-        // From older to newer logins: we all them to the queue, so they'll be
-        // available for later processed
-        Lists.reverse(lastLogins)
-             .forEach(login -> trainingQueue.add(new ProcessJob(login.getUserId(), new Date(login.getLastLogin()))));
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("Users from login history to be processed: ");
-          trainingQueue.forEach(LOG::debug);
-        }
+        Lists.reverse(lastLogins).forEach(login -> queueInMainLoop(login.getUserId(), new Date(login.getLastLogin())));
       } catch (Exception e) {
-        LOG.error("Cannot get last users login:", e);
+        LOG.error("Cannot get last users login", e);
       }
       // process the jobs
       super.execute(exoContainer);
     }
-
-//    /**
-//     * Returns last logins from login history
-//     */
-//    @Override
-//    Map<String, Date> getTargetUsers() {
-//      if (targetLogins == null) {
-//        Map<String, Date> recentLogins = new HashMap<>();
-//        try {
-//          // Last RECENT_LOGINS_COUNT logins
-//          List<LastLoginBean> lastLogins = loginHistory.getLastLogins(RECENT_LOGINS_COUNT, EMPTY_STRING);
-//          lastLogins.forEach(entity -> recentLogins.put(entity.getUserId(), new Date(entity.getLastLogin())));
-//          // From older to newer logins: we all them to the queue, so they'll be
-//          // available for later processed
-//          Lists.reverse(lastLogins).forEach(login -> trainingQueue.add(login.getUserId()));
-//          if (LOG.isDebugEnabled()) {
-//            LOG.debug("Users from login history to be processed: ");
-//            trainingQueue.forEach(LOG::debug);
-//          }
-//        } catch (Exception e) {
-//          LOG.error("Cannot get last users login:", e);
-//        }
-//        targetLogins = Collections.unmodifiableMap(recentLogins);
-//      }
-//      return targetLogins;
-//    }
   }
 
   /**
@@ -442,7 +469,7 @@ public class SocialDataCollectorService implements Startable {
     @Override
     public void onEvent(Event<ConversationRegistry, ConversationState> event) throws Exception {
       if (runMainLoop.get()) {
-        addToMainLoop(event.getData().getIdentity().getUserId());
+        queueInMainLoop(event.getData().getIdentity().getUserId());
       }
     }
   }
@@ -490,16 +517,15 @@ public class SocialDataCollectorService implements Startable {
 
   protected final AtomicLong                                currentUsersUpdated = new AtomicLong(0);
 
-//  /** TODO
-//   * Contains pairs K - user id, V - date of login to be processed by
-//   * BucketWorker.
-//   */
-//  protected final ConcurrentHashMap<String, Date>           bucketRecords       = new ConcurrentHashMap<>();
+  /**
+   * Jobs queued for processing (dataset collecting and training).
+   */
+  protected final ConcurrentLinkedQueue<ProcessJob>         mainQueue           = new ConcurrentLinkedQueue<>();
 
   /**
-   * Contains jobs queued for processing (and training ML models on them).
+   * Jobs currently applying for processing (dataset collecting and training).
    */
-  protected final ConcurrentLinkedQueue<ProcessJob>         trainingQueue       = new ConcurrentLinkedQueue<>();
+  protected final ConcurrentHashMap<String, ProcessJob>     mainLoop            = new ConcurrentHashMap<>();
 
   /** Calculated user influencers (aka runtime cache). */
   // TODO use exo cache with eviction instead of a map
@@ -508,14 +534,17 @@ public class SocialDataCollectorService implements Startable {
   protected AtomicInteger                                   currentBucketIndex  = new AtomicInteger(-1);
 
   /** The timer for scheduled tasks execution */
-  protected final Timer                                     timer               = new Timer();
+  protected final Timer                                     timer               = new Timer(WORKER_TIMER_NAME);
+
+  /** The configred run main loop. */
+  protected final boolean                                   configRunMainLoop;
 
   /** The flag is used to stop the main loop **/
   protected AtomicBoolean                                   runMainLoop         = new AtomicBoolean(false);
 
   /**
-   * The training period. It's the delay between processing buckets. 180 min. by
-   * default
+   * The training period. It's the delay between processing buckets. It's 180min
+   * by default.
    */
   protected Long                                            trainingPeriod      = 180 * 60000L;
 
@@ -523,7 +552,7 @@ public class SocialDataCollectorService implements Startable {
    * The current worker that executes or is going to execute the main loop of
    * collecting/training.
    */
-  protected BucketWorker                                    currentWorker;
+  protected AtomicReference<BucketWorker>                   currentWorker       = new AtomicReference<>();
 
   /**
    * Instantiates a new data collector service.
@@ -588,12 +617,15 @@ public class SocialDataCollectorService implements Startable {
 
     ValueParam autostartParam = initParams.getValueParam(AUTOSTART_MODE_PARAM);
     ValueParam trainPeroidParam = initParams.getValueParam(TRAIN_PERIOD_PARAM);
+    boolean runMainLoop;
     try {
       String pval = autostartParam.getValue();
-      this.runMainLoop.set(pval != null ? Boolean.valueOf(pval) : false);
+      runMainLoop = pval != null ? Boolean.valueOf(pval) : false;
     } catch (Exception e) {
       LOG.warn("Cannot set manual mode to " + autostartParam.getValue() + ", using auto mode by default", e);
+      runMainLoop = true;
     }
+    this.configRunMainLoop = runMainLoop;
     try {
       String pval = trainPeroidParam.getValue();
       this.trainingPeriod = Integer.parseInt(pval) * 60000L;
@@ -620,17 +652,17 @@ public class SocialDataCollectorService implements Startable {
       try {
         organization.addListenerPlugin(new MembershipListener());
       } catch (Exception e) {
-        LOG.error("Cannot add the MembershipListener:", e);
+        LOG.error("Cannot add the MembershipListener", e);
       }
 
       listenerService.addListener(new LoginListener());
 
-      if (runMainLoop.get()) {
-        // TODO use(reuse) startMainLoop()
-        final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
-        currentWorker = new StartWorker(containerName);
-        workers.submit(currentWorker);
-        LOG.info("Started " + this.getClass().getSimpleName() + " in automatic mode");
+      if (configRunMainLoop) {
+        if (startMainLoop()) {
+          LOG.info("Started " + this.getClass().getSimpleName() + " in automatic mode");
+        } else {
+          LOG.warn("Started " + this.getClass().getSimpleName() + " with already enabled automatic mode");
+        }
       } else {
         LOG.info("Started " + this.getClass().getSimpleName() + " in manual mode");
       }
@@ -650,72 +682,114 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Starts manual collecting and optionally training of an user model.
-   * 
+   * Start immediate collecting of training dataset and optionally invoke the
+   * user model training whit it.<br>
+   * Take in account: bucket name cannot starts with
+   * {@value #MAIN_BUCKET_PREFIX} if train=<code>false</code>, and if
+   * train=<code>true</code> and it starts with or <code>null</code>, then a
+   * next available bucket name will be used with this prefix.<br>
+   * Value of sinceTime may be ignored in case if train=<code>true</code>
+   *
    * @param userName userName
    * @param bucketName bucket name
-   * @param train trains the model if true
-   * @throws Exception is thrown if the bucket is incorrect or user is not found
-   *           or user's model is being processed
+   * @param sinceTime the since time to collector a dataset
+   * @param train will train the model if <code>true</code>
+   * @return the string with actually assigned bucket name for resulting dataset
+   *         and model (if train=<code>true</code>)
+   * @throws StorageException the storage exception if bucket name is not
+   *           acceptable, it cannot starts with {@value #MAIN_BUCKET_PREFIX} if
+   *           train=<code>false</code>
    */
-  public void startUserCollector(String userName, String bucketName, boolean train) throws Exception {
-    if (bucketName == null || bucketName.startsWith(MAIN_BUCKET_PREFIX)) {
-      throw new Exception("Bucket name cannot be null or start with " + MAIN_BUCKET_PREFIX);
-    }
-    // TODO it should be possible to start training for an user immediately (but
-    // similar like in addUserCollector(String)), a model with another bucket
-    // should become a new last model.
-    // TODO If we have already a NEW or PROCESSING, need ensure is it actually
-    // scheduled for processing in main loop: if yes - then do nothing,
-    // otherwise we submit a new one and reset its status to NEW.
-    // For this purpose we would use a global set of users in processing, or
-    // lookup in the queue (better).
-    ModelEntity model = trainingService.getLastModel(userName);
-    if (model == null || !Status.NEW.equals(model.getStatus()) && !Status.PROCESSING.equals(model.getStatus())) {
-      submitUserCollector(userName, bucketName, train);
+  public String startUser(String userName, String bucketName, long sinceTime, boolean train) throws StorageException {
+    // It should be possible to start training for an user immediately (but
+    // similar like in addUser(String)).
+    if (train) {
+      // First check in runtime:
+      if (mainQueue.removeIf(job -> userName.equals(job.userName) ? true : false)) {
+        // removed from the queue - we'll start processing immediately below
+        LOG.info("Removed previously queued user training from main loop {}", userName);
+      }
+      ProcessJob job = mainLoop.get(userName);
+      if (job != null) {
+        // already processing - do nothing
+        // TODO for more precise check we may want to check equality of
+        // sinceTime, and then we will need a lock to cancel/wait until
+        // existing job complete and then start a new one (with another
+        // sinceTime).
+        LOG.info("User {} training already processing in {}. Do nothing.", userName, job.bucketName.get());
+        return job.bucketName.get();
+      }
+      // Any state in persistence acceptable, a training will act accordingly.
+//      ModelEntity lastModel = lastModel(userName); // TODO cleanup
+//      if (lastModel != null) {
+//        if (lastModel.getStatus() == Status.NEW) {
+//          // This user already issued for processing (but may be with different
+//          // bucket):
+//          // * if stays in this state for an undefined reason (not handled
+//          // failure or service stopping) - submit it immediately.
+//          // * if already scheduled in the main loop - then remove from there
+//          // and submit it immediately,
+//        } else if (lastModel.getStatus() == Status.PROCESSING) {
+//          // This user may already processing - ensure it is and if yes
+//          // - do nothing, otherwise submit it immediately.
+//        } // Otherwise it's READY, ARCHIVED or failed states - we submit a NEW
+//          // one
+//      } // otherwise, user has no model - initialize what required
+      // Safely choose a bucket name to avoid disk conflicts
+      if (bucketName == null || bucketName.startsWith(MAIN_BUCKET_PREFIX)) {
+        bucketName = nextMainBucketName();
+      }
+      submitTraining(new ProcessJob(userName, new Date(), bucketName, sinceTime));
     } else {
-      throw new Exception("The user is not found or being processed right now");
+      // Main loop bucket prefix cannot be used as it may create conflicts on
+      // disk with already processing or activated models.
+      if (bucketName.startsWith(MAIN_BUCKET_PREFIX)) {
+        throw new StorageException("Bucket name cannot start with " + MAIN_BUCKET_PREFIX);
+      }
+      // TODO handle conflicts on same bucket started several times (first
+      // collector/training not yet done, but another called to start) - use
+      // file locks to deal with this (no model in DB here).
+      submitCollector(userName, bucketName, sinceTime);
     }
+    return bucketName;
   }
 
   /**
-   * Collect user activities into an inferring dataset (for prediction).
+   * Collect user activities into prediction (inferring) dataset.
    *
    * @param id the social identity
-   * @param activities the activities
-   * @return the string with a path to inferring dataset
+   * @param activities the activities to collect into dataset
+   * @return the string with a path to a dataset
    */
   public String collectActivities(Identity id, Collection<ExoSocialActivity> activities) {
     if (id != null) {
-      ModelEntity model = trainingService.getLastModel(id.getRemoteId());
-      if (model != null && Status.READY.equals(model.getStatus())) {
+      ModelEntity lastModel = lastModel(id.getRemoteId());
+      if (lastModel != null && lastModel.getStatus() == Status.READY) {
         // TODO Fix bucket name extraction after rework to relative paths
         // Ready model should have a model file - extract bucket name from it
         // TODO Should we store paths in the DB at all, may be bucket name will
         // be enough? And then we use predefined sub-tree
         // ($bucketName/$modelName/$dataFile).
-        String modelFile = model.getModelFile();
+        String modelFile = lastModel.getModelFile();
         // TODO compile path in FileStorage?
         // File bucketDir = fileStorage.getBucketDir(bucketName);
         String bucketName = modelFile.substring(0, modelFile.lastIndexOf("/" + id.getRemoteId() + "/model"));
         bucketName = bucketName.substring(bucketName.lastIndexOf("/"));
-
-        // TODO compile path in FileStorage?
-        final File userFile = new File(modelFile.replace("/model", "/predict.csv"));
-        try (PrintWriter writer = new PrintWriter(userFile)) {
+        File datasetFile = new File(modelFile.replace("/model", "/predict.csv"));
+        try (PrintWriter writer = new PrintWriter(datasetFile)) {
           UserSnapshot user = getUserSnapshot(bucketName, id);
           if (user != null) {
             writeUserActivities(user, activities.iterator(), writer, false);
             if (LOG.isDebugEnabled()) {
-              LOG.debug("Saved user predicting dataset into bucket file: {}", userFile.getAbsolutePath());
+              LOG.debug("Saved user predicting dataset into bucket file: {}", datasetFile.getAbsolutePath());
             }
-            return userFile.getAbsolutePath();
+            return datasetFile.getAbsolutePath();
           } else {
             LOG.warn("User snapshot not found for {}", id.getRemoteId());
           }
         } catch (Exception e) {
-          LOG.error("Cannot collect user inferring dataset for " + id.getRemoteId(), e);
-          userFile.delete();
+          LOG.error("Cannot collect predicting dataset for {}", id.getRemoteId(), e);
+          datasetFile.delete();
         }
       } else {
         LOG.warn("User model not found or not ready for {}", id.getRemoteId());
@@ -747,12 +821,13 @@ public class SocialDataCollectorService implements Startable {
    */
   public boolean stopMainLoop() {
     if (runMainLoop.getAndSet(false)) {
-      if (currentWorker != null) {
-        currentWorker.stop();
-        currentWorker = null;
+      BucketWorker worker = currentWorker.getAndSet(null);
+      if (worker != null) {
+        worker.cancel();
+        timer.purge();
+        LOG.info("Main loop (collecting and training user models) has been signaled for stopping");
+        return true;
       }
-      LOG.info("Main loop (collecting and training user models) has been signaled for stopping");
-      return true;
     }
     LOG.warn("Main loop (collecting and training user models) already stopped");
     return false;
@@ -770,30 +845,41 @@ public class SocialDataCollectorService implements Startable {
       return false;
     }
     LOG.info("Starting main loop (collecting and training user models)");
-    final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
-    currentWorker = new StartWorker(containerName);
-    workers.submit(currentWorker);
+    BucketWorker newWorker = new StartWorker();
+    BucketWorker prevWorker = currentWorker.getAndSet(newWorker);
+    if (prevWorker != null) {
+      LOG.warn("Main loop just marked as started but already run a worker {}, signaling this worker for stopping", prevWorker);
+      // FYI this may be not enough in general, as the worker invoke
+      // submitUserCollector() for users and they might continue to
+      // collect/train even after stopping this worker.
+      prevWorker.cancel();
+    }
+    workers.submit(newWorker);
     return true;
   }
 
   /**
    * Adds user to the training queue (main loop) for processing in the next
-   * bucket processing time.
-   * 
-   * @param userName to be added
+   * bucket processing time. This methods produces the same effect as user login
+   * into the portal.
+   *
+   * @param userName the user to add
    */
-  public void addUserCollector(String userName) {
-    // TODO need better name: it's actually about TrainingService but lies in
-    // Data Collector.
-    ModelEntity currentModel = trainingService.getLastModel(userName);
-    // If model exists and is not being processed right now
-    if (currentModel != null && !Status.NEW.equals(currentModel.getStatus())
-        && !Status.PROCESSING.equals(currentModel.getStatus())) {
-      currentModel.setStatus(Status.RETRY);
-      trainingService.update(currentModel);
-      LOG.info("Model {}[{}] got status RETRY.", currentModel.getName(), currentModel.getVersion());
+  public void addUser(String userName) {
+    if (!mainQueue.stream().anyMatch(job -> job.userName.equals(userName)) && !mainLoop.containsKey(userName)) {
+//      ModelEntity lastModel = lastModel(userName);
+      // If model exists, valid and is not being processed right now
+      // TODO this chck and setting to RETRY has not sense after the rework
+//      if (lastModel != null && lastModel.getStatus() != Status.NEW && lastModel.getStatus() != Status.PROCESSING) {
+//        lastModel.setStatus(Status.RETRY);
+//        trainingService.update(lastModel);
+//        LOG.info("Model {}[{}] got status RETRY.", lastModel.getName(), lastModel.getVersion());
+//      }
+      queueInMainLoop(userName);
+    } else if (LOG.isDebugEnabled()) {
+      // else, user already queued or processing in the main loop
+      LOG.debug("User already in training queue {}", userName);
     }
-    addToMainLoop(userName);
   }
 
   /**
@@ -809,9 +895,11 @@ public class SocialDataCollectorService implements Startable {
    */
   @Deprecated // TODO method has no practical value for production, but may be
               // used in development
-  public String collectAllUsersActivities(String bucketName) throws Exception {
+  public String collectAllUsersFeeds(String bucketName) throws Exception {
     // Go through all users in the organization and swap their datasets
     // into separate data stream, then feed them to the Training Service
+
+    long sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
 
     File bucketDir = fileStorage.getBucketDir(bucketName);
     Iterator<Identity> idIter = loadListIterator(identityManager.getIdentitiesByProfileFilter(OrganizationIdentityProvider.NAME,
@@ -819,7 +907,7 @@ public class SocialDataCollectorService implements Startable {
                                                                                               true));
     while (idIter.hasNext() && !Thread.currentThread().isInterrupted()) {
       final UserIdentity id = cacheUserIdentity(userIdentity(idIter.next()));
-      submitUserCollector(id.getRemoteId(), bucketName, false);
+      submitCollector(id.getRemoteId(), bucketName, sinceTime);
     }
 
     if (Thread.currentThread().isInterrupted()) {
@@ -829,7 +917,7 @@ public class SocialDataCollectorService implements Startable {
         Arrays.asList(bucketDir.listFiles()).stream().forEach(f -> f.delete());
         bucketDir.delete();
       } catch (Exception e) {
-        LOG.error("Error removing canceled bucketRecords folder: " + bucketName, e);
+        LOG.error("Error removing canceled bucketRecords folder: {}", bucketName, e);
       }
       return null;
     }
@@ -860,20 +948,15 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Collect user activities into given files bucketRecords in Platform data
-   * folder. Moves old model directory to a new one. Adds new model to DB
-   * 
+   * Collect user feed activities into training dataset.
+   *
    * @param userName the user name
-   * @param bucketName the bucketRecords name
+   * @param bucketName the bucket name
    * @param sinceTime the since time
-   * @param withRank collect with rank if <code>true</code>
    * @return the dataset file
    * @throws DatasetException the dataset exception
    */
-  protected File collectUserActivities(String userName,
-                                       String bucketName,
-                                       long sinceTime,
-                                       boolean withRank) throws DatasetException {
+  protected File collectUserFeed(String userName, String bucketName, long sinceTime) throws DatasetException {
     File bucketDir = fileStorage.getBucketDir(bucketName);
     if (LOG.isDebugEnabled()) {
       LOG.debug("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
@@ -889,29 +972,28 @@ public class SocialDataCollectorService implements Startable {
 
       if (activities.hasNext()) {
         // TODO compile path in FileStorage?
-        final File userFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/training.csv");
-        userFile.getParentFile().mkdirs();
+        final File datasetFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/training.csv");
+        datasetFile.getParentFile().mkdirs();
 
-        try (PrintWriter writer = new PrintWriter(userFile)) {
+        try (PrintWriter writer = new PrintWriter(datasetFile)) {
           // Prepare an user state snapshot, it should not be modified until
           // another collecting
           UserSnapshot user = getUserSnapshot(bucketName, id);
           // XXX sinceTime here may not be the same as for activities until
           // we'll make UserInfluecners incrementally maintained and load them
           // from DB
-
           initializeUserSnapshot(user, System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE);
 
-          writeUserActivities(user, activities, writer, withRank);
+          writeUserActivities(user, activities, writer, true);
 
           // save/cache user snapshot only after successful write
           saveUserSnapshot(bucketName, user);
           if (LOG.isDebugEnabled()) {
-            LOG.debug("Saved user dataset into bucket file: {}", userFile.getAbsolutePath());
+            LOG.debug("Saved user dataset into bucket file: {}", datasetFile.getAbsolutePath());
           }
-          return userFile;
-        } catch (Exception e) {
-          userFile.delete();
+          return datasetFile;
+        } catch (Exception e) { // this includes PersistenceException
+          datasetFile.delete();
           throw new DatasetException("Cannot collect user activities for " + userName, e);
         }
       } else if (LOG.isDebugEnabled()) {
@@ -924,66 +1006,130 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Collects user's all activities in separate worker. Trains model if
-   * necessary.
+   * Collects user's all activities in separate worker and train a model using
+   * it.
+   *
+   * @param job the internal process object describing the training
+   */
+  protected void submitTraining(ProcessJob job) {
+    workers.submit(new ContainerCommand() {
+      @Override
+      protected void execute(ExoContainer exoContainer) {
+        try {
+          // TODO Also take in account model (scripts) updates, in this case we
+          // need train from scratch, not incrementally.
+          ModelEntity readyModel = null;
+          ModelEntity currentModel = lastModel(job.userName/* , Status.RETRY */);
+          if (currentModel != null) {
+            if (currentModel.getStatus() == Status.READY) {
+              if (trainingService.valid(currentModel)) {
+                readyModel = currentModel;
+              }
+              currentModel = null;
+            } else if (currentModel.getStatus() == Status.RETRY) {
+              // If we have a model to RETRY - use it with new sinceTime
+            } else if (currentModel.getStatus() == Status.NEW || currentModel.getStatus() == Status.PROCESSING) {
+              // XXX Delete any of it and add a NEW one.
+              // NEW can come from main loop (but it's unexpected),
+              // manual startUser() also can bring it to here.
+              // PROCESSING should not get to here from main loop,
+              // see in modelNeedsProcessing(), but can from manual invocation
+              // in startUser() if processing was interrupted previously and
+              // started manually.
+              LOG.warn("Already {} model in main loop {}[{}] - deleting it",
+                       currentModel.getStatus(),
+                       currentModel.getName(),
+                       currentModel.getVersion());
+              trainingService.delete(currentModel);
+              currentModel = null;
+            } else {
+              // else FAILED* should not get to here from main
+              // loop, see in modelNeedsProcessing(), but can from manual
+              // invocation in startUser() - add a NEW one.
+              LOG.warn("{} model in main loop {}[{}]",
+                       currentModel.getStatus(),
+                       currentModel.getName(),
+                       currentModel.getVersion());
+              currentModel = null;
+            }
+          }
+          boolean incrementally = false;
+          if (job.sinceTime.get() <= 0) {
+            // Get last READY model, and count sinceTime from that last ready to
+            // make incremental training over it.
+            if (readyModel == null) {
+              readyModel = lastModel(job.userName, Status.READY);
+            }
+            if (readyModel != null && trainingService.valid(readyModel)) {
+              // TODO do we need subtract a time gap (e.g. 100ms) from the
+              // created time to catch in calculation activities that happened
+              // while the previous model collected and saved?
+              // In fact we create a model first, then collect and save, thus it
+              // may be actually desired to add a time gap (best if of actually
+              // spent time by previous model).
+              // In general case it's question of how critical if some
+              // activities will be lost or repeatedly taken in account by the
+              // model and influencers?
+              incrementally = true;
+              job.sinceTime.set(readyModel.getCreated().getTime());
+            } else {
+              job.sinceTime.set(System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE);
+            }
+          }
+          if (currentModel == null) {
+            // We add a new model first with status NEW, it will show that
+            // processing already issued but not yet started.
+            currentModel = trainingService.addModel(job.userName, null);
+          }
+          try {
+            File dataset = collectUserFeed(job.userName, job.bucketName.get(), job.sinceTime.get());
+            if (dataset != null) {
+              // Start process of the model training
+              // TODO as collecting may take time: do we need (re)new JPA
+              // session/transaction or re-get the model object?
+              trainingService.trainModel(currentModel, dataset.getAbsolutePath(), incrementally);
+            }
+          } catch (DatasetException e) {
+            if (currentModel.getStatus() == Status.RETRY) {
+              currentModel.setStatus(Status.FAILED_DATASET);
+              trainingService.update(currentModel);
+              LOG.error("Model with dateset {} got status FAILED_DATASET. Cannot collect dataset.",
+                        job.bucketName.get() + "/" + job.userName,
+                        e);
+            } else {
+              currentModel.setStatus(Status.RETRY);
+              trainingService.update(currentModel);
+              queueInMainLoop(job.userName);
+              LOG.warn("Model with dataset {} got status RETRY. Cannot collect dataset due to error {}. Added to next bucket.",
+                       job.bucketName.get() + "/" + job.userName,
+                       e.getMessage());
+            }
+          }
+        } finally {
+          // Clean main loop from this job, but not same user processing by
+          // other job (if any)
+          mainLoop.remove(job.userName, job);
+        }
+      }
+    });
+  }
+
+  /**
+   * Collects user's all activities in separate worker.
    *
    * @param userName the user name
    * @param bucket the bucket
-   * @param train if true - trains model
+   * @param sinceTime the time since which collect the dataset
    */
-  protected void submitUserCollector(String userName, String bucket, boolean train) {
-    final String containerName = ExoContainerContext.getCurrentContainer().getContext().getName();
-    workers.submit(new ContainerCommand(containerName) {
+  protected void submitCollector(String userName, String bucket, long sinceTime) {
+    workers.submit(new ContainerCommand() {
       @Override
-      void execute(ExoContainer exoContainer) {
-        long sinceTime;
-        ModelEntity currentModel = trainingService.getLastModel(userName);
-        if (currentModel != null && Status.READY.equals(currentModel.getStatus())) {
-          // TODO do we need subtract a time gap (e.g. 100ms) from the created
-          // time to catch in calculation activities that happened while the
-          // previous model collected and saved?
-          // In fact we create a model first, then collect and save, thus it may
-          // be actually desired to add a time gap (best if of actually spent
-          // time by previous model).
-          // In general case it's question of how critical if some activities
-          // will be lost or repeatedly taken in account by the model and
-          // influencers?
-          sinceTime = currentModel.getCreated().getTime();
-        } else {
-          sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
-        }
-        if (train) {
-          // We add a new model first with status NEW, it will show that
-          // processing already issued but not yet started.
-          currentModel = trainingService.addModel(userName, null);
-        }
+      protected void execute(ExoContainer exoContainer) {
         try {
-          File dataset = collectUserActivities(userName, bucket, sinceTime, true);
-          if (dataset != null && train) {
-            // Start process of the model training
-            trainingService.trainModel(currentModel, dataset, userName);
-          }
+          collectUserFeed(userName, bucket, sinceTime);
         } catch (DatasetException e) {
-          LOG.error("User activities collector failed for " + bucket + "/" + userName, e);
-          // TODO need re-get it?
-          // currentModel = trainingService.getLastModel(userName);
-          if (currentModel != null) {
-            if (Status.RETRY.equals(currentModel.getStatus())) {
-              currentModel.setStatus(Status.FAILED_DATASET);
-              LOG.error("Model {} got status FAILED_DATASET. Cannot collect dataset. ", userName);
-            } else {
-              currentModel.setStatus(Status.RETRY);
-              addToMainLoop(userName);
-              LOG.warn("Model {} got status RETRY. Cannot collect dataset. Added to next bucket ", userName);
-            }
-            trainingService.update(currentModel);
-          } // else, we already reported an error
+          LOG.error("User activities collector failed for {}", bucket + "/" + userName, e);
         }
-      }
-
-      @Override
-      void onContainerError(String error) {
-        LOG.error("Container error has occured: {}", error);
       }
     });
   }
@@ -995,12 +1141,11 @@ public class SocialDataCollectorService implements Startable {
    * @param activities the activities to process
    * @param out the writer where spool the user activities dataset
    * @param withRank if <code>true</code> then collect dataset with rank
-   * @throws Exception the exception
    */
   protected void writeUserActivities(UserSnapshot user,
                                      Iterator<ExoSocialActivity> activities,
                                      PrintWriter out,
-                                     boolean withRank) throws Exception {
+                                     boolean withRank) {
     if (LOG.isDebugEnabled()) {
       LOG.debug("> Writing user activities for {}", user.getIdentity().getRemoteId());
     }
@@ -1166,12 +1311,18 @@ public class SocialDataCollectorService implements Startable {
     return user;
   }
 
-  private void saveUserSnapshot(String buketName, UserSnapshot user) throws Exception {
+  /**
+   * Save user snapshot.
+   *
+   * @param buketName the buket name
+   * @param user the user
+   */
+  private void saveUserSnapshot(String buketName, UserSnapshot user) {
     String userId = user.getIdentity().getRemoteId();
     if (LOG.isDebugEnabled()) {
       LOG.debug("> Saving user snapshot for {}", userId);
     }
-    // TODO read user snapshot from DB:
+    // TODO:
     // 1) save in the DB
     // 2) cache in runtime
     userSnapshots.put(snapshotId(buketName, userId), user);
@@ -1180,7 +1331,13 @@ public class SocialDataCollectorService implements Startable {
     }
   }
 
-  protected void initializeUserSnapshot(UserSnapshot user, long sinceTime) throws Exception {
+  /**
+   * Initialize user snapshot.
+   *
+   * @param user the user
+   * @param sinceTime the since time
+   */
+  protected void initializeUserSnapshot(UserSnapshot user, long sinceTime) {
     String userId = user.getIdentity().getRemoteId();
     if (LOG.isDebugEnabled()) {
       LOG.debug(">> Initializing user snapshot for {}", userId);
@@ -1474,6 +1631,7 @@ public class SocialDataCollectorService implements Startable {
     }
 
     // Find top 5 participants in this activity, we need not less than 5!
+    int added = 0;
     for (ActivityParticipant p : findTopParticipants(activity, user, isSpace, ACTIVITY_PARTICIPANTS_TOP)) {
       // participantN_id
       aline.append(p.id).append(',');
@@ -1506,6 +1664,28 @@ public class SocialDataCollectorService implements Startable {
           rank.likedByInfluencer(pweight);
         }
       }
+      added++;
+    }
+    // if not enough influencers for the user - add dummy to reach the top
+    for (; added < ACTIVITY_PARTICIPANTS_TOP; added++) {
+      // participantN_id
+      aline.append(DUMMY_ID).append(',');
+      // participantN_conversed
+      aline.append("0,");
+      // participantN_favored
+      aline.append("0,");
+      // participantN_gender: encoded
+      encGender(aline, null).append(',');
+      // participantN_is_employee
+      aline.append("0,");
+      // participantN_is_lead
+      aline.append("0,");
+      // participantN_is_in_connections
+      aline.append("0,");
+      // participantN_focus_*: job position as team membership encoded
+      encFocus(aline, null).append(',');
+      // participantN_influence
+      aline.append("0.0,");
     }
 
     if (withRank) {
@@ -1731,7 +1911,7 @@ public class SocialDataCollectorService implements Startable {
         Iterator<Identity> citer = user.getConnections().values().iterator();
         while (citer.hasNext() && top.size() < topLength) {
           String cid = citer.next().getId();
-          // if (wasUserLoggedin(cid, activityScopeTimeBegin,
+          // TODO if (wasUserLoggedin(cid, activityScopeTimeBegin,
           // activityScopeTimeEnd)) {
           top.computeIfAbsent(cid, p -> new ActivityParticipant(p, false, false));
           // }
@@ -1757,13 +1937,14 @@ public class SocialDataCollectorService implements Startable {
         // * TODO if not enough in admins - then guess random from "similar"
         // users in the organization,
         // * if no users - add "blank" user with id=0.
-        if (top.size() < topLength) {
-          int needAdd = topLength - top.size();
-          do {
-            top.computeIfAbsent(DUMMY_ID, p -> new ActivityParticipant(p, false, false));
-            needAdd--;
-          } while (needAdd > 0);
-        }
+//        if (top.size() < topLength) {
+//          int needAdd = topLength - top.size();
+//          do {
+//            top.computeIfAbsent(new StringBuilder(DUMMY_ID).append('-').append(needAdd).toString(),
+//                                p -> new ActivityParticipant(p, false, false));
+//            needAdd--;
+//          } while (needAdd > 0);
+//        }
       }
     }
     return Collections.unmodifiableCollection(top.values());
@@ -2129,10 +2310,47 @@ public class SocialDataCollectorService implements Startable {
                                   new ThreadPoolExecutor.CallerRunsPolicy());
   }
 
-  protected void addToMainLoop(String userName) {
-    trainingQueue.add(new ProcessJob(userName, new Date()));
+  protected void queueInMainLoop(String userName) {
+    queueInMainLoop(userName, new Date());
+  }
+
+  protected void queueInMainLoop(String userName, Date checkpoint) {
+    // Remove redundant: same user but lesser date
+    for (Iterator<ProcessJob> qiter = mainQueue.iterator(); qiter.hasNext();) {
+      ProcessJob job = qiter.next();
+      if (job.userName.equals(userName) && job.timestamp.before(checkpoint)) {
+        qiter.remove();
+      }
+    }
+    // Add new job
+    mainQueue.add(new ProcessJob(userName, checkpoint));
     if (LOG.isDebugEnabled()) {
       LOG.debug("User {} has beed added to the main loop for collecting and training", userName);
     }
+  }
+
+  protected ModelEntity lastModel(String userName) {
+    try {
+      ModelEntity model = trainingService.getLastModel(userName);
+      if (model != null && trainingService.valid(model)) {
+        return model;
+      }
+    } catch (PersistenceException e) {
+      LOG.error("Error reading last model for {}", userName, e);
+    }
+    return null;
+  }
+
+  protected ModelEntity lastModel(String userName, Status status) {
+    try {
+      return trainingService.getLastModel(userName, status);
+    } catch (PersistenceException e) {
+      LOG.error("Error reading last model for {}:{}", userName, status, e);
+      return null;
+    }
+  }
+
+  protected String nextMainBucketName() {
+    return new StringBuilder(MAIN_BUCKET_PREFIX).append(currentBucketIndex.incrementAndGet()).toString();
   }
 }
