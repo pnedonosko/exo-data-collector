@@ -1338,9 +1338,9 @@ public class SocialDataCollectorService implements Startable {
    * @param sinceTime the since time
    */
   protected void initializeUserSnapshot(UserSnapshot user, long sinceTime) {
-    String userId = user.getIdentity().getRemoteId();
+    String userId = user.getIdentity().getId();
     if (LOG.isDebugEnabled()) {
-      LOG.debug(">> Initializing user snapshot for {}", userId);
+      LOG.debug(">> Initializing user snapshot for {}", user.getIdentity().getRemoteId());
     }
 
     // TODO read user influencers from DB and if found set conns/spaces into it
@@ -1387,7 +1387,7 @@ public class SocialDataCollectorService implements Startable {
     // Favorite streams calculated before addStream* methods call
     user.setFavoriteStreams(Collections.unmodifiableSet(favoriteStreams));
     if (LOG.isDebugEnabled()) {
-      LOG.debug("<< Initialized user snapshot for {}", userId);
+      LOG.debug("<< Initialized user snapshot for {}", user.getIdentity().getRemoteId());
     }
   }
 
