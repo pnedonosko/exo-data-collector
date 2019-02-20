@@ -81,6 +81,7 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
         long sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
         Identity id = dataCollector.getUserIdentityById(jasonId);
         UserSnapshot user = dataCollector.createUserSnapshot(id);
+        user.initInfluencers();
         dataCollector.initializeUserSnapshot(user, sinceTime);
         Iterator<ExoSocialActivity> activities = loadActivitiesListIterator(activityManager.getActivityFeedWithListAccess(id),
                                                                             sinceTime);
@@ -89,6 +90,7 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
         activitiesFile.set(file.getAbsolutePath());
         LOG.info("PATH: " + file.getAbsolutePath());
       } catch (Exception e) {
+        LOG.error("Error during collecting user activities", e);
         fail("Error collecting activities", e);
       } finally {
         end();

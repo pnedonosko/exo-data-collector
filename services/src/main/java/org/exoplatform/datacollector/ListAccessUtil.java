@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 
+import org.exoplatform.commons.api.persistence.ExoTransactional;
 import org.exoplatform.commons.utils.ListAccess;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
@@ -173,6 +174,7 @@ public class ListAccessUtil {
 
       ExoSocialActivity           next, prev;
 
+      @ExoTransactional // for large feed long fetching
       private void loadNextBatch() {
         List<ExoSocialActivity> nextList;
         try {

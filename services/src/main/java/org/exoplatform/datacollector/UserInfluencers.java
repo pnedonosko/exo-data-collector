@@ -163,7 +163,7 @@ public class UserInfluencers {
   @Deprecated // TODO not used
   private final Identity                   identity;
 
-  private transient final Map<String, Identity>      connections;
+  private transient final Set<String>      connections;
 
   private transient final Map<String, SpaceSnapshot> spaces;
 
@@ -174,7 +174,7 @@ public class UserInfluencers {
    * @param connections the user connections
    * @param spaces the user spaces
    */
-  public UserInfluencers(Identity identity, Map<String, Identity> connections, Map<String, SpaceSnapshot> spaces) {
+  public UserInfluencers(Identity identity, Set<String> connections, Map<String, SpaceSnapshot> spaces) {
     this.identity = identity;
     this.connections = connections;
     this.spaces = spaces;
@@ -358,8 +358,8 @@ public class UserInfluencers {
     // 3) find most "recent" user connections: those who more active last days
     // and possible have common interest with the user.
 
-    Identity conn = connections.get(id);
-    if (conn != null) {
+    boolean isConn = connections.contains(id);
+    if (isConn) {
       weights.add(0.3);
     }
     SpaceSnapshot spaceInfo = null;
@@ -375,7 +375,7 @@ public class UserInfluencers {
         }
       }
     }
-    if (conn == null && spaceInfo == null) {
+    if (!isConn && spaceInfo == null) {
       weights.add(DEFAULT_WEIGHT);
     }
 

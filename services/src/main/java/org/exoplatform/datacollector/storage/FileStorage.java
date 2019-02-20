@@ -42,7 +42,7 @@ public class FileStorage {
 
   private static final Log   LOG                    = ExoLogger.getExoLogger(FileStorage.class);
 
-  public static final String WORK_DIRECTORY_PARAM   = "work-directorty";
+  public static final String WORK_DIRECTORY_PARAM   = "work-directory";
 
   public static final String WORK_DIRECTORY_DEFAULT = "data-collector";
 
@@ -55,7 +55,7 @@ public class FileStorage {
   protected File             datasetutilsScript;
 
   protected File             dockerRunScript;
-  
+
   protected File             dockerExecScript;
 
   protected InitParams       initParams;
@@ -72,33 +72,29 @@ public class FileStorage {
 
   /**
    * Gets the work directory
+   * 
    * @return the work directory
    */
   public File getWorkDir() {
     String workDirPath = getValueParam(WORK_DIRECTORY_PARAM);
-    File workDir;
-    if (workDirPath == null) {
-      // XXX Use temp dir in development, then switch to eXo data dir.
-      workDirPath = System.getProperty("java.io.tmpdir");
-      if (workDirPath == null || workDirPath.trim().length() == 0) {
-        // dataDirPath = System.getProperty("gatein.data.dir");
-        workDirPath = System.getProperty("exo.data.dir");
-        if (workDirPath == null || workDirPath.trim().length() == 0) {
+    if (workDirPath == null || (workDirPath = workDirPath.trim()).length() == 0) {
+      workDirPath = System.getProperty("exo.data.dir");
+      if (workDirPath == null || (workDirPath = workDirPath.trim()).length() == 0) {
+        workDirPath = System.getProperty("gatein.data.dir");
+        if (workDirPath == null || (workDirPath = workDirPath.trim()).length() == 0) {
           workDirPath = System.getProperty("java.io.tmpdir");
           LOG.warn("Platoform data dir not defined. Will use: {}", workDirPath);
         }
       }
-      workDir = new File(workDirPath, WORK_DIRECTORY_DEFAULT);
-    } else {
-      workDir = new File(workDirPath);
     }
+    File workDir = new File(workDirPath, WORK_DIRECTORY_DEFAULT);
     workDir.mkdirs();
-
     return workDir;
   }
 
   /**
    * Gets the datasets directory
+   * 
    * @return the datasets directory
    */
   public File getDatasetsDir() {
@@ -110,6 +106,7 @@ public class FileStorage {
 
   /**
    * Gets the scripts directory
+   * 
    * @return the scripts directory
    */
   public File getScriptsDir() {
@@ -125,6 +122,7 @@ public class FileStorage {
 
   /**
    * Gets the bucket directory
+   * 
    * @return the bucket directory
    */
   public File getBucketDir(String bucketName) {
@@ -145,6 +143,7 @@ public class FileStorage {
 
   /**
    * Gets the training script
+   * 
    * @return the training script
    */
   public File getTrainingScript() {
@@ -153,6 +152,7 @@ public class FileStorage {
 
   /**
    * Gets the prediction script
+   * 
    * @return the prediction script
    */
   public File getPredictionScript() {
@@ -161,6 +161,7 @@ public class FileStorage {
 
   /**
    * Gets the datasetutils script
+   * 
    * @return the datasetutils script
    */
   public File getDatasetutilsScript() {
@@ -169,6 +170,7 @@ public class FileStorage {
 
   /**
    * Gets the dockerRun script
+   * 
    * @return the dockerRun script
    */
   public File getDockerRunScript() {
@@ -177,13 +179,16 @@ public class FileStorage {
 
   /**
    * Gets the dockerExec script
+   * 
    * @return the dockerRun script
    */
   public File getDockerExecScript() {
     return dockerExecScript;
   }
+
   /**
    * Gets the value of a param in the initParams
+   * 
    * @param keyName of the param
    * @return the value
    */

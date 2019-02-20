@@ -23,22 +23,16 @@
 
   <component>
     <type>org.exoplatform.datacollector.storage.FileStorage</type>
-    <!-- init-params>
+    <init-params>
       <value-param>
-        <name>work-directorty</name>
-        <value>${exo.data.dir}/data-collector</value>
+        <name>work-directory</name>
+        <value>${exo.datacollector.file.storage:}</value>
       </value-param>
-    </init-params -->
+    </init-params>
   </component>
-
   <component>
-    <type>org.exoplatform.prediction.TrainingService</type>
+    <type>org.exoplatform.datacollector.social.SocialStorage</type>
   </component>
-
-  <component>
-    <type>org.exoplatform.prediction.PredictionService</type>
-  </component>
-
   <component>
     <type>org.exoplatform.datacollector.SocialDataCollectorService</type>
     <init-params>
@@ -52,13 +46,14 @@
       </value-param>
     </init-params>
   </component>
-
+  <component>
+    <type>org.exoplatform.prediction.TrainingService</type>
+  </component>
+  <component>
+    <type>org.exoplatform.prediction.PredictionService</type>
+  </component>
   <component>
     <type>org.exoplatform.datacollector.rest.RESTSocialDataCollectorService</type>
-  </component>
-
-  <component>
-    <type>org.exoplatform.commons.persistence.impl.EntityManagerService</type>
   </component>
   <component>
     <type>org.exoplatform.datacollector.dao.ActivityPostedDAO</type>
@@ -72,14 +67,15 @@
   <component>
     <type>org.exoplatform.datacollector.dao.ActivityMentionedDAO</type>
   </component>
-
   <component>
     <type>org.exoplatform.prediction.model.dao.ModelEntityDAO</type>
   </component>
-
   <component>
     <type>org.exoplatform.datacollector.dao.IdentityProfileDAO</type>
   </component>
+  <!-- component> TODO it should be declared by Platform itself
+    <type>org.exoplatform.commons.persistence.impl.EntityManagerService</type>
+  </component -->
 
   <external-component-plugins>
     <target-component>org.exoplatform.commons.api.persistence.DataInitializer</target-component>
@@ -98,28 +94,39 @@
   </external-component-plugins>
 
   <!-- NativeTrainingExecutor provider plugin -->
-  <!--external-component-plugins>
+  <external-component-plugins>
     <target-component>org.exoplatform.prediction.TrainingService</target-component>
     <component-plugin>
     <name>set.nativeexecutor.train</name>
     <set-method>addPlugin</set-method>
     <type>org.exoplatform.prediction.NativeScriptsExecutor</type>
     <description>Native training executor calls the scripts natively on host machine using bash.</description>
+    <init-params>
+        <value-param>
+          <name>exec-environment</name>
+          <value>${exo.prediction.script.trainEnv:}</value>
+        </value-param>
+      </init-params>
     </component-plugin>
-    </external-component-plugins -->
-    
-  <!--external-component-plugins>
+  </external-component-plugins>
+  <external-component-plugins>
     <target-component>org.exoplatform.prediction.PredictionService</target-component>
     <component-plugin>
-    <name>set.nativeexecutor.predict</name>
-    <set-method>addPlugin</set-method>
-    <type>org.exoplatform.prediction.NativeScriptsExecutor</type>
-    <description>Native scripts executor calls the scripts natively on host machine using bash.</description>
+      <name>set.dockerexecutor.predict</name>
+      <set-method>addPlugin</set-method>
+      <type>org.exoplatform.prediction.NativeScriptsExecutor</type>
+      <description>Native training executor calls the scripts natively on host machine using bash.</description>
+      <init-params>
+        <value-param>
+          <name>exec-environment</name>
+          <value>${exo.prediction.script.predictEnv:}</value>
+        </value-param>
+      </init-params>
     </component-plugin>
-    </external-component-plugins -->
+  </external-component-plugins>
 
   <!-- DockerTrainingExecutor provider plugin -->
-  <external-component-plugins>
+  <!-- external-component-plugins>
     <target-component>org.exoplatform.prediction.TrainingService</target-component>
     <component-plugin>
       <name>set.dockerexecutor.train</name>
@@ -134,7 +141,6 @@
       </init-params>
     </component-plugin>
   </external-component-plugins>
-
   <external-component-plugins>
     <target-component>org.exoplatform.prediction.PredictionService</target-component>
     <component-plugin>
@@ -149,6 +155,6 @@
         </value-param>
       </init-params>
     </component-plugin>
-  </external-component-plugins>
+  </external-component-plugins -->
 
 </configuration>

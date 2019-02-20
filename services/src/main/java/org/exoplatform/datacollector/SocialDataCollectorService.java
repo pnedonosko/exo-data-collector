@@ -59,6 +59,7 @@ import org.picocontainer.Startable;
 
 import com.google.common.collect.Lists;
 
+import org.exoplatform.commons.api.persistence.ExoTransactional;
 import org.exoplatform.container.ExoContainer;
 import org.exoplatform.container.PortalContainer;
 import org.exoplatform.container.component.RequestLifeCycle;
@@ -72,6 +73,7 @@ import org.exoplatform.datacollector.dao.IdentityProfileDAO;
 import org.exoplatform.datacollector.domain.IdentityProfileEntity;
 import org.exoplatform.datacollector.identity.SpaceIdentity;
 import org.exoplatform.datacollector.identity.UserIdentity;
+import org.exoplatform.datacollector.social.SocialStorage;
 import org.exoplatform.datacollector.storage.FileStorage;
 import org.exoplatform.datacollector.storage.StorageException;
 import org.exoplatform.platform.gadget.services.LoginHistory.LastLoginBean;
@@ -106,7 +108,6 @@ import org.exoplatform.social.core.identity.provider.OrganizationIdentityProvide
 import org.exoplatform.social.core.identity.provider.SpaceIdentityProvider;
 import org.exoplatform.social.core.manager.ActivityManager;
 import org.exoplatform.social.core.manager.IdentityManager;
-import org.exoplatform.social.core.manager.RelationshipManager;
 import org.exoplatform.social.core.profile.ProfileFilter;
 import org.exoplatform.social.core.space.model.Space;
 import org.exoplatform.social.core.space.spi.SpaceService;
@@ -119,6 +120,8 @@ public class SocialDataCollectorService implements Startable {
 
   /** Logger */
   private static final Log       LOG                  = ExoLogger.getExoLogger(SocialDataCollectorService.class);
+
+  public static final int        MIN_FEED_SIZE        = 1;
 
   public static final int        BATCH_SIZE           = 1000;
 
@@ -482,8 +485,6 @@ public class SocialDataCollectorService implements Startable {
 
   protected final ActivityManager                           activityManager;
 
-  protected final RelationshipManager                       relationshipManager;
-
   protected final SpaceService                              spaceService;
 
   protected final OrganizationService                       organization;
@@ -505,6 +506,8 @@ public class SocialDataCollectorService implements Startable {
   protected final ListenerService                           listenerService;
 
   protected final TrainingService                           trainingService;
+
+  protected final SocialStorage                             socialStorage;
 
   protected final Map<String, Set<String>>                  focusGroups         = new HashMap<>();
 
@@ -558,6 +561,7 @@ public class SocialDataCollectorService implements Startable {
    * Instantiates a new data collector service.
    *
    * @param fileStorage the file storage
+   * @param socialStorage the social storage
    * @param jcrService the jcr service
    * @param sessionProviders the session providers
    * @param hierarchyCreator the hierarchy creator
@@ -565,7 +569,6 @@ public class SocialDataCollectorService implements Startable {
    * @param identityManager the identity manager
    * @param identityStorage the identity storage
    * @param activityManager the activity manager
-   * @param relationshipManager the relationship manager
    * @param spaceService the space service
    * @param loginHistory the login history
    * @param listenerService the listener service
@@ -574,10 +577,12 @@ public class SocialDataCollectorService implements Startable {
    * @param commentStorage the comment storage
    * @param likeStorage the like storage
    * @param mentionStorage the mention storage
+   * @param identityProfileStorage the identity profile storage
    * @param trainingService the training service
    * @param initParams the init params
    */
   public SocialDataCollectorService(FileStorage fileStorage,
+                                    SocialStorage socialStorage,
                                     RepositoryService jcrService,
                                     SessionProviderService sessionProviders,
                                     NodeHierarchyCreator hierarchyCreator,
@@ -585,7 +590,6 @@ public class SocialDataCollectorService implements Startable {
                                     IdentityManager identityManager,
                                     IdentityStorage identityStorage,
                                     ActivityManager activityManager,
-                                    RelationshipManager relationshipManager,
                                     SpaceService spaceService,
                                     LoginHistoryService loginHistory,
                                     ListenerService listenerService,
@@ -598,10 +602,10 @@ public class SocialDataCollectorService implements Startable {
                                     TrainingService trainingService,
                                     InitParams initParams) {
     this.fileStorage = fileStorage;
+    this.socialStorage = socialStorage;
     this.identityManager = identityManager;
     this.identityStorage = identityStorage;
     this.activityManager = activityManager;
-    this.relationshipManager = relationshipManager;
     this.organization = organization;
     this.spaceService = spaceService;
     this.loginHistory = loginHistory;
@@ -963,28 +967,36 @@ public class SocialDataCollectorService implements Startable {
     }
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
-      Iterator<ExoSocialActivity> activities;
-      try {
-        activities = loadActivitiesListIterator(activityManager.getActivityFeedWithListAccess(id), sinceTime);
-      } catch (Exception e) {
-        throw new DatasetException("Error reading user activities for " + userName, e);
-      }
-
-      if (activities.hasNext()) {
+      // XXX We cannot obtain an iterator over all the feed right here as it may
+      // become disconnected from the DB by connection pool if getUserSnapshot()
+      // will take too long (about a hour), it will lead to Tx rollback then SQL
+      // exceptions.
+      // Thus we first check if a feed contains something, then get the user
+      // snapshot and only then request the feed via into an iterator.
+      int minFeedSize = activityManager.getActivityFeedWithListAccess(id).loadNewer(sinceTime, MIN_FEED_SIZE).size();
+      if (minFeedSize >= MIN_FEED_SIZE) {
         // TODO compile path in FileStorage?
         final File datasetFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/training.csv");
         datasetFile.getParentFile().mkdirs();
 
         try (PrintWriter writer = new PrintWriter(datasetFile)) {
           // Prepare an user state snapshot, it should not be modified until
-          // another collecting
+          // another collecting - this can be looooong operation, a hour+ if
+          // calculate influencers from user activities.
+          // Activities iterator with its DB session may get in timeout, thus it
+          // should be transactional where fetch from the storage.
           UserSnapshot user = getUserSnapshot(bucketName, id);
           // XXX sinceTime here may not be the same as for activities until
           // we'll make UserInfluecners incrementally maintained and load them
           // from DB
           initializeUserSnapshot(user, System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE);
 
-          writeUserActivities(user, activities, writer, true);
+          // TODO should this method be ExoTransactional, but with getting the
+          // feed iterator inside it - in single tx?
+          writeUserActivities(user,
+                              loadActivitiesListIterator(activityManager.getActivityFeedWithListAccess(id), sinceTime),
+                              writer,
+                              true);
 
           // save/cache user snapshot only after successful write
           saveUserSnapshot(bucketName, user);
@@ -997,7 +1009,7 @@ public class SocialDataCollectorService implements Startable {
           throw new DatasetException("Cannot collect user activities for " + userName, e);
         }
       } else if (LOG.isDebugEnabled()) {
-        LOG.debug("Has no activities to collect for {}", userName);
+        LOG.debug("Has no enough activities to collect for {}", userName);
       }
     } else {
       LOG.warn("User social identity not found for {}", userName);
@@ -1192,7 +1204,7 @@ public class SocialDataCollectorService implements Startable {
     if (LOG.isDebugEnabled()) {
       LOG.debug(">> Buidling user influencers for {}", id.getRemoteId());
     }
-    Collection<Identity> conns = loadListAll(relationshipManager.getConnections(id));
+    Collection<Identity> conns = loadListAll(identityManager.getConnectionsWithListAccess(id));
     Collection<Space> spaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
     final long sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
 
@@ -1201,10 +1213,11 @@ public class SocialDataCollectorService implements Startable {
       // collecting
       // XXX Collector with merge function to solve duplicates in source
       // collections (may have place for connections)
-      Map<String, Identity> connsSnapshot = Collections.unmodifiableMap(conns.stream()
-                                                                             .collect(Collectors.toMap(c -> c.getId(),
-                                                                                                       c -> c,
-                                                                                                       (c1, c2) -> c1)));
+//      Map<String, Identity> connsSnapshot = Collections.unmodifiableMap(conns.stream()
+//                                                                             .collect(Collectors.toMap(c -> c.getId(),
+//                                                                                                       c -> c,
+//                                                                                                       (c1, c2) -> c1)));
+      Set<String> connsSnapshot = Collections.unmodifiableSet(conns.stream().map(cid -> cid.getId()).collect(Collectors.toSet()));
       Map<String, SpaceSnapshot> spacesSnapshot =
                                                 Collections.unmodifiableMap(spaces.stream()
                                                                                   .collect(Collectors.toMap(s -> s.getId(),
@@ -1283,6 +1296,9 @@ public class SocialDataCollectorService implements Startable {
 
   protected UserSnapshot getUserSnapshot(String bucket, Identity id) throws Exception {
     // TODO use exo cache with eviction instead of a map
+    // TODO in fact, a snapshot not connected to a bucket, and if not found
+    // for some bucket, we can share a single one calculated for user at some
+    // moment. But this shared may outdate - how to manage this and should we?
     return userSnapshots.computeIfAbsent(snapshotId(bucket, id.getRemoteId()), sid -> {
       try {
         return readUserSnapshot(id);
@@ -1293,6 +1309,7 @@ public class SocialDataCollectorService implements Startable {
     });
   }
 
+  @ExoTransactional // for users with lot of data that can read long
   private UserSnapshot readUserSnapshot(Identity id) throws Exception {
     // TODO read user snapshot from DB:
     // 1) connections and spaces from Social
@@ -1317,6 +1334,7 @@ public class SocialDataCollectorService implements Startable {
    * @param buketName the buket name
    * @param user the user
    */
+  // @ExoTransactional // TODO for saving in DB
   private void saveUserSnapshot(String buketName, UserSnapshot user) {
     String userId = user.getIdentity().getRemoteId();
     if (LOG.isDebugEnabled()) {
@@ -1337,6 +1355,7 @@ public class SocialDataCollectorService implements Startable {
    * @param user the user
    * @param sinceTime the since time
    */
+  @ExoTransactional // for users with large history
   protected void initializeUserSnapshot(UserSnapshot user, long sinceTime) {
     String userId = user.getIdentity().getId();
     if (LOG.isDebugEnabled()) {
@@ -1344,7 +1363,7 @@ public class SocialDataCollectorService implements Startable {
     }
 
     // TODO read user influencers from DB and if found set conns/spaces into it
-    UserInfluencers influencers = user.initInfluencers();
+    UserInfluencers influencers = user.getInfluencers();
 
     influencers.addUserPosts(postStorage.findUserPosts(userId, sinceTime));
 
@@ -1392,21 +1411,43 @@ public class SocialDataCollectorService implements Startable {
   }
 
   protected UserSnapshot createUserSnapshot(Identity id) throws Exception {
-    Collection<Identity> conns = loadListAll(relationshipManager.getConnections(id));
-    Collection<Space> spaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Creating user snapshot for {}", id.getRemoteId());
+    }
+    // FYI getting of 29800 connections takes 1hr 10min on AI Lab server
+    // TODO we need update these lists in runtime to reflect where user will
+    // connect/disconnect and join/leave spaces
 
+    // Collection<Identity> conns = relationshipStorage.getConnections(id);
+    // Collection<Identity> conns =
+    // loadListAll(identityManager.getConnectionsWithListAccess(id));
     // XXX Collector with merge function to solve duplicates in source
     // collections (may have place for connections)
-    Map<String, Identity> connsSnapshot = Collections.unmodifiableMap(conns.stream()
-                                                                           .collect(Collectors.toMap(c -> c.getId(),
-                                                                                                     c -> c,
-                                                                                                     (c1, c2) -> c1)));
+    // Set<String> connsSnapshot =
+    // Collections.unmodifiableSet(conns.stream().map(cid ->
+    // cid.getId()).collect(Collectors.toSet()));
+    /*
+     * .collect(Collectors.toMap(c -> c.getId(), c -> c, (c1, c2) -> c1)));
+     */
+    Set<String> connsSnapshot = Collections.unmodifiableSet(socialStorage.getConnections(id));
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Loaded all connections of {}: {}", id.getRemoteId(), connsSnapshot.size());
+    }
+
+    Collection<Space> spaces = loadListAll(spaceService.getMemberSpaces(id.getRemoteId()));
     Map<String, SpaceSnapshot> spacesSnapshot =
                                               Collections.unmodifiableMap(spaces.stream()
                                                                                 .collect(Collectors.toMap(s -> s.getId(),
                                                                                                           s -> new SpaceSnapshot(s),
                                                                                                           (s1, s2) -> s1)));
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Loaded all spaces of {}: {}", id.getRemoteId(), spaces.size());
+    }
+
     UserSnapshot userSnapshot = new UserSnapshot(id, connsSnapshot, spacesSnapshot);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Created user snapshot for {}", id.getRemoteId());
+    }
     return userSnapshot;
   }
 
@@ -1552,7 +1593,7 @@ public class SocialDataCollectorService implements Startable {
     aline.append(reactivity).append(',');
 
     final String myId = user.getIdentity().getId();
-    final Collection<String> myConns = user.getConnections().keySet();
+    final Collection<String> myConns = user.getConnections();
 
     boolean participatedByMe = false;
     boolean participatedByConns = false;
@@ -1908,9 +1949,9 @@ public class SocialDataCollectorService implements Startable {
 
       if (top.size() < topLength) {
         // Add user connections who were logged-in
-        Iterator<Identity> citer = user.getConnections().values().iterator();
+        Iterator<String> citer = user.getConnections().iterator();
         while (citer.hasNext() && top.size() < topLength) {
-          String cid = citer.next().getId();
+          String cid = citer.next();
           // TODO if (wasUserLoggedin(cid, activityScopeTimeBegin,
           // activityScopeTimeEnd)) {
           top.computeIfAbsent(cid, p -> new ActivityParticipant(p, false, false));
@@ -2041,7 +2082,7 @@ public class SocialDataCollectorService implements Startable {
   protected SpaceIdentity getSpaceIdentityByName(String spaceName) {
     return getMapped_OLD(spaceIdentities,
                          spaceName,
-                         name -> identityManager.getOrCreateIdentity(SpaceIdentityProvider.NAME, name, false),
+                         name -> socialIdentity(SpaceIdentityProvider.NAME, name),
                          socId -> spaceIdentity(socId),
                          socId -> socId.getId());
   }
@@ -2049,7 +2090,7 @@ public class SocialDataCollectorService implements Startable {
   protected SpaceIdentity getSpaceIdentityById(String spaceId) {
     return getMapped_OLD(spaceIdentities,
                          spaceId,
-                         id -> identityManager.getIdentity(id, false),
+                         id -> socialIdentity(id),
                          socId -> spaceIdentity(socId),
                          socId -> socId.getRemoteId());
   }
@@ -2058,7 +2099,7 @@ public class SocialDataCollectorService implements Startable {
   protected UserIdentity getUserIdentityByName_OLD(String userName) {
     return getMapped_OLD(userIdentities,
                          userName,
-                         name -> identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, name, false),
+                         name -> socialIdentity(OrganizationIdentityProvider.NAME, name),
                          socId -> userIdentity(socId),
                          socId -> socId.getId());
   }
@@ -2068,23 +2109,10 @@ public class SocialDataCollectorService implements Startable {
       // Reading from the storage, if not exists - getting from Social API
       IdentityProfileEntity persisted = identityProfileStorage.findByName(userName);
       if (persisted != null) {
-        String gender = null;
-        if (persisted.getContext() != null) {
-          gender = Arrays.asList("gendser:null".split(";"))
-                         .stream()
-                         .filter(key -> key.contains("gender:"))
-                         .findFirst()
-                         .orElse(null);
-          if (gender != null) {
-            String[] genderParam = gender.split(":");
-            gender = genderParam.length > 1 ? genderParam[1] : null;
-          }
-        }
-
-        return new UserIdentity(persisted.getId(), persisted.getName(), gender, persisted.getFocus());
+        return userIdentity(persisted);
       }
 
-      Identity socId = identityManager.getOrCreateIdentity(OrganizationIdentityProvider.NAME, name, false);
+      Identity socId = socialIdentity(OrganizationIdentityProvider.NAME, name);
       if (socId != null) {
         UserIdentity uid = userIdentity(socId);
         // Save IdentityProfileEntry to the storage
@@ -2107,7 +2135,7 @@ public class SocialDataCollectorService implements Startable {
   protected UserIdentity getUserIdentityById_OLD(String identityId) {
     return getMapped_OLD(userIdentities,
                          identityId,
-                         id -> identityManager.getIdentity(id, false),
+                         id -> socialIdentity(id),
                          socId -> userIdentity(socId),
                          socId -> socId.getRemoteId());
   }
@@ -2117,24 +2145,10 @@ public class SocialDataCollectorService implements Startable {
       // Reading from the storage, if not exists - getting from Social API
       IdentityProfileEntity persisted = identityProfileStorage.findById(identityId);
       if (persisted != null) {
-        String gender = null;
-        if (persisted.getContext() != null) {
-          gender = Arrays.asList("gendser:null".split(";"))
-                         .stream()
-                         .filter(key -> key.contains("gender:"))
-                         .findFirst()
-                         .orElse(null);
-          if (gender != null) {
-            String[] genderParam = gender.split(":");
-            gender = genderParam.length > 1 ? genderParam[1] : null;
-          }
-
-        }
-
-        return new UserIdentity(persisted.getId(), persisted.getName(), gender, persisted.getFocus());
+        return userIdentity(persisted);
       }
 
-      Identity socId = identityManager.getIdentity(id, false);
+      Identity socId = socialIdentity(id);
       if (socId != null) {
         UserIdentity uid = userIdentity(socId);
         // Save IdentityProfileEntry to the storage
@@ -2249,7 +2263,7 @@ public class SocialDataCollectorService implements Startable {
     if (LOG.isDebugEnabled()) {
       LOG.debug(">> Get social profile: {} ( {} ) <<", id, userName);
     }
-    Profile socProfile = identityManager.getProfile(socId);
+    Profile socProfile = socialProfile(socId);
     if (socProfile != null) {
       return new UserIdentity(id, userName, socProfile.getGender(), findFocus(socProfile.getPosition()));
     } else {
@@ -2260,8 +2274,43 @@ public class SocialDataCollectorService implements Startable {
     }
   }
 
+  protected UserIdentity userIdentity(IdentityProfileEntity profileEntity) {
+    String gender = null;
+    if (profileEntity.getContext() != null) {
+      gender = Arrays.asList(profileEntity.getContext().split(";"))
+                     .stream()
+                     .filter(key -> key.contains("gender:"))
+                     .findFirst()
+                     .orElse(null);
+      if (gender != null) {
+        String[] genderParam = gender.split(":");
+        gender = genderParam.length > 1 ? genderParam[1] : null;
+      }
+    }
+    return new UserIdentity(profileEntity.getId(), profileEntity.getName(), gender, profileEntity.getFocus());
+  }
+
+  @ExoTransactional
   protected SpaceIdentity spaceIdentity(Identity socId) {
     return new SpaceIdentity(socId.getId(), socId.getRemoteId());
+  }
+
+  @ExoTransactional
+  protected Identity socialIdentity(String porviderId, String name) {
+    // We do in ExoTransactional to avoid org-service/hibernate tx problems
+    return identityManager.getOrCreateIdentity(porviderId, name, false);
+  }
+
+  @ExoTransactional
+  protected Identity socialIdentity(String id) {
+    // We do in ExoTransactional to avoid org-service/hibernate tx problems
+    return identityManager.getIdentity(id, false);
+  }
+
+  @ExoTransactional
+  protected Profile socialProfile(Identity id) {
+    // We do in ExoTransactional to avoid org-service/hibernate tx problems
+    return identityManager.getProfile(id);
   }
 
   @Deprecated // TODO not used

@@ -34,7 +34,7 @@ public class UserSnapshot {
 
   protected final Identity                   identity;
 
-  protected final Map<String, Identity>      connections;
+  protected final Set<String>      connections;
 
   protected final Map<String, SpaceSnapshot> spaces;
 
@@ -49,7 +49,7 @@ public class UserSnapshot {
    * @param connections the connections
    * @param spaces the spaces
    */
-  protected UserSnapshot(Identity identity, Map<String, Identity> connections, Map<String, SpaceSnapshot> spaces) {
+  protected UserSnapshot(Identity identity, Set<String> connections, Map<String, SpaceSnapshot> spaces) {
     super();
     this.identity = identity;
     this.connections = connections;
@@ -98,7 +98,7 @@ public class UserSnapshot {
    *
    * @return the connections
    */
-  public Map<String, Identity> getConnections() {
+  public Set<String> getConnections() {
     return connections;
   }
 

@@ -21,15 +21,15 @@ import org.exoplatform.services.log.Log;
  */
 public class DockerScriptsExecutor extends BaseComponentPlugin implements ModelExecutor {
 
-  protected static final Log    LOG                       = ExoLogger.getExoLogger(DockerScriptsExecutor.class);
+  public static final String  EXEC_CONTAINER_NAME_PARAM = "exec-container-name";
 
-  protected static final String EXEC_CONTAINER_NAME_PARAM = "exec-container-name";
+  protected static final Log  LOG                       = ExoLogger.getExoLogger(DockerScriptsExecutor.class);
 
-  protected final FileStorage   fileStorage;
+  protected final FileStorage fileStorage;
 
-  protected final String        dockerScriptPath;
+  protected final String      dockerScriptPath;
 
-  protected final String        execContainerName;
+  protected final String      execContainerName;
 
   public DockerScriptsExecutor(FileStorage fileStorage, InitParams initParams) {
     this.fileStorage = fileStorage;
@@ -38,7 +38,7 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements ModelE
       ValueParam execContainerNameParam = initParams.getValueParam(EXEC_CONTAINER_NAME_PARAM);
       execContainerName = execContainerNameParam.getValue();
     } catch (Exception e) {
-      LOG.info("Configuration of exec-container-name not found. Docker containers will be created automatically.");
+      LOG.info("Configuration of {} not found. Docker containers will be created automatically.", EXEC_CONTAINER_NAME_PARAM);
       execContainerName = null;
     }
     if (execContainerName == null || execContainerName.trim().isEmpty()) {

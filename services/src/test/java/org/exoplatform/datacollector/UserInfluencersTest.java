@@ -3,7 +3,9 @@ package org.exoplatform.datacollector;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.junit.Assert;
@@ -31,7 +33,7 @@ public class UserInfluencersTest {
     Identity john = new Identity("john");
     Identity jack = new Identity("jack");
     Identity alice = new Identity("alice");
-    List<Identity> connections = Arrays.asList(mary, john, jack);
+    Set<String> connections = new LinkedHashSet<>(Arrays.asList(mary.getId(), john.getId(), jack.getId()));
 
     Space spaceMarketing = new Space();
     spaceMarketing.setId("marketing_team");
@@ -48,10 +50,7 @@ public class UserInfluencersTest {
     List<Space> spaces = Arrays.asList(spaceMarketing, spaceSupport);
 
     userInfluencers = new UserInfluencers(james,
-                                          Collections.unmodifiableMap(connections.stream()
-                                                                                 .collect(Collectors.toMap(c -> c.getId(),
-                                                                                                           c -> c,
-                                                                                                           (c1, c2) -> c1))),
+                                          connections,
                                           Collections.unmodifiableMap(spaces.stream()
                                                                             .collect(Collectors.toMap(s -> s.getId(),
                                                                                                       s -> new SpaceSnapshot(s),

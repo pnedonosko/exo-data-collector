@@ -48,6 +48,10 @@
     <key>org.exoplatform.services.scheduler.JobSchedulerService</key>
     <type>org.exoplatform.commons.testing.mock.MockJobSchedulerService</type>
   </component>
+  
+  <component>
+    <type>org.exoplatform.commons.persistence.impl.EntityManagerService</type>
+  </component>
 
   <component>
     <key>org.exoplatform.services.cache.CacheService</key>
