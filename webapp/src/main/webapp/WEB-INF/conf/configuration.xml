@@ -106,6 +106,10 @@
           <name>exec-environment</name>
           <value>${exo.prediction.script.trainEnv:}</value>
         </value-param>
+        <value-param>
+          <name>exec-directory</name>
+          <value>${exo.prediction.script.trainDir:}</value>
+        </value-param>
       </init-params>
     </component-plugin>
   </external-component-plugins>
@@ -120,6 +124,10 @@
         <value-param>
           <name>exec-environment</name>
           <value>${exo.prediction.script.predictEnv:}</value>
+        </value-param>
+        <value-param>
+          <name>exec-directory</name>
+          <value>${exo.prediction.script.predictDir:}</value>
         </value-param>
       </init-params>
     </component-plugin>

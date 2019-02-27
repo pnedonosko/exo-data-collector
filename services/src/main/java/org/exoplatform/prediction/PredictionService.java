@@ -20,12 +20,12 @@ package org.exoplatform.prediction;
 
 import static org.exoplatform.datacollector.ListAccessUtil.BATCH_SIZE;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.persistence.PersistenceException;
 
@@ -33,6 +33,7 @@ import org.picocontainer.Startable;
 
 import org.exoplatform.container.component.ComponentPlugin;
 import org.exoplatform.datacollector.SocialDataCollectorService;
+import org.exoplatform.datacollector.storage.FileStorage.ModelFile;
 import org.exoplatform.prediction.model.domain.ModelEntity;
 import org.exoplatform.prediction.model.domain.ModelEntity.Status;
 import org.exoplatform.services.log.ExoLogger;
@@ -88,20 +89,20 @@ public class PredictionService implements Startable {
       // it. If loaded 100 activities ends we load next batch and so on.
       // TODO it's not very smart indeed, as need preload all by time period
 
-      int minSize = index + limit;
-      if (minSize > idsOrdered.size()) {
+      int needSize = index + limit;
+      if (needSize > idsOrdered.size()) {
         int batchIndex = idsOrdered.size();
-        int toRead = minSize - batchIndex;
+        int toRead = needSize - batchIndex;
         int batchLimit = toRead < BATCH_SIZE ? BATCH_SIZE : toRead;
         List<String> nextBatch = predictActivityIdOrder(super.loadIdsAsList(batchIndex, batchLimit));
         idsOrdered.addAll(nextBatch);
       }
 
       List<String> theList;
-      if (idsOrdered.size() == minSize) {
+      if (idsOrdered.size() == needSize) {
         theList = idsOrdered;
-      } else if (idsOrdered.size() > minSize) {
-        theList = idsOrdered.subList(index, limit);
+      } else if (idsOrdered.size() > needSize) {
+        theList = idsOrdered.subList(index, needSize);
       } else if (idsOrdered.size() > index) {
         theList = idsOrdered.subList(index, idsOrdered.size());
       } else {
@@ -116,7 +117,6 @@ public class PredictionService implements Startable {
     @Override
     public List<ExoSocialActivity> loadAsList(int index, int limit) {
       // TODO do we really need for Smart Activity?
-      // return super.loadAsList(index, limit);
       throw new PredictionNotSupportedException("Not implemented");
     }
 
@@ -125,7 +125,6 @@ public class PredictionService implements Startable {
      */
     @Override
     public List<ExoSocialActivity> loadNewer(ExoSocialActivity baseActivity, int length) {
-      // return super.loadNewer(baseActivity, length);
       throw new PredictionNotSupportedException("Not implemented");
     }
 
@@ -134,7 +133,6 @@ public class PredictionService implements Startable {
      */
     @Override
     public List<ExoSocialActivity> loadOlder(ExoSocialActivity baseActivity, int length) {
-      // return super.loadOlder(baseActivity, length);
       throw new PredictionNotSupportedException("Not implemented");
     }
 
@@ -143,7 +141,6 @@ public class PredictionService implements Startable {
      */
     @Override
     public List<ExoSocialActivity> getUpadtedActivities(Long sinceTime, int limit) {
-      // return super.getUpadtedActivities(sinceTime, limit);
       throw new PredictionNotSupportedException("Not implemented");
     }
 
@@ -152,7 +149,6 @@ public class PredictionService implements Startable {
      */
     @Override
     public List<ExoSocialActivity> loadNewer(Long sinceTime, int limit) {
-      // return super.loadNewer(sinceTime, limit);
       throw new PredictionNotSupportedException("Not implemented");
     }
 
@@ -161,7 +157,6 @@ public class PredictionService implements Startable {
      */
     @Override
     public List<ExoSocialActivity> loadOlder(Long sinceTime, int limit) {
-      // return super.loadOlder(sinceTime, limit);
       throw new PredictionNotSupportedException("Not implemented");
     }
 
@@ -169,19 +164,17 @@ public class PredictionService implements Startable {
 
     protected List<String> predictActivityIdOrder(List<String> origin) {
       if (LOG.isDebugEnabled()) {
-        LOG.debug("Activities order before prediction: ");
-        origin.forEach(LOG::info);
+        LOG.debug("Activities order before prediction: {}", origin.stream().collect(Collectors.joining(" ")));
       }
       List<String> ordered = new ArrayList<>();
-      File dataset = new File(collector.collectActivitiesByIds(userIdentity, origin));
+      ModelFile dataset = collector.collectActivitiesByIds(userIdentity, origin);
       try {
-        File predicted = scriptsExecutor.predict(dataset);
+        ModelFile predicted = scriptsExecutor.predict(dataset);
         try {
           // We skip a header at first line
           Files.lines(predicted.toPath()).skip(1).forEach(ordered::add);
           if (LOG.isDebugEnabled()) {
-            LOG.debug("Activities order after prediction: ");
-            ordered.forEach(LOG::info);
+            LOG.debug("Activities order after prediction: {}", ordered.stream().collect(Collectors.joining(" ")));
           }
         } catch (IOException e) {
           LOG.error("Cannot read the dataset after prediction", e);
@@ -226,9 +219,6 @@ public class PredictionService implements Startable {
    * @return the user stream feed
    */
   public ActivitiesRealtimeListAccess getUserActivityFeed(Identity userIdentity) {
-    // TODO:
-    // 1) load the updated data (CSV) and order the user feed according the rank
-    // 2) return ordered feed as LazyPredictFileListAccess
     return new LazyPredictFileListAccess(userIdentity);
   }
 
@@ -247,7 +237,6 @@ public class PredictionService implements Startable {
    */
   @Override
   public void stop() {
-    // TODO any?
   }
 
   /**
@@ -259,7 +248,7 @@ public class PredictionService implements Startable {
    */
   public boolean canPredict(String userName) {
     ModelEntity lastModel = lastModel(userName);
-    return lastModel != null && training.valid(lastModel) && lastModel.getStatus() == Status.READY;
+    return lastModel != null && lastModel.getStatus() == Status.READY;
   }
 
   /**
@@ -284,7 +273,7 @@ public class PredictionService implements Startable {
       return training.getLastModel(userName);
     } catch (PersistenceException e) {
       LOG.error("Error reading last model for {}", userName, e);
-      return null;
     }
+    return null;
   }
 }

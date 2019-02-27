@@ -75,6 +75,7 @@ import org.exoplatform.datacollector.identity.SpaceIdentity;
 import org.exoplatform.datacollector.identity.UserIdentity;
 import org.exoplatform.datacollector.social.SocialStorage;
 import org.exoplatform.datacollector.storage.FileStorage;
+import org.exoplatform.datacollector.storage.FileStorage.ModelFile;
 import org.exoplatform.datacollector.storage.StorageException;
 import org.exoplatform.platform.gadget.services.LoginHistory.LastLoginBean;
 import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryBean;
@@ -763,41 +764,38 @@ public class SocialDataCollectorService implements Startable {
    *
    * @param id the social identity
    * @param activities the activities to collect into dataset
-   * @return the string with a path to a dataset
+   * @return the dataset for prediction
    */
-  public String collectActivities(Identity id, Collection<ExoSocialActivity> activities) {
-    if (id != null) {
-      ModelEntity lastModel = lastModel(id.getRemoteId());
-      if (lastModel != null && lastModel.getStatus() == Status.READY) {
-        // TODO Fix bucket name extraction after rework to relative paths
-        // Ready model should have a model file - extract bucket name from it
-        // TODO Should we store paths in the DB at all, may be bucket name will
-        // be enough? And then we use predefined sub-tree
-        // ($bucketName/$modelName/$dataFile).
-        String modelFile = lastModel.getModelFile();
-        // TODO compile path in FileStorage?
-        // File bucketDir = fileStorage.getBucketDir(bucketName);
-        String bucketName = modelFile.substring(0, modelFile.lastIndexOf("/" + id.getRemoteId() + "/model"));
-        bucketName = bucketName.substring(bucketName.lastIndexOf("/"));
-        File datasetFile = new File(modelFile.replace("/model", "/predict.csv"));
-        try (PrintWriter writer = new PrintWriter(datasetFile)) {
-          UserSnapshot user = getUserSnapshot(bucketName, id);
+  public ModelFile collectActivities(Identity id, Collection<ExoSocialActivity> activities) {
+    ModelEntity model = lastModel(id.getRemoteId());
+    if (model != null && model.getStatus() == Status.READY) {
+      String modelPath = model.getModelFile();
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Collecting predicting dataset for model {}[{}] into {}", model.getName(), model.getVersion(), modelPath);
+      }
+      ModelFile predictDataset = fileStorage.findUserModel(modelPath).getPredictDataset();
+      if (predictDataset != null) {
+        try (PrintWriter writer = new PrintWriter(predictDataset)) {
+          UserSnapshot user = getUserSnapshot(predictDataset.getUserDir().getBucketDir().getName(), id);
           if (user != null) {
             writeUserActivities(user, activities.iterator(), writer, false);
             if (LOG.isDebugEnabled()) {
-              LOG.debug("Saved user predicting dataset into bucket file: {}", datasetFile.getAbsolutePath());
+              LOG.debug("Saved predicting dataset for model {}[{}] into {}",
+                        model.getName(),
+                        model.getVersion(),
+                        predictDataset.getModelPath());
             }
-            return datasetFile.getAbsolutePath();
+            return predictDataset;
           } else {
-            LOG.warn("User snapshot not found for {}", id.getRemoteId());
+            LOG.warn("User snapshot not found for model {}[{}]", model.getName(), model.getVersion());
           }
         } catch (Exception e) {
-          LOG.error("Cannot collect predicting dataset for {}", id.getRemoteId(), e);
-          datasetFile.delete();
+          LOG.error("Cannot collect predicting dataset for model {}[{}]", model.getName(), model.getVersion(), e);
+          predictDataset.delete();
         }
-      } else {
-        LOG.warn("User model not found or not ready for {}", id.getRemoteId());
       }
+    } else {
+      LOG.warn("User model not found or not ready for {}", id.getRemoteId());
     }
     return null;
   }
@@ -807,14 +805,11 @@ public class SocialDataCollectorService implements Startable {
    *
    * @param id the social identity
    * @param activityIds the activity IDs
-   * @return the string with a path to inferring dataset
+   * @return the dataset for prediction
    */
-  public String collectActivitiesByIds(Identity id, List<String> activityIds) {
-    if (id != null) {
-      List<ExoSocialActivity> activities = activityManager.getActivities(activityIds);
-      return collectActivities(id, activities);
-    }
-    return null;
+  public ModelFile collectActivitiesByIds(Identity id, List<String> activityIds) {
+    List<ExoSocialActivity> activities = activityManager.getActivities(activityIds);
+    return collectActivities(id, activities);
   }
 
   /**
@@ -905,7 +900,6 @@ public class SocialDataCollectorService implements Startable {
 
     long sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
 
-    File bucketDir = fileStorage.getBucketDir(bucketName);
     Iterator<Identity> idIter = loadListIterator(identityManager.getIdentitiesByProfileFilter(OrganizationIdentityProvider.NAME,
                                                                                               new ProfileFilter(),
                                                                                               true));
@@ -913,7 +907,7 @@ public class SocialDataCollectorService implements Startable {
       final UserIdentity id = cacheUserIdentity(userIdentity(idIter.next()));
       submitCollector(id.getRemoteId(), bucketName, sinceTime);
     }
-
+    File bucketDir = fileStorage.getBucketDir(bucketName);
     if (Thread.currentThread().isInterrupted()) {
       LOG.warn("Saving of dataset interrupted for bucketRecords: {}", bucketName);
       // Clean the bucketRecords files
@@ -960,10 +954,9 @@ public class SocialDataCollectorService implements Startable {
    * @return the dataset file
    * @throws DatasetException the dataset exception
    */
-  protected File collectUserFeed(String userName, String bucketName, long sinceTime) throws DatasetException {
-    File bucketDir = fileStorage.getBucketDir(bucketName);
+  protected ModelFile collectUserFeed(String userName, String bucketName, long sinceTime) throws DatasetException {
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Saving user dataset into bucket folder: {}", bucketDir.getAbsolutePath());
+      LOG.debug("Saving user dataset into: {}/{}", bucketName, userName);
     }
     final UserIdentity id = getUserIdentityByName(userName);
     if (id != null) {
@@ -975,10 +968,7 @@ public class SocialDataCollectorService implements Startable {
       // snapshot and only then request the feed via into an iterator.
       int minFeedSize = activityManager.getActivityFeedWithListAccess(id).loadNewer(sinceTime, MIN_FEED_SIZE).size();
       if (minFeedSize >= MIN_FEED_SIZE) {
-        // TODO compile path in FileStorage?
-        final File datasetFile = new File(bucketDir.getPath() + "/" + id.getRemoteId() + "/training.csv");
-        datasetFile.getParentFile().mkdirs();
-
+        ModelFile datasetFile = fileStorage.getBucketDir(bucketName).getUserDir(id.getRemoteId()).getTrainingDataset();
         try (PrintWriter writer = new PrintWriter(datasetFile)) {
           // Prepare an user state snapshot, it should not be modified until
           // another collecting - this can be looooong operation, a hour+ if
@@ -1001,7 +991,7 @@ public class SocialDataCollectorService implements Startable {
           // save/cache user snapshot only after successful write
           saveUserSnapshot(bucketName, user);
           if (LOG.isDebugEnabled()) {
-            LOG.debug("Saved user dataset into bucket file: {}", datasetFile.getAbsolutePath());
+            LOG.debug("Saved user dataset into bucket file: {}", datasetFile.getModelPath());
           }
           return datasetFile;
         } catch (Exception e) { // this includes PersistenceException
@@ -1034,9 +1024,7 @@ public class SocialDataCollectorService implements Startable {
           ModelEntity currentModel = lastModel(job.userName/* , Status.RETRY */);
           if (currentModel != null) {
             if (currentModel.getStatus() == Status.READY) {
-              if (trainingService.valid(currentModel)) {
-                readyModel = currentModel;
-              }
+              readyModel = currentModel;
               currentModel = null;
             } else if (currentModel.getStatus() == Status.RETRY) {
               // If we have a model to RETRY - use it with new sinceTime
@@ -1072,7 +1060,7 @@ public class SocialDataCollectorService implements Startable {
             if (readyModel == null) {
               readyModel = lastModel(job.userName, Status.READY);
             }
-            if (readyModel != null && trainingService.valid(readyModel)) {
+            if (readyModel != null) {
               // TODO do we need subtract a time gap (e.g. 100ms) from the
               // created time to catch in calculation activities that happened
               // while the previous model collected and saved?
@@ -1094,26 +1082,30 @@ public class SocialDataCollectorService implements Startable {
             currentModel = trainingService.addModel(job.userName, null);
           }
           try {
-            File dataset = collectUserFeed(job.userName, job.bucketName.get(), job.sinceTime.get());
+            ModelFile dataset = collectUserFeed(job.userName, job.bucketName.get(), job.sinceTime.get());
             if (dataset != null) {
               // Start process of the model training
               // TODO as collecting may take time: do we need (re)new JPA
               // session/transaction or re-get the model object?
-              trainingService.trainModel(currentModel, dataset.getAbsolutePath(), incrementally);
+              trainingService.trainModel(currentModel, dataset, incrementally);
             }
           } catch (DatasetException e) {
             if (currentModel.getStatus() == Status.RETRY) {
               currentModel.setStatus(Status.FAILED_DATASET);
               trainingService.update(currentModel);
-              LOG.error("Model with dateset {} got status FAILED_DATASET. Cannot collect dataset.",
+              LOG.error("Cannot collect dataset {} for model {}[{}].",
                         job.bucketName.get() + "/" + job.userName,
+                        currentModel.getName(),
+                        currentModel.getVersion(),
                         e);
             } else {
               currentModel.setStatus(Status.RETRY);
               trainingService.update(currentModel);
               queueInMainLoop(job.userName);
-              LOG.warn("Model with dataset {} got status RETRY. Cannot collect dataset due to error {}. Added to next bucket.",
+              LOG.warn("Dataset {} collecting failed and will be retried for model {}[{}]. Error: {}",
                        job.bucketName.get() + "/" + job.userName,
+                       currentModel.getName(),
+                       currentModel.getVersion(),
                        e.getMessage());
             }
           }
@@ -1188,13 +1180,6 @@ public class SocialDataCollectorService implements Startable {
    */
   @Deprecated
   protected void collectUserActivities_OLD(UserIdentity id, PrintWriter out, boolean withRank) throws Exception {
-    // TODO split this method on parts:
-    // 1) consume parameter with UserSnapshot and Iterator<ExoSocialActivity>
-    // 2) go over the iterator and write the dataset
-    // 3) UserSnapshot should obtained in separate method (and used where
-    // required)
-    // 4) activities iterator - it's all we want put in the dataset
-
     if (LOG.isDebugEnabled()) {
       LOG.debug("> Collecting user activities for {}", id.getRemoteId());
     }
@@ -1311,9 +1296,6 @@ public class SocialDataCollectorService implements Startable {
 
   @ExoTransactional // for users with lot of data that can read long
   private UserSnapshot readUserSnapshot(Identity id) throws Exception {
-    // TODO read user snapshot from DB:
-    // 1) connections and spaces from Social
-    // 2) influencers from collector tables
     if (LOG.isDebugEnabled()) {
       LOG.debug("> Reading user snapshot for {}", id.getRemoteId());
     }
@@ -1414,21 +1396,6 @@ public class SocialDataCollectorService implements Startable {
     if (LOG.isDebugEnabled()) {
       LOG.debug("Creating user snapshot for {}", id.getRemoteId());
     }
-    // FYI getting of 29800 connections takes 1hr 10min on AI Lab server
-    // TODO we need update these lists in runtime to reflect where user will
-    // connect/disconnect and join/leave spaces
-
-    // Collection<Identity> conns = relationshipStorage.getConnections(id);
-    // Collection<Identity> conns =
-    // loadListAll(identityManager.getConnectionsWithListAccess(id));
-    // XXX Collector with merge function to solve duplicates in source
-    // collections (may have place for connections)
-    // Set<String> connsSnapshot =
-    // Collections.unmodifiableSet(conns.stream().map(cid ->
-    // cid.getId()).collect(Collectors.toSet()));
-    /*
-     * .collect(Collectors.toMap(c -> c.getId(), c -> c, (c1, c2) -> c1)));
-     */
     Set<String> connsSnapshot = Collections.unmodifiableSet(socialStorage.getConnections(id));
     if (LOG.isDebugEnabled()) {
       LOG.debug("Loaded all connections of {}: {}", id.getRemoteId(), connsSnapshot.size());
@@ -1538,8 +1505,7 @@ public class SocialDataCollectorService implements Startable {
       rank = new ActivityRank();
     }
     StringBuilder aline = new StringBuilder();
-    // Activity identification & type
-    // ID
+    // Activity identification & type ID
     aline.append(activity.getId()).append(',');
     // title: escape comma in the text to avoid problems with separator
     // aline.append(activity.getTitle().replace(',', '_')).append(',');
@@ -2380,10 +2346,7 @@ public class SocialDataCollectorService implements Startable {
 
   protected ModelEntity lastModel(String userName) {
     try {
-      ModelEntity model = trainingService.getLastModel(userName);
-      if (model != null && trainingService.valid(model)) {
-        return model;
-      }
+      return trainingService.getLastModel(userName);
     } catch (PersistenceException e) {
       LOG.error("Error reading last model for {}", userName, e);
     }
@@ -2395,8 +2358,8 @@ public class SocialDataCollectorService implements Startable {
       return trainingService.getLastModel(userName, status);
     } catch (PersistenceException e) {
       LOG.error("Error reading last model for {}:{}", userName, status, e);
-      return null;
     }
+    return null;
   }
 
   protected String nextMainBucketName() {

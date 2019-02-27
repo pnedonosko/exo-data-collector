@@ -48,17 +48,374 @@ public class FileStorage {
 
   public static final String FILE_TIMESTAMP_FORMAT  = "yyyy-MM-dd_HHmmss.SSSS";
 
-  protected File             trainingScript;
+  protected static String childName(File parent, String name) {
+    return new StringBuilder(parent.getName()).append(File.separatorChar).append(name).toString();
+  }
 
-  protected File             predictionScript;
+  protected static String childName(String parentName, String name) {
+    return new StringBuilder(parentName).append(File.separatorChar).append(name).toString();
+  }
 
-  protected File             datasetutilsScript;
+  public final class WorkDir extends java.io.File {
 
-  protected File             dockerRunScript;
+    /**
+     * 
+     */
+    private static final long serialVersionUID = -4356363994222850622L;
 
-  protected File             dockerExecScript;
+    WorkDir(String localPath) {
+      super(localPath);
+    }
 
-  protected InitParams       initParams;
+    /**
+     * Return a regular directory, create it if not found.
+     *
+     * @return the directory file
+     */
+    protected ScriptsDir scriptsDir() {
+      return new ScriptsDir(this);
+    }
+
+    /**
+     * Data directory.
+     *
+     * @return the data directory
+     */
+    protected DataDir dataDir() {
+      return new DataDir(this);
+    }
+
+    /**
+     * Return a regular file. File may or may not to exist.
+     *
+     * @param name the name
+     * @return the file
+     */
+    protected File childFile(String name) {
+      return new File(this, name);
+    }
+
+    /**
+     * Return a regular directory. Directory may or may not to exist.
+     *
+     * @param name the name
+     * @return the directory
+     */
+    protected File childDir(String name) {
+      File dir = new File(this, name);
+      dir.mkdir();
+      return dir;
+    }
+  }
+
+  public abstract class StorageFile extends java.io.File {
+
+    /**
+     * 
+     */
+    private static final long serialVersionUID = 7366628329528836527L;
+
+    protected final File      parent;
+
+    protected final String    storagePath;
+
+    private StorageFile(WorkDir parent, String name) {
+      super(parent, name);
+      this.parent = parent;
+      // FYI, these fields will not be updated if move file!
+      this.storagePath = name;
+    }
+
+    protected StorageFile(StorageFile parent, String name) {
+      super(parent, name);
+      this.parent = parent;
+      // FYI, these fields will not be updated if move file!
+      this.storagePath = childName(parent.getStoragePath(), name);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public File getParentFile() {
+      return parent;
+    }
+
+    /**
+     * Gets the storage path. It's path relative the root of the storage (aka
+     * work directory).
+     *
+     * @return the storage path
+     */
+    public final String getStoragePath() {
+      return storagePath;
+    }
+  }
+
+  public final class ScriptsDir extends StorageFile {
+
+    /**
+     * 
+     */
+    private static final long serialVersionUID = -5329453369464173480L;
+
+    protected final WorkDir   parent;
+
+    protected ScriptsDir(WorkDir parent) {
+      super(parent, "scripts".intern());
+      this.parent = parent;
+    }
+
+    public WorkDir getWorkDir() {
+      return parent;
+    }
+
+    /**
+     * Get a child file by a name.
+     *
+     * @param name the name
+     * @return the file
+     */
+    public ScriptFile getScript(String name) {
+      return new ScriptFile(this, name);
+    }
+  }
+
+  public class ScriptFile extends StorageFile {
+
+    /**
+     * 
+     */
+    private static final long  serialVersionUID = 63126458525495498L;
+
+    protected final ScriptsDir parent;
+
+    protected ScriptFile(ScriptsDir parent, String name) {
+      super(parent, name);
+      this.parent = parent;
+    }
+
+    public ScriptsDir getScriptsDir() {
+      return parent;
+    }
+  }
+
+  public final class DataDir extends StorageFile {
+
+    /**
+     * 
+     */
+    private static final long serialVersionUID = -2679190438377054376L;
+
+    protected WorkDir         parent;
+
+    protected DataDir(WorkDir parent) {
+      super(parent, "data".intern());
+      this.parent = parent;
+    }
+
+    /**
+     * Gets the work directory where this data folder saved.
+     *
+     * @return the work directory
+     */
+    public WorkDir getWorkDir() {
+      return parent;
+    }
+
+    public BucketDir getBucketDir(String name) {
+      BucketDir bucketDir = buketDir(name);
+      bucketDir.mkdir();
+      if (!bucketDir.exists()) {
+        LOG.warn("Bucket directory cannot be found: {}", bucketDir.getAbsolutePath());
+      }
+      return bucketDir;
+    }
+
+    protected BucketDir buketDir(String name) {
+      return new BucketDir(this, name);
+    }
+  }
+
+  public final class BucketDir extends StorageFile {
+    /**
+     * 
+     */
+    private static final long serialVersionUID = 3670813842514317016L;
+
+    protected DataDir         parent;
+
+    protected BucketDir(DataDir parent, String name) {
+      super(parent, name);
+      this.parent = parent;
+    }
+
+    /**
+     * Gets the data directory where this bucket saved.
+     *
+     * @return the data directory
+     */
+    public DataDir getDataDir() {
+      return parent;
+    }
+
+    public UserDir getUserDir(String name) {
+      UserDir userDir = userDir(name);
+      userDir.mkdir();
+      if (!userDir.exists()) {
+        LOG.warn("User directory cannot be found: {}", userDir.getAbsolutePath());
+      }
+      return userDir;
+    }
+
+    protected UserDir userDir(String name) {
+      return new UserDir(this, name);
+    }
+  }
+
+  protected abstract class DataFile extends StorageFile {
+    /**
+     * 
+     */
+    private static final long serialVersionUID = -7751434499242337542L;
+
+    private final String      modelPath;
+
+    protected DataFile(BucketDir parent, String name) {
+      super(parent, name);
+      // FYI, these fields will not be updated if move file!
+      this.modelPath = childName(parent.getName(), name);
+    }
+
+    protected DataFile(DataFile parent, String name) {
+      super(parent, name);
+      this.modelPath = parent.getModelPath();
+    }
+
+    /**
+     * Gets the path of a processing model storage where this file is saved.
+     * It's relative path to a storage's data directory, thus it includes a
+     * bucket and model name (e.g. /main5/john).
+     *
+     * @return the model directory path
+     */
+    public final String getModelPath() {
+      return modelPath;
+    }
+  }
+
+  public class ModelFile extends DataFile {
+
+    /**
+     * 
+     */
+    private static final long serialVersionUID = -4043933204869462822L;
+
+    protected final UserDir   parent;
+
+    protected ModelFile(UserDir parent, String name) {
+      super(parent, name);
+      this.parent = parent;
+    }
+
+    /**
+     * Gets the user directory where this user file saved.
+     *
+     * @return the user directory
+     */
+    public UserDir getUserDir() {
+      return parent;
+    }
+  }
+
+  public class UserDir extends DataFile {
+
+    /**
+     * 
+     */
+    private static final long serialVersionUID = -2679190438377054376L;
+
+    protected final BucketDir parent;
+
+    protected UserDir(BucketDir parent, String name) {
+      super(parent, name);
+      this.parent = parent;
+    }
+
+    /**
+     * Gets the bucket directory where this processing saved.
+     *
+     * @return the bucket directory
+     */
+    public BucketDir getBucketDir() {
+      return parent;
+    }
+
+    public ModelFile getTrainingDataset() {
+      return childFile("training.csv");
+    }
+
+    public ModelFile getPredictDataset() {
+      return childFile("predict.csv");
+    }
+
+    public ModelFile getPredictedDataset() {
+      return childFile("predicted.csv");
+    }
+
+    /**
+     * Gets the model processing directory.
+     *
+     * @return the processing directory
+     */
+    public ModelDir getModelDir() {
+      // TODO need another method/class name, like TFModelDir, or TrainingDir,
+      // or ProcessingDir
+      ModelDir modelDir = childDir("model");
+      return modelDir;
+    }
+
+    public ModelFile getModelDescriptor() {
+      return childFile("model.json");
+    }
+
+    protected ModelFile childFile(String name) {
+      return new ModelFile(this, name);
+    }
+
+    protected ModelDir childDir(String name) {
+      return new ModelDir(this, name);
+    }
+  }
+
+  public class ModelDir extends ModelFile {
+
+    /**
+     * 
+     */
+    private static final long serialVersionUID = 4617095370358155195L;
+
+    protected final UserDir   parent;
+
+    protected ModelDir(UserDir parent, String child) {
+      super(parent, child);
+      this.parent = parent;
+    }
+  }
+
+  protected WorkDir    workDir;
+
+  protected ScriptFile trainingScript;
+
+  protected ScriptFile predictionScript;
+
+  protected ScriptFile datasetutilsScript;
+
+  protected ScriptFile dockerRunScript;
+
+  protected ScriptFile dockerExecScript;
+
+  protected InitParams initParams;
 
   /**
    * Instantiates a new file storage.
@@ -75,33 +432,22 @@ public class FileStorage {
    * 
    * @return the work directory
    */
-  public File getWorkDir() {
-    String workDirPath = getValueParam(WORK_DIRECTORY_PARAM);
-    if (workDirPath == null || (workDirPath = workDirPath.trim()).length() == 0) {
-      workDirPath = System.getProperty("exo.data.dir");
-      if (workDirPath == null || (workDirPath = workDirPath.trim()).length() == 0) {
-        workDirPath = System.getProperty("gatein.data.dir");
-        if (workDirPath == null || (workDirPath = workDirPath.trim()).length() == 0) {
-          workDirPath = System.getProperty("java.io.tmpdir");
-          LOG.warn("Platoform data dir not defined. Will use: {}", workDirPath);
-        }
-      }
-    }
-    File workDir = new File(workDirPath, WORK_DIRECTORY_DEFAULT);
-    workDir.mkdirs();
-    return workDir;
+  public WorkDir getWorkDir() {
+    return workDir(true);
   }
 
   /**
-   * Gets the datasets directory
-   * 
-   * @return the datasets directory
+   * Gets the data directory in this storage.
+   *
+   * @return the data directory
    */
-  public File getDatasetsDir() {
-    File datasetsDir = new File(getWorkDir(), "datasets");
-    datasetsDir.mkdirs();
-
-    return datasetsDir;
+  public DataDir getDataDir() {
+    DataDir dataDir = getWorkDir().dataDir();
+    dataDir.mkdir();
+    if (!dataDir.exists()) {
+      LOG.warn("Data directory cannot be found: {}", dataDir.getAbsolutePath());
+    }
+    return dataDir;
   }
 
   /**
@@ -109,35 +455,31 @@ public class FileStorage {
    * 
    * @return the scripts directory
    */
-  public File getScriptsDir() {
+  public ScriptsDir getScriptsDir() {
     // TODO It would be reasonable to keep (at least) prediction scripts
     // together with models, as between versions script(s) may change and newer
     // versions may be incompatible. Indeed this also actual for a datasets
     // (format, feature names, targets).
-    File scriptsDir = new File(getWorkDir(), "scripts");
-    scriptsDir.mkdirs();
-
+    ScriptsDir scriptsDir = getWorkDir().scriptsDir();
+    scriptsDir.mkdir();
+    if (!scriptsDir.exists()) {
+      LOG.warn("Scripts directory cannot be found: {}", scriptsDir.getAbsolutePath());
+    }
     return scriptsDir;
   }
 
   /**
-   * Gets the bucket directory
-   * 
+   * Gets the bucket directory.
+   *
+   * @param bucketName the bucket name, can be <code>null</code> then it will be
+   *          generated with 'bucket-$TIMESTAMP' prefix.
    * @return the bucket directory
    */
-  public File getBucketDir(String bucketName) {
-    // TODO Spool all users datasets into a dedicated folder into
-    // $WORK_DIR/datasets/${bucketName}
-
-    File datasetsDir = getDatasetsDir();
-
+  public BucketDir getBucketDir(String bucketName) {
     if (bucketName == null || bucketName.trim().length() == 0) {
       bucketName = "bucket-" + new SimpleDateFormat(FILE_TIMESTAMP_FORMAT).format(new Date());
     }
-
-    File bucketDir = new File(datasetsDir, bucketName);
-    bucketDir.mkdirs();
-
+    BucketDir bucketDir = getDataDir().getBucketDir(bucketName);
     return bucketDir;
   }
 
@@ -146,7 +488,8 @@ public class FileStorage {
    * 
    * @return the training script
    */
-  public File getTrainingScript() {
+  @Deprecated
+  public ScriptFile getTrainingScript() {
     return trainingScript;
   }
 
@@ -155,7 +498,8 @@ public class FileStorage {
    * 
    * @return the prediction script
    */
-  public File getPredictionScript() {
+  @Deprecated
+  public ScriptFile getPredictionScript() {
     return predictionScript;
   }
 
@@ -164,7 +508,8 @@ public class FileStorage {
    * 
    * @return the datasetutils script
    */
-  public File getDatasetutilsScript() {
+  @Deprecated
+  public ScriptFile getDatasetutilsScript() {
     return datasetutilsScript;
   }
 
@@ -173,7 +518,8 @@ public class FileStorage {
    * 
    * @return the dockerRun script
    */
-  public File getDockerRunScript() {
+  @Deprecated
+  public ScriptFile getDockerRunScript() {
     return dockerRunScript;
   }
 
@@ -182,8 +528,67 @@ public class FileStorage {
    * 
    * @return the dockerRun script
    */
-  public File getDockerExecScript() {
+  @Deprecated
+  public ScriptFile getDockerExecScript() {
     return dockerExecScript;
+  }
+
+  /**
+   * Finds the model directory by model path relative to data directory, e.g.
+   * /bucket001/john. If such directory not found, then <code>null</code> will
+   * be returned.
+   *
+   * @param modelPath the model path
+   * @return the model directory or <code>null</code> if nothing found in the
+   *         storage
+   */
+  public UserDir findUserModel(String modelPath) {
+    String[] path = modelPath.split(UserDir.separator);
+    if (path.length == 2 && path[0].length() > 0 && path[1].length() > 0) {
+      WorkDir workDir = workDir(false);
+      if (workDir.exists()) {
+        DataDir dataDir = workDir.dataDir();
+        if (dataDir.exists()) {
+          UserDir userDir = getBucketDir(path[0]).userDir(path[1]);
+          if (userDir.exists()) {
+            return userDir;
+          }
+        }
+      }
+    } else {
+      LOG.warn("User directory storage path not correct: {}", modelPath);
+    }
+    return null;
+  }
+
+  protected WorkDir workDir(boolean init) {
+    if (this.workDir == null || !this.workDir.exists()) {
+      File workDir;
+      String workDirPath = getValueParam(WORK_DIRECTORY_PARAM);
+      if (workDirPath == null || (workDirPath = workDirPath.trim()).length() == 0) {
+        workDirPath = System.getProperty("exo.data.dir");
+        if (workDirPath == null || (workDirPath = workDirPath.trim()).length() == 0) {
+          workDirPath = System.getProperty("gatein.data.dir");
+          if (workDirPath == null || (workDirPath = workDirPath.trim()).length() == 0) {
+            workDirPath = System.getProperty("java.io.tmpdir");
+            LOG.warn("Platoform data dir not defined. Will use: {}", workDirPath);
+          }
+        }
+        // If use some of predefined destinations, add a work directory inside
+        workDir = new File(workDirPath, WORK_DIRECTORY_DEFAULT);
+      } else {
+        // If configured - use given path as a work directory
+        workDir = new File(workDirPath);
+      }
+      if (init) {
+        workDir.mkdirs();
+      }
+      if (!workDir.exists()) {
+        LOG.warn("Working directory cannot be found: {}", workDir.getAbsolutePath());
+      }
+      this.workDir = new WorkDir(workDir.getPath());
+    }
+    return this.workDir;
   }
 
   /**
@@ -207,7 +612,7 @@ public class FileStorage {
   }
 
   /**
-   * Unpacks scripts from JAR to scripts directory
+   * Unpacks scripts from JAR to scripts directory.
    */
   protected void unpackScripts() {
     URL trainingScriptURL = this.getClass().getClassLoader().getResource("scripts/user_feed_train.py");
@@ -216,13 +621,12 @@ public class FileStorage {
     URL dockerRunScriptURL = this.getClass().getClassLoader().getResource("scripts/docker_run.sh");
     URL dockerExecScriptURL = this.getClass().getClassLoader().getResource("scripts/docker_exec.sh");
     try {
-      File scriptsDir = getScriptsDir();
-      scriptsDir.mkdirs();
-      trainingScript = new File(scriptsDir, "user_feed_train.py");
-      predictionScript = new File(scriptsDir, "user_feed_predict.py");
-      datasetutilsScript = new File(scriptsDir, "datasetutils.py");
-      dockerRunScript = new File(scriptsDir, "docker_run.sh");
-      dockerExecScript = new File(scriptsDir, "docker_exec.sh");
+      ScriptsDir scriptsDir = getScriptsDir();
+      trainingScript = scriptsDir.getScript("user_feed_train.py");
+      predictionScript = scriptsDir.getScript("user_feed_predict.py");
+      datasetutilsScript = scriptsDir.getScript("datasetutils.py");
+      dockerRunScript = scriptsDir.getScript("docker_run.sh");
+      dockerExecScript = scriptsDir.getScript("docker_exec.sh");
       FileUtils.copyURLToFile(trainingScriptURL, trainingScript);
       FileUtils.copyURLToFile(predictScriptURL, predictionScript);
       FileUtils.copyURLToFile(datasetutilsURL, datasetutilsScript);
@@ -238,8 +642,7 @@ public class FileStorage {
       LOG.error("Couldn't unpack training and prediction scripts", e);
     }
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Unpacked training and prediction scripts to: " + getScriptsDir());
+      LOG.debug("Unpacked training and prediction scripts to: " + getScriptsDir().getAbsolutePath());
     }
   }
-
 }

@@ -18,7 +18,6 @@
  */
 package org.exoplatform.prediction;
 
-import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Date;
@@ -33,6 +32,9 @@ import org.picocontainer.Startable;
 
 import org.exoplatform.container.component.ComponentPlugin;
 import org.exoplatform.datacollector.storage.FileStorage;
+import org.exoplatform.datacollector.storage.FileStorage.ModelDir;
+import org.exoplatform.datacollector.storage.FileStorage.ModelFile;
+import org.exoplatform.datacollector.storage.FileStorage.UserDir;
 import org.exoplatform.prediction.model.dao.ModelEntityDAO;
 import org.exoplatform.prediction.model.domain.ModelEntity;
 import org.exoplatform.prediction.model.domain.ModelEntity.Status;
@@ -79,7 +81,7 @@ public class TrainingService implements Startable {
    * new, If NEW or PROCESSING - cleans up it, if READY - creates a NEW version.
    *
    * @param userName the user name
-   * @param dataset the dataset
+   * @param dataset the dataset, can be <code>null</code>
    * @return the model entity
    */
   public ModelEntity addModel(String userName, String dataset) {
@@ -123,6 +125,9 @@ public class TrainingService implements Startable {
     model.setDatasetFile(null);
     model.setStatus(Status.READY);
     modelEntityDAO.update(model);
+    if (LOG.isDebugEnabled()) {
+      logDebugStatus(model);
+    }
   }
 
   /**
@@ -135,7 +140,7 @@ public class TrainingService implements Startable {
     model.setStatus(Status.ARCHIEVED);
     modelEntityDAO.update(model);
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Model {}[{}] archived", model.getName(), model.getVersion());
+      logDebugStatus(model);
     }
     // Delete old models (version = current version - MAX_STORED_MODELS to be
     // deleted)
@@ -151,20 +156,22 @@ public class TrainingService implements Startable {
    *
    * @param userName the user name
    * @param version the version
-   * @return the model or null
+   * @return the model or <code>null</code> if model not found or not valid
    */
   public ModelEntity getModel(String userName, long version) {
-    return modelEntityDAO.find(new ModelId(userName, version));
+    ModelEntity model = modelEntityDAO.find(new ModelId(userName, version));
+    return model != null && valid(model) ? model : null;
   }
 
   /**
    * Gets the model of latest version.
    *
    * @param userName the user name
-   * @return the model or null
+   * @return the model or <code>null</code> if model not found or not valid
    */
   public ModelEntity getLastModel(String userName) {
-    return modelEntityDAO.findLastModel(userName);
+    ModelEntity model = modelEntityDAO.findLastModel(userName);
+    return model != null && valid(model) ? model : null;
   }
 
   /**
@@ -172,10 +179,11 @@ public class TrainingService implements Startable {
    *
    * @param userName the user name
    * @param status the status
-   * @return the last model
+   * @return the model or <code>null</code> if model not found or not valid
    */
   public ModelEntity getLastModel(String userName, Status status) {
-    return modelEntityDAO.findLastModelWithStatus(userName, status);
+    ModelEntity model = modelEntityDAO.findLastModelWithStatus(userName, status);
+    return model != null && valid(model) ? model : null;
   }
 
   /**
@@ -206,20 +214,23 @@ public class TrainingService implements Startable {
       if (LOG.isDebugEnabled()) {
         LOG.debug("Delete model {}[{}]", model.getName(), model.getVersion());
       }
-      if (model.getDatasetFile() != null) {
-        File dataset = new File(model.getDatasetFile());
-        if (!dataset.delete()) {
-          LOG.warn("Unabled to delete training dataset {}", dataset.getAbsolutePath());
-        }
-      }
+      /*
+       * if (model.getDatasetFile() != null) { ModelFile dataset =
+       * fileStorage.getTrainingDataset(model.getDatasetFile()); // File dataset
+       * = new File(model.getDatasetFile()); if (!dataset.delete()) {
+       * LOG.warn("Unabled to delete training dataset {}",
+       * dataset.getStoragePath()); } }
+       */
       if (model.getModelFile() != null) {
-        File modelFile = new File(model.getModelFile());
-        if (modelFile.exists()) {
+        // File modelFile = new File(model.getModelFile()); // TODO
+        // ModelDir modelFile = fileStorage.getModelDir(model.getModelFile());
+        UserDir userDir = fileStorage.findUserModel(model.getModelFile());
+        if (userDir != null && userDir.exists()) {
           try {
             // Delete user's folder
-            FileUtils.deleteDirectory(modelFile.getParentFile());
+            FileUtils.deleteDirectory(userDir);
           } catch (IOException e) {
-            LOG.warn("Cannot delete model folder: " + model.getModelFile(), e);
+            LOG.warn("Cannot delete model {}[{}] folder: {}", model.getName(), model.getVersion(), userDir.getAbsolutePath(), e);
           }
         }
       }
@@ -234,19 +245,26 @@ public class TrainingService implements Startable {
    * @param model contains model file to be copied
    * @param dest new folder
    */
-  protected void copyModelFile(ModelEntity model, File dest) {
+  protected void copyModelFile(ModelEntity model, UserDir dest) {
     if (/* model.getStatus() == Status.READY && */ model.getModelFile() != null) {
       try {
-        File modelFile = new File(model.getModelFile());
-        if (modelFile.exists()) {
-          FileUtils.copyDirectoryToDirectory(modelFile, dest);
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("Previous model file copied for {}", model.getName());
+        UserDir userDir = fileStorage.findUserModel(model.getModelFile());
+        if (userDir != null && userDir.exists()) {
+          ModelDir modelDir = userDir.getModelDir();
+          if (modelDir.exists()) {
+            FileUtils.copyDirectoryToDirectory(modelDir, dest);
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Previous model directory copied for {}", model.getName());
+            }
+          } else {
+            LOG.warn("Previous model directory not found {}", model.getName());
           }
         } else {
-          LOG.warn("Previous model file not found {}", model.getName());
+          LOG.warn("Previous user model directory not found {}", model.getName());
         }
       } catch (Throwable e) {
+        // TODO throw ex upper, we need care about impossible incremental
+        // training - need run full training instead
         LOG.error("Failed to copy previous model file for {}", model.getName(), e);
       }
     }
@@ -258,29 +276,28 @@ public class TrainingService implements Startable {
    * status.
    *
    * @param model the model
-   * @param datasetPath the dataset path
+   * @param dataset the dataset file
    * @param incremental if <code>true</code> an incremental training over
    *          previous model will be attempted
    */
-  public void trainModel(ModelEntity model, String datasetPath, boolean incremental) {
-    File dataset = new File(datasetPath);
+  public void trainModel(ModelEntity model, ModelFile dataset, boolean incremental) {
     // We need last READY model to copy it for incremental training
-    ModelEntity prevModel = getLastModel(model.getName(), Status.READY); // getPreviousModel(model);
+    ModelEntity prevModel = lastModel(model.getName(), Status.READY); // getPreviousModel(model);
     if (incremental && prevModel != null) {
       // First copy existing model files for incremental training
-      copyModelFile(prevModel, dataset.getParentFile());
+      // TODO But ensure incremental is possible (scripts version doesn't
+      // differ)
+      copyModelFile(prevModel, dataset.getUserDir());
     }
 
-    // The dataset path to a model in DB
-    // TODO Don't use absolute path but use relative to
-    // data-collector/datasets path, so it will be possible to relocate
-    // file storage w/o modifying DB. Relative path should start from a
-    // bucke name.
-    model.setDatasetFile(dataset.getAbsolutePath());
+    // TODO copy current train/predict scripts to the user dir, so exactly the
+    // same version used for training will be used for later predictions
+
+    model.setDatasetFile(dataset.getModelPath());
     model.setStatus(Status.PROCESSING);
     modelEntityDAO.update(model);
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Model {} got status PROCESSING", model.getName());
+      logDebugStatus(model);
     }
 
     boolean success;
@@ -288,9 +305,7 @@ public class TrainingService implements Startable {
       // TODO If the training fails, we try again, but does this is an efficient
       // attempt? Need make a rollback/restore before retrying?
       if (prevModel != null /* && prevModel.getStatus() == Status.READY */) {
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("Retraining model for {}", model.getName());
-        }
+        LOG.warn("Retraining model for {}", model.getName());
         // Retrain model
         if (!(success = train(model, dataset))) {
           LOG.warn("Model {} failed in retraining. Set status FAILED_TRAINING", model.getName());
@@ -306,7 +321,7 @@ public class TrainingService implements Startable {
     if (success) {
       // If training was successful we don't need the dataset anymore
       if (!dataset.delete()) {
-        LOG.warn("Unabled to delete training dataset {}", dataset.getAbsolutePath());
+        LOG.warn("Unabled to delete training dataset {}", dataset.getStoragePath());
       }
       // Archive previous READY version
       if (model.getVersion() != 1L) {
@@ -328,39 +343,50 @@ public class TrainingService implements Startable {
    * @param dataset user dataset file
    * @return true if success
    */
-  protected boolean train(ModelEntity model, File dataset) {
+  protected boolean train(ModelEntity model, ModelFile dataset) {
     try {
       // Train model
-      File modelFolder = scriptsExecutor.train(dataset);
+      ModelDir modelFolder = scriptsExecutor.train(dataset);
+      if (!modelFolder.exists()) {
+        LOG.warn("Model {}[{}] directory cannot be found: {}", model.getName(), model.getVersion(), modelFolder.getStoragePath());
+      }
       // Check if model trained without errors
-      File modelFile = new File(dataset.getParentFile() + "/model.json");
+      ModelFile modelFile = modelFolder.getUserDir().getModelDescriptor();
       if (modelFile.exists()) {
         JSONParser parser = new JSONParser();
         try {
           JSONObject resultModel = (JSONObject) parser.parse(new FileReader(modelFile));
           String status = (String) resultModel.get("status");
           if (Status.READY.name().equals(status)) {
+            activateModel(model, modelFolder.getModelPath());
             if (LOG.isDebugEnabled()) {
-              LOG.debug("Model {} successfuly trained", model.getName());
+              LOG.debug("Model {}[{}] successfuly trained and activated", model.getName(), model.getVersion());
             }
-            activateModel(model, modelFolder.getAbsolutePath());
             return true;
           }
           String error = (String) resultModel.get("error");
           if (error != null) {
-            LOG.error("Model {} training failed. Model error: {}", model.getName(), error);
+            LOG.error("Model {}[{}] training failed. Model status: {}, error: {}.",
+                      model.getName(),
+                      model.getVersion(),
+                      status,
+                      error);
           } else {
-            LOG.error("Model {} training failed. Unexpected model status: {}", model.getName(), status);
+            LOG.error("Model {}[{}] training failed. Unexpected model status: {}", model.getName(), model.getVersion(), status);
           }
         } catch (ParseException e) {
-          LOG.error("Model {} training failed. Couldn't parse the model.json file.", model.getName(), e);
+          LOG.error("Model {}[{}] training failed. Couldn't parse the model.json file.", model.getName(), model.getVersion(), e);
         } catch (IOException e) {
-          LOG.error("Model {} training failed. Couldn't read the model.json file.", model.getName(), e);
+          LOG.error("Model {}[{}] training failed. Couldn't read the model.json file.", model.getName(), model.getVersion(), e);
         }
+      } else {
+        LOG.warn("Model {}[{}] descriptor cannot be found after training for: {}",
+                 model.getName(),
+                 model.getVersion(),
+                 modelFile.getStoragePath());
       }
-      LOG.warn("The model.json file is not found after training for model {}", model.getName());
     } catch (Exception e) {
-      LOG.error("Error trainig {} model on dataset {}", model.getName(), dataset.getPath(), e);
+      LOG.error("Error trainig {}[{}] model on dataset {}", model.getName(), model.getVersion(), dataset.getStoragePath(), e);
     }
     return false;
   }
@@ -428,6 +454,9 @@ public class TrainingService implements Startable {
    */
   public void update(ModelEntity model) {
     modelEntityDAO.update(model);
+    if (LOG.isDebugEnabled()) {
+      logDebugStatus(model);
+    }
   }
 
   /**
@@ -454,10 +483,11 @@ public class TrainingService implements Startable {
   }
 
   /**
-   * Gets the previous model of user.
+   * Gets the previous model of given model.
    *
    * @param model the model
-   * @return previous model or null
+   * @return the previous model or <code>null</code> if model not found or not
+   *         valid
    */
   public ModelEntity getPreviousModel(ModelEntity model) {
     return getModel(model.getName(), model.getVersion() - 1L);
@@ -472,18 +502,20 @@ public class TrainingService implements Startable {
    */
   public boolean valid(ModelEntity model) {
     if (model.getStatus() == Status.READY || model.getStatus() == Status.ARCHIEVED) {
-      String modelFile = model.getModelFile();
-      if (modelFile != null) {
-        boolean valid = new File(modelFile).exists();
-        if (!valid) {
+      String modelPath = model.getModelFile();
+      if (modelPath != null) {
+        UserDir userDir = fileStorage.findUserModel(modelPath);
+        if (userDir == null) {
           deleteModel(model);
+          return false;
         }
-        return valid;
+        return true;
       }
     } else if (model.getStatus() == Status.PROCESSING) {
-      String datasetFile = model.getDatasetFile();
-      if (datasetFile != null) {
-        return new File(datasetFile).exists();
+      String datasetPath = model.getDatasetFile();
+      if (datasetPath != null) {
+        UserDir userDir = fileStorage.findUserModel(datasetPath);
+        return userDir != null && userDir.getTrainingDataset().exists();
       }
     } else {
       // else, it's NEW, RETRY or FAILED* - they valid as for the status
@@ -497,7 +529,20 @@ public class TrainingService implements Startable {
       return getLastModel(userName);
     } catch (PersistenceException e) {
       LOG.error("Error reading last model for {}", userName, e);
-      return null;
     }
+    return null;
+  }
+
+  protected ModelEntity lastModel(String userName, Status status) {
+    try {
+      return getLastModel(userName, status);
+    } catch (PersistenceException e) {
+      LOG.error("Error reading last model for {}:{}", userName, status, e);
+    }
+    return null;
+  }
+
+  protected void logDebugStatus(ModelEntity model) {
+    LOG.debug("Model {}[{}] got status {}", model.getName(), model.getVersion(), model.getStatus());
   }
 }

@@ -1,46 +1,53 @@
+/*
+ * Copyright (C) 2003-2019 eXo Platform SAS.
+ *
+ * This is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2.1 of
+ * the License, or (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this software; if not, write to the Free
+ * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ */
 package org.exoplatform.prediction;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.exoplatform.container.component.BaseComponentPlugin;
 import org.exoplatform.container.xml.InitParams;
-import org.exoplatform.container.xml.ValueParam;
 import org.exoplatform.datacollector.storage.FileStorage;
+import org.exoplatform.datacollector.storage.FileStorage.ModelFile;
+import org.exoplatform.datacollector.storage.FileStorage.ScriptFile;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 
 /**
  * The DockerScriptsExecutor executes scripts in docker containers
  */
-public class DockerScriptsExecutor extends BaseComponentPlugin implements ModelExecutor {
+public class DockerScriptsExecutor extends FileStorageScriptsExecutor {
 
-  public static final String  EXEC_CONTAINER_NAME_PARAM = "exec-container-name";
+  public static final String EXEC_CONTAINER_NAME_PARAM = "exec-container-name";
 
-  protected static final Log  LOG                       = ExoLogger.getExoLogger(DockerScriptsExecutor.class);
+  protected static final Log LOG                       = ExoLogger.getExoLogger(DockerScriptsExecutor.class);
 
-  protected final FileStorage fileStorage;
+  protected final String     dockerScriptPath;
 
-  protected final String      dockerScriptPath;
-
-  protected final String      execContainerName;
+  protected final String     execContainerName;
 
   public DockerScriptsExecutor(FileStorage fileStorage, InitParams initParams) {
-    this.fileStorage = fileStorage;
-    String execContainerName;
-    try {
-      ValueParam execContainerNameParam = initParams.getValueParam(EXEC_CONTAINER_NAME_PARAM);
-      execContainerName = execContainerNameParam.getValue();
-    } catch (Exception e) {
-      LOG.info("Configuration of {} not found. Docker containers will be created automatically.", EXEC_CONTAINER_NAME_PARAM);
-      execContainerName = null;
-    }
+    super(fileStorage);
+    String execContainerName = configParam(initParams, EXEC_CONTAINER_NAME_PARAM);
     if (execContainerName == null || execContainerName.trim().isEmpty()) {
       this.execContainerName = null;
       this.dockerScriptPath = fileStorage.getDockerRunScript().getAbsolutePath();
@@ -50,53 +57,36 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements ModelE
     }
   }
 
-  @Override
-  public File train(File dataset) {
-    File modelFolder = new File(dataset.getParentFile().getAbsolutePath() + "/model");
-    modelFolder.mkdirs();
-    executeCommand(dataset, fileStorage.getTrainingScript());
-    return modelFolder;
-  }
-
-  @Override
-  public File predict(File dataset) {
-    executeCommand(dataset, fileStorage.getPredictionScript());
-    return new File(dataset.getParentFile(), "predicted.csv");
-  }
-
   /**
    * Executes given command script with the dataset as an argument.
    * 
    * @param dataset to be processed
    * @param script to be executed
    */
-
-  protected void executeCommand(File dataset, File script) {
+  protected void execute(ModelFile dataset, ScriptFile script) {
     if (LOG.isDebugEnabled()) {
-      LOG.debug(">> Executing docker command {} for {}", script.getName(), dataset.getName());
+      LOG.debug("> Executing Docker command {} for {}", script.getName(), dataset.getModelPath());
     }
-    String scriptRelativePath = fileStorage.getScriptsDir().getName() + "/" + script.getName();
-    // Refactor. It's better to keep relative path to a dataset instead of
-    // absolute one.
-    int startIndex = dataset.getAbsolutePath().indexOf(fileStorage.getDatasetsDir().getName());
-    String datasetRelativePath = dataset.getAbsolutePath().substring(startIndex);
-
-    List<String> cmdList = new ArrayList<>();
+    String scriptPath = script.getStoragePath();
+    String datasetPath = dataset.getStoragePath();
+    String[] cmd;
     if (execContainerName != null) {
-      cmdList = Arrays.asList("/bin/sh", dockerScriptPath, execContainerName, scriptRelativePath, datasetRelativePath);
+      cmd = new String[] { "/bin/sh", dockerScriptPath, execContainerName, scriptPath, datasetPath };
     } else {
-      cmdList = Arrays.asList("/bin/sh",
-                              dockerScriptPath,
-                              fileStorage.getWorkDir().getAbsolutePath(),
-                              scriptRelativePath,
-                              datasetRelativePath);
+      cmd = new String[] { "/bin/sh", dockerScriptPath, fileStorage.getWorkDir().getAbsolutePath(), scriptPath, datasetPath };
     }
     try {
-      Process process = Runtime.getRuntime().exec(cmdList.stream().toArray(String[]::new));
+      if (LOG.isDebugEnabled()) {
+        LOG.debug(">> Running Docker script: {}", Arrays.stream(cmd).collect(Collectors.joining(" ")));
+      }
+      Process process = Runtime.getRuntime().exec(cmd);
       process.waitFor();
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("<< Docker command complete: " + script.getName());
+      }
       logDockerOutput(process);
     } catch (Exception e) {
-      LOG.warn("Eror occured in the docker container: ", e);
+      LOG.error("Docker command {} failed for {}", script.getName(), dataset.getModelPath(), e);
     }
   }
 
@@ -110,7 +100,7 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements ModelE
       BufferedReader processOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
       Collection<String> allOut = processOut.lines().collect(Collectors.toList());
       if (allOut.size() > 0) {
-        LOG.debug("Standard output of docker command:\n");
+        LOG.debug("Standard output of Docker container:\n");
         for (String s : allOut) {
           LOG.debug("> " + s);
         }
@@ -119,7 +109,7 @@ public class DockerScriptsExecutor extends BaseComponentPlugin implements ModelE
     BufferedReader processErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
     List<String> allErr = processErr.lines().collect(Collectors.toList());
     if (allErr.size() > 0) {
-      LOG.info("Error output of docker command:\n");
+      LOG.info("Error output of Docker container:\n");
       for (String s : allErr) {
         LOG.info("> " + s);
       }

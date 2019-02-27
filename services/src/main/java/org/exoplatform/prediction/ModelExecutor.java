@@ -18,7 +18,8 @@
  */
 package org.exoplatform.prediction;
 
-import java.io.File;
+import org.exoplatform.datacollector.storage.FileStorage.ModelDir;
+import org.exoplatform.datacollector.storage.FileStorage.ModelFile;
 
 /**
  * Machine learning model executor.
@@ -31,7 +32,7 @@ public interface ModelExecutor {
    * @param dataset the dataset
    * @return the model folder
    */
-  File train(File dataset);
+  ModelDir train(ModelFile dataset);
 
   /**
    * Predict by a model associated with given dataset.
@@ -39,5 +40,5 @@ public interface ModelExecutor {
    * @param dataset the inferring dataset
    * @return the predicted dataset
    */
-  File predict(File dataset);
+  ModelFile predict(ModelFile dataset);
 }
