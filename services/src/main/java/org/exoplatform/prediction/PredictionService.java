@@ -179,13 +179,17 @@ public class PredictionService implements Startable {
         } catch (IOException e) {
           LOG.error("Cannot read the dataset after prediction", e);
         } finally {
-          if (!predicted.delete()) {
-            LOG.warn("Unabled to delete predicted dataset {}", dataset.getAbsolutePath());
+          if (!collector.isDeveloping()) {
+            if (!predicted.delete()) {
+              LOG.warn("Unabled to delete predicted dataset {}", dataset.getAbsolutePath());
+            }
           }
         }
       } finally {
-        if (!dataset.delete()) {
-          LOG.warn("Unabled to delete prediction dataset {}", dataset.getAbsolutePath());
+        if (!collector.isDeveloping()) {
+          if (!dataset.delete()) {
+            LOG.warn("Unabled to delete prediction dataset {}", dataset.getAbsolutePath());
+          }
         }
       }
       return ordered;

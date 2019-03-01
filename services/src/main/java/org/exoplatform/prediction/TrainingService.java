@@ -30,7 +30,9 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.picocontainer.Startable;
 
+import org.exoplatform.container.ExoContainerContext;
 import org.exoplatform.container.component.ComponentPlugin;
+import org.exoplatform.datacollector.SocialDataCollectorService;
 import org.exoplatform.datacollector.storage.FileStorage;
 import org.exoplatform.datacollector.storage.FileStorage.ModelDir;
 import org.exoplatform.datacollector.storage.FileStorage.ModelFile;
@@ -63,6 +65,9 @@ public class TrainingService implements Startable {
   protected final ModelEntityDAO modelEntityDAO;
 
   protected ModelExecutor        scriptsExecutor;
+
+  /** The is developing settings read from Collector service. */
+  private boolean                isDeveloping;
 
   /**
    * Instantiates a new training service.
@@ -191,6 +196,12 @@ public class TrainingService implements Startable {
    */
   @Override
   public void start() {
+    // XXX we cannot depends on the Collector service as it will create an
+    // cross-dependency in the container and lead to infinite loop in service
+    // instantiation (stack overflow)
+    SocialDataCollectorService collector = ExoContainerContext.getCurrentContainer()
+                                                              .getComponentInstanceOfType(SocialDataCollectorService.class);
+    isDeveloping = collector.isDeveloping();
     if (scriptsExecutor == null) {
       throw new RuntimeException("ModelExecutor is not configured");
     }
@@ -320,8 +331,10 @@ public class TrainingService implements Startable {
     }
     if (success) {
       // If training was successful we don't need the dataset anymore
-      if (!dataset.delete()) {
-        LOG.warn("Unabled to delete training dataset {}", dataset.getStoragePath());
+      if (!isDeveloping) {
+        if (!dataset.delete()) {
+          LOG.warn("Unabled to delete training dataset {}", dataset.getStoragePath());
+        }
       }
       // Archive previous READY version
       if (model.getVersion() != 1L) {

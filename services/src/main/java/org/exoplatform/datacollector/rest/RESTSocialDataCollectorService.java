@@ -79,7 +79,7 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
     try {
       String bucketPath = dataCollector.collectAllUsersFeeds(bucketName);
       String actualBucketName = bucketPath.substring(bucketPath.lastIndexOf(File.separator));
-      return Response.ok().entity("{ \"status\": \"OK\", \"bucketName\": " + actualBucketName + " }").build();
+      return Response.ok().entity("{ \"status\": \"OK\", \"bucketDir\": " + actualBucketName + " }").build();
     } catch (Exception e) {
       LOG.error("Error collecting user activities into " + bucketName, e);
       return Response.serverError().entity("{\"status\":\"Error collecting user activities\"}").build();
@@ -105,7 +105,7 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
     try {
       long sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
       dataCollector.startUser(userName, bucketName, sinceTime, isTrain != null ? Boolean.valueOf(isTrain) : false);
-      return Response.ok().entity("{ \"status\": \"ACCEPTED\", \"userFoler\": " + bucketName + "/" + userName + "}").build();
+      return Response.ok().entity("{ \"status\": \"ACCEPTED\", \"userDir\": " + bucketName + "/" + userName + "}").build();
     } catch (Exception e) {
       return Response.serverError().entity("{ \"status\": \"Error. " + e.getMessage() + "\"}").build();
     }

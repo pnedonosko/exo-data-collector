@@ -26,6 +26,7 @@ import static org.exoplatform.datacollector.UserInfluencers.ACTIVITY_PARTICIPANT
 import java.io.File;
 import java.io.PrintWriter;
 import java.lang.ref.SoftReference;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -60,6 +61,7 @@ import org.picocontainer.Startable;
 import com.google.common.collect.Lists;
 
 import org.exoplatform.commons.api.persistence.ExoTransactional;
+import org.exoplatform.commons.utils.PropertyManager;
 import org.exoplatform.container.ExoContainer;
 import org.exoplatform.container.PortalContainer;
 import org.exoplatform.container.component.RequestLifeCycle;
@@ -76,6 +78,7 @@ import org.exoplatform.datacollector.identity.UserIdentity;
 import org.exoplatform.datacollector.social.SocialStorage;
 import org.exoplatform.datacollector.storage.FileStorage;
 import org.exoplatform.datacollector.storage.FileStorage.ModelFile;
+import org.exoplatform.datacollector.storage.FileStorage.UserDir;
 import org.exoplatform.datacollector.storage.StorageException;
 import org.exoplatform.platform.gadget.services.LoginHistory.LastLoginBean;
 import org.exoplatform.platform.gadget.services.LoginHistory.LoginHistoryBean;
@@ -202,6 +205,8 @@ public class SocialDataCollectorService implements Startable {
   protected static final String  AUTOSTART_MODE_PARAM = "autostart";
 
   protected static final String  TRAIN_PERIOD_PARAM   = "train-period";
+
+  protected static final String  DEVELOPING_PARAM     = "developing";
 
   /**
    * Sneaky throw given exception. An idea grabbed from <a href=
@@ -558,6 +563,9 @@ public class SocialDataCollectorService implements Startable {
    */
   protected AtomicReference<BucketWorker>                   currentWorker       = new AtomicReference<>();
 
+  /** The is developing. */
+  protected Boolean                                         isDeveloping;
+
   /**
    * Instantiates a new data collector service.
    *
@@ -619,6 +627,11 @@ public class SocialDataCollectorService implements Startable {
     this.identityProfileStorage = identityProfileStorage;
     this.trainingService = trainingService;
     this.workers = createThreadExecutor(WORKER_THREAD_PREFIX, WORKER_MAX_FACTOR, WORKER_QUEUE_FACTOR);
+
+    ValueParam developingParam = initParams.getValueParam(DEVELOPING_PARAM);
+    if (developingParam != null) {
+      this.isDeveloping = Boolean.valueOf(developingParam.getValue());
+    }
 
     ValueParam autostartParam = initParams.getValueParam(AUTOSTART_MODE_PARAM);
     ValueParam trainPeroidParam = initParams.getValueParam(TRAIN_PERIOD_PARAM);
@@ -773,26 +786,37 @@ public class SocialDataCollectorService implements Startable {
       if (LOG.isDebugEnabled()) {
         LOG.debug("Collecting predicting dataset for model {}[{}] into {}", model.getName(), model.getVersion(), modelPath);
       }
-      ModelFile predictDataset = fileStorage.findUserModel(modelPath).getPredictDataset();
-      if (predictDataset != null) {
-        try (PrintWriter writer = new PrintWriter(predictDataset)) {
-          UserSnapshot user = getUserSnapshot(predictDataset.getUserDir().getBucketDir().getName(), id);
-          if (user != null) {
-            writeUserActivities(user, activities.iterator(), writer, false);
-            if (LOG.isDebugEnabled()) {
-              LOG.debug("Saved predicting dataset for model {}[{}] into {}",
-                        model.getName(),
-                        model.getVersion(),
-                        predictDataset.getModelPath());
+      UserDir userDir = fileStorage.findUserModel(modelPath);
+      if (userDir != null) {
+        ModelFile predictDataset = userDir.getPredictDataset();
+        try {
+          // TODO care about concurrent prediction by the same user (file lock)
+          // touch to have a new predict file
+          if (predictDataset.exists()) {
+            predictDataset.delete();
+          }
+          predictDataset.createNewFile();
+          try (PrintWriter writer = new PrintWriter(predictDataset)) {
+            UserSnapshot user = getUserSnapshot(predictDataset.getUserDir(), id);
+            if (user != null) {
+              writeUserActivities(user, activities.iterator(), writer, false);
+              if (LOG.isDebugEnabled()) {
+                LOG.debug("Saved predicting dataset for model {}[{}] into {}",
+                          model.getName(),
+                          model.getVersion(),
+                          predictDataset.getModelPath());
+              }
+              return predictDataset;
+            } else {
+              LOG.warn("User snapshot not found for model {}[{}]", model.getName(), model.getVersion());
             }
-            return predictDataset;
-          } else {
-            LOG.warn("User snapshot not found for model {}[{}]", model.getName(), model.getVersion());
           }
         } catch (Exception e) {
           LOG.error("Cannot collect predicting dataset for model {}[{}]", model.getName(), model.getVersion(), e);
           predictDataset.delete();
         }
+      } else {
+        LOG.warn("User model storage not found for model {}[{}]", model.getName(), model.getVersion());
       }
     } else {
       LOG.warn("User model not found or not ready for {}", id.getRemoteId());
@@ -946,6 +970,19 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
+   * Tells if collector service is working in Developing mode.
+   *
+   * @return <code>true</code>, if developing model enabled in the runtime
+   */
+  public boolean isDeveloping() {
+    if (isDeveloping == null) {
+      isDeveloping = Boolean.valueOf(PropertyManager.getProperty(new StringBuilder("exo.datacollector.").append(DEVELOPING_PARAM)
+                                                                                                        .toString()));
+    }
+    return isDeveloping.booleanValue();
+  }
+
+  /**
    * Collect user feed activities into training dataset.
    *
    * @param userName the user name
@@ -968,32 +1005,36 @@ public class SocialDataCollectorService implements Startable {
       // snapshot and only then request the feed via into an iterator.
       int minFeedSize = activityManager.getActivityFeedWithListAccess(id).loadNewer(sinceTime, MIN_FEED_SIZE).size();
       if (minFeedSize >= MIN_FEED_SIZE) {
-        ModelFile datasetFile = fileStorage.getBucketDir(bucketName).getUserDir(id.getRemoteId()).getTrainingDataset();
-        try (PrintWriter writer = new PrintWriter(datasetFile)) {
-          // Prepare an user state snapshot, it should not be modified until
-          // another collecting - this can be looooong operation, a hour+ if
-          // calculate influencers from user activities.
-          // Activities iterator with its DB session may get in timeout, thus it
-          // should be transactional where fetch from the storage.
-          UserSnapshot user = getUserSnapshot(bucketName, id);
-          // XXX sinceTime here may not be the same as for activities until
-          // we'll make UserInfluecners incrementally maintained and load them
-          // from DB
-          initializeUserSnapshot(user, System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE);
-
-          // TODO should this method be ExoTransactional, but with getting the
-          // feed iterator inside it - in single tx?
-          writeUserActivities(user,
-                              loadActivitiesListIterator(activityManager.getActivityFeedWithListAccess(id), sinceTime),
-                              writer,
-                              true);
-
-          // save/cache user snapshot only after successful write
-          saveUserSnapshot(bucketName, user);
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("Saved user dataset into bucket file: {}", datasetFile.getModelPath());
+        UserDir userDir = fileStorage.getBucketDir(bucketName).getUserDir(id.getRemoteId());
+        ModelFile datasetFile = userDir.getTrainingDataset();
+        try {
+          // touch to have a new training file
+          if (datasetFile.exists()) {
+            datasetFile.delete();
           }
-          return datasetFile;
+          datasetFile.createNewFile();
+          try (PrintWriter writer = new PrintWriter(datasetFile)) {
+            // Prepare an user state snapshot, it should not be modified until
+            // another collecting - this can be looooong operation, a hour+ if
+            // calculate influencers from user activities.
+            // Activities iterator with its DB session may get in timeout, thus
+            // it hould be transactional where fetch from the storage.
+            UserSnapshot user = getUserSnapshot(userDir, id);
+
+            // TODO should this method be ExoTransactional, but with getting the
+            // feed iterator inside it - in single tx?
+            writeUserActivities(user,
+                                loadActivitiesListIterator(activityManager.getActivityFeedWithListAccess(id), sinceTime),
+                                writer,
+                                true);
+
+            // save/cache user snapshot only after successful write
+            saveUserSnapshot(userDir, user);
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Saved user dataset into bucket file: {}", userDir.getModelPath());
+            }
+            return datasetFile;
+          }
         } catch (Exception e) { // this includes PersistenceException
           datasetFile.delete();
           throw new DatasetException("Cannot collect user activities for " + userName, e);
@@ -1144,21 +1185,21 @@ public class SocialDataCollectorService implements Startable {
    * @param user the user state snapshot
    * @param activities the activities to process
    * @param out the writer where spool the user activities dataset
-   * @param withRank if <code>true</code> then collect dataset with rank
+   * @param forTraining if <code>true</code> then collect dataset for training
    */
   protected void writeUserActivities(UserSnapshot user,
                                      Iterator<ExoSocialActivity> activities,
                                      PrintWriter out,
-                                     boolean withRank) {
+                                     boolean forTraining) {
     if (LOG.isDebugEnabled()) {
       LOG.debug("> Writing user activities for {}", user.getIdentity().getRemoteId());
     }
-    out.println(activityHeader(withRank));
+    out.println(activityHeader(forTraining));
 
     // load identity's activities and collect its data
     while (activities.hasNext() && !Thread.currentThread().isInterrupted()) {
       ExoSocialActivity activity = activities.next();
-      out.println(activityLine(user, activity, withRank));
+      out.println(activityLine(user, activity, forTraining));
     }
 
     if (Thread.currentThread().isInterrupted()) {
@@ -1275,18 +1316,26 @@ public class SocialDataCollectorService implements Startable {
     }
   }
 
-  protected String snapshotId(String bucket, String id) {
-    return new StringBuilder(bucket).append('-').append(id).toString();
-  }
-
-  protected UserSnapshot getUserSnapshot(String bucket, Identity id) throws Exception {
+  protected UserSnapshot getUserSnapshot(UserDir userDir, Identity id) throws Exception {
     // TODO use exo cache with eviction instead of a map
     // TODO in fact, a snapshot not connected to a bucket, and if not found
     // for some bucket, we can share a single one calculated for user at some
     // moment. But this shared may outdate - how to manage this and should we?
-    return userSnapshots.computeIfAbsent(snapshotId(bucket, id.getRemoteId()), sid -> {
+    return userSnapshots.computeIfAbsent(userDir.getModelPath(), sid -> {
       try {
-        return readUserSnapshot(id);
+        UserSnapshot user = readUserSnapshot(id);
+        if (isDeveloping()) {
+          // Saving user snapshot to the user model directory: we want see an
+          // initial one used by training and of last prediction
+          File userFile = userDir.childFile("training_user_snapshot.txt");
+          if (userFile.exists()) {
+            // If training exists, then it's prediction assumed
+            // TODO care about concurrent predictions
+            userFile = userDir.childFile("predict_user_snapshot.txt");
+          }
+          Files.write(userFile.toPath(), user.dump().getBytes());
+        }
+        return user;
       } catch (Exception e) {
         sneakyThrow(e);
         return null; // it will not happen
@@ -1304,6 +1353,10 @@ public class SocialDataCollectorService implements Startable {
     // otherwise init from tables
     // user.initInfluencers(entity);
     user.initInfluencers(); // XXX temporal until will load from DB
+    // XXX sinceTime here may not be the same as for activities until
+    // we'll make UserInfluecners incrementally maintained and load them
+    // from DB
+    initializeUserSnapshot(user, System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE);
     if (LOG.isDebugEnabled()) {
       LOG.debug("< Read user snapshot for {}", id.getRemoteId());
     }
@@ -1317,15 +1370,15 @@ public class SocialDataCollectorService implements Startable {
    * @param user the user
    */
   // @ExoTransactional // TODO for saving in DB
-  private void saveUserSnapshot(String buketName, UserSnapshot user) {
+  private void saveUserSnapshot(UserDir userDir, UserSnapshot user) {
     String userId = user.getIdentity().getRemoteId();
     if (LOG.isDebugEnabled()) {
       LOG.debug("> Saving user snapshot for {}", userId);
     }
     // TODO:
-    // 1) save in the DB
+    // 1) save in user storage (DB/filesystem)
     // 2) cache in runtime
-    userSnapshots.put(snapshotId(buketName, userId), user);
+    userSnapshots.put(userDir.getModelPath(), user);
     if (LOG.isDebugEnabled()) {
       LOG.debug("< Saved user snapshot for {}", userId);
     }
@@ -1418,7 +1471,7 @@ public class SocialDataCollectorService implements Startable {
     return userSnapshot;
   }
 
-  protected String activityHeader(boolean withRank) {
+  protected String activityHeader(boolean forTraining) {
     StringBuilder aline = new StringBuilder();
     aline.append("id,")
          // .append("title,")
@@ -1491,7 +1544,7 @@ public class SocialDataCollectorService implements Startable {
            .append(prefix)
            .append("influence,");
     }
-    if (withRank) {
+    if (forTraining) {
       aline.append("rank");
     } else {
       aline.deleteCharAt(aline.length() - 1);
@@ -1499,9 +1552,9 @@ public class SocialDataCollectorService implements Startable {
     return aline.toString();
   }
 
-  protected String activityLine(UserSnapshot user, ExoSocialActivity activity, boolean withRank) {
+  protected String activityLine(UserSnapshot user, ExoSocialActivity activity, boolean forTraining) {
     ActivityRank rank = null;
-    if (withRank) {
+    if (forTraining) {
       rank = new ActivityRank();
     }
     StringBuilder aline = new StringBuilder();
@@ -1552,10 +1605,10 @@ public class SocialDataCollectorService implements Startable {
     // user commented/liked: 0..1, where 1 is same day, 0 is 30+ days old
     // TODO Should we take in account user login history: time between nearest
     // login and the reaction? Indeed this may be not accurate.
-    // TODO reactivity has different logic for training and prediction:
-    // when trained, we want know actual user reaction on the post
-    // when predicting, a reaction is unknown and reactivity is full (1)
-    double reactivity = user.getInfluencers().getPostReactivity(activity.getId());
+    // Reactivity has different logic for training and prediction:
+    // * when training, we want know actual user reaction on the post;
+    // * when predicting, a reaction is unknown and reactivity is full (1).
+    double reactivity = forTraining ? reactivity = user.getInfluencers().getPostReactivity(activity.getId()) : 1;
     aline.append(reactivity).append(',');
 
     final String myId = user.getIdentity().getId();
@@ -1584,7 +1637,7 @@ public class SocialDataCollectorService implements Startable {
     likedByConns = aline.charAt(aline.length() - 2) == '1';
 
     // Contribute into target weight
-    if (withRank) {
+    if (forTraining) {
       rank.participatedByMe(participatedByMe);
       rank.participatedByConnections(participatedByConns);
       rank.likedByMe(likedByMe);
@@ -1630,7 +1683,7 @@ public class SocialDataCollectorService implements Startable {
     // poster_influence
     double posterWeight = user.getInfluencers().getParticipantWeight(posterId, ownerId);
     aline.append(posterWeight).append(',');
-    if (withRank) {
+    if (forTraining) {
       rank.participatedByInfluencer(posterWeight);
       if (new HashSet<String>(Arrays.asList(activity.getLikeIdentityIds())).contains(posterId)) {
         rank.likedByInfluencer(posterWeight);
@@ -1664,7 +1717,7 @@ public class SocialDataCollectorService implements Startable {
       aline.append(pweight).append(',');
       // LOG.info("<<< Added activity participant: " + p.id + "@" +
       // activity.getId() + " <<<<");
-      if (withRank) {
+      if (forTraining) {
         if (p.isConversed > 0) {
           rank.participatedByInfluencer(pweight);
         } else if (p.isFavored > 0) {
@@ -1695,7 +1748,7 @@ public class SocialDataCollectorService implements Startable {
       aline.append("0.0,");
     }
 
-    if (withRank) {
+    if (forTraining) {
       // rank column
       aline.append(rank.build());
     } else {

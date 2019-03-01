@@ -379,11 +379,11 @@ public class FileStorage {
       return childFile("model.json");
     }
 
-    protected ModelFile childFile(String name) {
+    public ModelFile childFile(String name) {
       return new ModelFile(this, name);
     }
 
-    protected ModelDir childDir(String name) {
+    public ModelDir childDir(String name) {
       return new ModelDir(this, name);
     }
   }

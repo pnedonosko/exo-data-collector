@@ -21,6 +21,7 @@ package org.exoplatform.datacollector;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.exoplatform.social.core.identity.model.Identity;
 
@@ -34,7 +35,7 @@ public class UserSnapshot {
 
   protected final Identity                   identity;
 
-  protected final Set<String>      connections;
+  protected final Set<String>                connections;
 
   protected final Map<String, SpaceSnapshot> spaces;
 
@@ -91,6 +92,28 @@ public class UserSnapshot {
     // dynamic and calculated from a time difference between trainings.
 
     return this.influencers;
+  }
+
+  /**
+   * Dump the snapshot to text representation (for development/debug purpose).
+   *
+   * @return the string with text
+   */
+  protected String dump() {
+    StringBuilder text = new StringBuilder();
+    text.append("identity: ").append(identity.getRemoteId()).append(" (").append(identity.getId()).append(")\n");
+    text.append("influencers.participants: ")
+        .append(influencers.getParticipantsWeight()
+                           .entrySet()
+                           .stream()
+                           .sorted((p1, p2) -> p2.getValue().compareTo(p1.getValue()))
+                           .map(pe -> pe.getKey() + "=" + pe.getValue())
+                           .collect(Collectors.joining(" ")))
+        .append("\n");
+    text.append("influencers.favoriteStreams: ")
+        .append(influencers.getFavoriteStreams().stream().sorted().collect(Collectors.joining(" ")))
+        .append("\n");
+    return text.toString();
   }
 
   /**
