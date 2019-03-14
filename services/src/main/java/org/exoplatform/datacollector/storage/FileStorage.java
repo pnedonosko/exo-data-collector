@@ -378,6 +378,10 @@ public class FileStorage {
     public ModelFile getModelDescriptor() {
       return childFile("model.json");
     }
+    
+    public ModelFile getUserSnapshot() {
+      return childFile("user_snapshot.json");
+    }
 
     public ModelFile childFile(String name) {
       return new ModelFile(this, name);

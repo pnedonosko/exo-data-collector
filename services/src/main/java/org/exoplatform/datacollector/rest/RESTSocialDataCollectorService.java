@@ -33,7 +33,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import org.exoplatform.datacollector.SocialDataCollectorService;
-import org.exoplatform.datacollector.UserInfluencers;
+import org.exoplatform.datacollector.SocialInfluencers;
 import org.exoplatform.prediction.PredictionService;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
@@ -103,7 +103,7 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
     // TODO add @QueryParam("sinceTime") and use it to collect custom
     // datasets/models for experiments
     try {
-      long sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
+      long sinceTime = System.currentTimeMillis() - SocialInfluencers.FEED_MILLIS_RANGE;
       dataCollector.startUser(userName, bucketName, sinceTime, isTrain != null ? Boolean.valueOf(isTrain) : false);
       return Response.ok().entity("{ \"status\": \"ACCEPTED\", \"userDir\": " + bucketName + "/" + userName + "}").build();
     } catch (Exception e) {

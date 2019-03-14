@@ -78,13 +78,13 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
         PrintWriter writer = new PrintWriter(file);
 
         begin();
-        long sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
+        long sinceTime = System.currentTimeMillis() - SocialInfluencers.FEED_MILLIS_RANGE;
         Identity id = dataCollector.getUserIdentityById(jasonId);
         UserSnapshot user = dataCollector.createUserSnapshot(id);
         user.initInfluencers();
         dataCollector.initializeUserSnapshot(user, sinceTime);
         Iterator<ExoSocialActivity> activities = loadActivitiesListIterator(activityManager.getActivityFeedWithListAccess(id),
-                                                                            sinceTime);
+                                                                            sinceTime, true);
         dataCollector.writeUserActivities(user, activities, writer, true);
         writer.close();
         activitiesFile.set(file.getAbsolutePath());

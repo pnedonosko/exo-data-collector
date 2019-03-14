@@ -19,6 +19,7 @@
 package org.exoplatform.datacollector;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -32,7 +33,6 @@ import org.exoplatform.social.core.space.model.Space;
  * @version $Id: SpaceSnapshot.java 00000 Jan 30, 2019 pnedonosko $
  */
 public class SpaceSnapshot {
-  protected final Space       space;
 
   protected final Set<String> members;
 
@@ -44,19 +44,18 @@ public class SpaceSnapshot {
    * @param space the space
    */
   protected SpaceSnapshot(Space space) {
-    super();
-    this.space = space;
-    this.members = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(space.getMembers())));
-    this.managers = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(space.getManagers())));
+    this(Arrays.asList(space.getMembers()), Arrays.asList(space.getManagers()));
   }
 
   /**
-   * Gets the space.
+   * Instantiates a new space snapshot.
    *
-   * @return the space
+   * @param members the members
+   * @param managers the managers
    */
-  public Space getSpace() {
-    return space;
+  protected SpaceSnapshot(Collection<String> members, Collection<String> managers) {
+    this.members = Collections.unmodifiableSet(new HashSet<String>(members));
+    this.managers = Collections.unmodifiableSet(new HashSet<String>(managers));
   }
 
   /**

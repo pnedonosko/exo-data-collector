@@ -34,7 +34,6 @@ import org.exoplatform.datacollector.domain.ActivityMentionedEntity;
 import org.exoplatform.datacollector.domain.ActivityPostedEntity;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
-import org.exoplatform.social.core.identity.model.Identity;
 
 /**
  * User influencers snapshot. Data calculated here should not be modified since
@@ -43,12 +42,12 @@ import org.exoplatform.social.core.identity.model.Identity;
  * Created by The eXo Platform SAS
  * 
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
- * @version $Id: UserInfluencers.java 00000 Nov 19, 2018 pnedonosko $
+ * @version $Id: SocialInfluencers.java 00000 Nov 19, 2018 pnedonosko $
  */
-public class UserInfluencers {
+public class SocialInfluencers {
 
   /** The Logger. */
-  private static final Log      LOG                        = ExoLogger.getExoLogger(UserInfluencers.class);
+  private static final Log      LOG                        = ExoLogger.getExoLogger(SocialInfluencers.class);
 
   public static final long      DAY_LENGTH_MILLIS          = 86400000;
 
@@ -122,6 +121,14 @@ public class UserInfluencers {
       this.created = created;
     }
 
+    ActivityInfo(String id, Long created, Long lastCommented, Long lastLiked, Boolean posted) {
+      this.id = id;
+      this.created = created;
+      this.lastCommented = lastCommented;
+      this.lastLiked = lastLiked;
+      this.posted = posted;
+    }
+
     /**
      * Reactivity encoded as difference in days between a day of posted and a
      * day when user commented/liked falling logarithmically: 0..1, where 1 is
@@ -142,42 +149,41 @@ public class UserInfluencers {
     }
 
     void liked(Long likedTime) {
-      if (lastLiked == null || lastLiked < likedTime) {
+      if (lastLiked == null || (likedTime != null && lastLiked.compareTo(likedTime) < 0)) {
         lastLiked = likedTime;
       }
     }
 
     void commented(Long commentTime) {
-      if (lastCommented == null || lastCommented < commentTime) {
+      if (lastCommented == null || (commentTime != null && lastCommented.compareTo(commentTime) < 0)) {
         lastCommented = commentTime;
       }
     }
   }
 
-  private Map<String, List<Double>>        streams      = new HashMap<>();
+  protected final Set<String>                connections;
 
-  private Map<String, List<Double>>        participants = new HashMap<>();
+  protected final Map<String, SpaceSnapshot> spaces;
 
-  private Map<String, ActivityInfo>        activities   = new HashMap<>();
+  protected Map<String, List<Double>>        streams;
 
-  @Deprecated // TODO not used
-  private final Identity                   identity;
+  protected Map<String, List<Double>>        participants;
 
-  private transient final Set<String>      connections;
-
-  private transient final Map<String, SpaceSnapshot> spaces;
+  protected Map<String, ActivityInfo>        activities;
 
   /**
-   * Instantiates a new user influencers.
+   * Instantiates Social influencers from existing user's connections and spaces
+   * (for initialization from Social API).
    *
-   * @param identity the user identity
    * @param connections the user connections
    * @param spaces the user spaces
    */
-  public UserInfluencers(Identity identity, Set<String> connections, Map<String, SpaceSnapshot> spaces) {
-    this.identity = identity;
+  protected SocialInfluencers(Set<String> connections, Map<String, SpaceSnapshot> spaces) {
     this.connections = connections;
     this.spaces = spaces;
+    this.streams = new HashMap<>();
+    this.participants = new HashMap<>();
+    this.activities = new HashMap<>();
   }
 
   public boolean isWidelyLiked(int likes) {
@@ -236,7 +242,7 @@ public class UserInfluencers {
     streams.computeIfAbsent(id, k -> new ArrayList<Double>()).add(weight);
   }
 
-  private Map<String, Double> aggregateWeight(Map<String, List<Double>> mapOfWeights) {
+  protected Map<String, Double> aggregateWeight(Map<String, List<Double>> mapOfWeights) {
     return mapOfWeights.entrySet()
                        .stream()
                        .collect(Collectors.toMap(e -> e.getKey(),
@@ -245,7 +251,7 @@ public class UserInfluencers {
                                                                .collect(Collectors.summingDouble(w -> w.doubleValue())))));
   }
 
-  private Map<String, Double> orderWeights(Map<String, Double> weights) {
+  protected Map<String, Double> orderWeights(Map<String, Double> weights) {
     return weights.entrySet()
                   .stream()
                   .sorted((e1, e2) -> (int) Math.round((e2.getValue() - e1.getValue()) * WEIGHT_PRECISION))
@@ -682,5 +688,4 @@ public class UserInfluencers {
       addLike(l);
     }
   }
-
 }

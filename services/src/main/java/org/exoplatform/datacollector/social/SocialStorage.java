@@ -24,10 +24,14 @@ import java.util.stream.Collectors;
 
 import org.picocontainer.Startable;
 
+import org.exoplatform.social.core.activity.ActivitiesRealtimeListAccess;
+import org.exoplatform.social.core.activity.model.ExoSocialActivity;
 import org.exoplatform.social.core.identity.model.Identity;
+import org.exoplatform.social.core.jpa.storage.RDBMSActivityStorageImpl;
 import org.exoplatform.social.core.jpa.storage.dao.ConnectionDAO;
 import org.exoplatform.social.core.jpa.storage.entity.ConnectionEntity;
 import org.exoplatform.social.core.relationship.model.Relationship;
+import org.exoplatform.social.core.storage.api.SpaceStorage;
 
 /**
  * Custom access to Social storage using its RDMBS storage DAOs.<br>
@@ -38,15 +42,50 @@ import org.exoplatform.social.core.relationship.model.Relationship;
  */
 public class SocialStorage implements Startable {
 
-  protected final ConnectionDAO connsStorage;
+  @Deprecated
+  protected class RDMBSActivitiesFeedListAccess extends ActivitiesRealtimeListAccess {
+
+    RDMBSActivitiesFeedListAccess(Identity ownerIdentity) {
+      super(activityStorage, ActivityType.ACTIVITY_FEED, ownerIdentity);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<ExoSocialActivity> loadNewer(Long sinceTime, int limit) {
+      return super.loadNewer(sinceTime, limit);
+    }
+  }
+
+  protected final ConnectionDAO            connsStorage;
+
+  protected final RDBMSActivityStorageImpl activityStorage;
+
+  protected final SpaceStorage             spaceStorage;
 
   /**
    * Instantiates a new social identity storage.
    *
    * @param connsStorage the conns storage
+   * @param activityStorage the activity storage
+   * @param spaceStorage the space storage
    */
-  public SocialStorage(ConnectionDAO connsStorage) {
+  public SocialStorage(ConnectionDAO connsStorage, RDBMSActivityStorageImpl activityStorage, SpaceStorage spaceStorage) {
     this.connsStorage = connsStorage;
+    this.activityStorage = activityStorage;
+    this.spaceStorage = spaceStorage;
+  }
+
+  /**
+   * Gets the activity feed with list access.
+   *
+   * @param ownerIdentity the owner identity
+   * @return the activity feed with list access
+   */
+  @Deprecated // TODO not used
+  public ActivitiesRealtimeListAccess getActivityFeedWithListAccess(Identity ownerIdentity) {
+    return new RDMBSActivitiesFeedListAccess(ownerIdentity);
   }
 
   /**
