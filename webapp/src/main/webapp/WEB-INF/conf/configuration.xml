@@ -93,15 +93,30 @@
     </component-plugin>
   </external-component-plugins>
 
+  <external-component-plugins>
+    <target-component>org.exoplatform.datacollector.SocialDataCollectorService</target-component>
+    <component-plugin>
+      <name>add.focusGroup</name>
+      <set-method>addFocusGroupPlugin</set-method>
+      <type>org.exoplatform.datacollector.FocusGroupPlugin</type>
+      <description>If at least one focus group registred then main loop training will be done only for members of all such groups.</description>
+      <init-params>
+        <value-param>
+          <name>focus-group</name>
+          <value>${exo.datacollector.focusGroup:}</value>
+        </value-param>
+      </init-params>
+    </component-plugin>
+  </external-component-plugins>
   <!-- NativeTrainingExecutor provider plugin -->
   <external-component-plugins>
     <target-component>org.exoplatform.prediction.TrainingService</target-component>
     <component-plugin>
-    <name>set.nativeexecutor.train</name>
-    <set-method>addPlugin</set-method>
-    <type>org.exoplatform.prediction.NativeScriptsExecutor</type>
-    <description>Native training executor calls the scripts natively on host machine using bash.</description>
-    <init-params>
+      <name>set.nativeexecutor.train</name>
+      <set-method>addPlugin</set-method>
+      <type>org.exoplatform.prediction.NativeScriptsExecutor</type>
+      <description>Native training executor calls the scripts natively on host machine using bash.</description>
+      <init-params>
         <value-param>
           <name>exec-environment</name>
           <value>${exo.prediction.script.trainEnv:}</value>

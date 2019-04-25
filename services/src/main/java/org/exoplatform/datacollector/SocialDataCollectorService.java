@@ -62,6 +62,7 @@ import org.exoplatform.commons.api.persistence.ExoTransactional;
 import org.exoplatform.commons.utils.PropertyManager;
 import org.exoplatform.container.ExoContainer;
 import org.exoplatform.container.PortalContainer;
+import org.exoplatform.container.component.ComponentPlugin;
 import org.exoplatform.container.component.RequestLifeCycle;
 import org.exoplatform.container.xml.InitParams;
 import org.exoplatform.container.xml.ValueParam;
@@ -104,7 +105,6 @@ import org.exoplatform.social.core.activity.model.ActivityStream;
 import org.exoplatform.social.core.activity.model.ActivityStream.Type;
 import org.exoplatform.social.core.activity.model.ExoSocialActivity;
 import org.exoplatform.social.core.application.SpaceActivityPublisher;
-import org.exoplatform.social.core.identity.model.ActiveIdentityFilter;
 import org.exoplatform.social.core.identity.model.Identity;
 import org.exoplatform.social.core.identity.model.Profile;
 import org.exoplatform.social.core.identity.provider.OrganizationIdentityProvider;
@@ -429,7 +429,16 @@ public class SocialDataCollectorService implements Startable {
         List<LastLoginBean> lastLogins = loginHistory.getLastLogins(RECENT_LOGINS_COUNT, EMPTY_STRING);
         // Reverse w/o Google library
         Collections.reverse(lastLogins);
-        lastLogins.stream().forEach(login -> queueInMainLoop(login.getUserId(), new Date(login.getLastLogin())));
+        Set<String> focusUsers = getFocusUsers();
+        lastLogins.stream().forEach(login -> {
+          if (focusUsers != null) {
+            if (focusUsers.contains(login.getUserId())) {
+              queueInMainLoop(login.getUserId(), new Date(login.getLastLogin()));
+            }
+          } else {
+            queueInMainLoop(login.getUserId(), new Date(login.getLastLogin()));
+          }
+        });
       } catch (Exception e) {
         LOG.error("Cannot get last users login", e);
       }
@@ -448,10 +457,13 @@ public class SocialDataCollectorService implements Startable {
       if (isNew) {
         String userId = getUserIdentityByName(m.getUserName()).getId();
         if (m.getGroupId().equals(userACL.getAdminGroups())) {
-          focusGroups.get(userACL.getAdminGroups()).add(userId);
+          admins.add(userId);
         }
         if (m.getGroupId().equals(EMPLOYEES_GROUPID)) {
-          focusGroups.get(EMPLOYEES_GROUPID).add(userId);
+          employees.add(userId);
+        }
+        if (focusGroups.keySet().contains(m.getGroupId())) {
+          focusGroups.get(m.getGroupId()).add(userId);
         }
       }
     }
@@ -459,10 +471,13 @@ public class SocialDataCollectorService implements Startable {
     public void postDelete(Membership m) throws Exception {
       String userId = getUserIdentityByName(m.getUserName()).getId();
       if (m.getGroupId().equals(userACL.getAdminGroups())) {
-        focusGroups.get(userACL.getAdminGroups()).remove(userId);
+        admins.remove(userId);
       }
       if (m.getGroupId().equals(EMPLOYEES_GROUPID)) {
-        focusGroups.get(EMPLOYEES_GROUPID).remove(userId);
+        employees.remove(userId);
+      }
+      if (focusGroups.keySet().contains(m.getGroupId())) {
+        focusGroups.get(m.getGroupId()).remove(userId);
       }
     }
   }
@@ -479,7 +494,15 @@ public class SocialDataCollectorService implements Startable {
     @Override
     public void onEvent(Event<ConversationRegistry, ConversationState> event) throws Exception {
       if (runMainLoop.get()) {
-        queueInMainLoop(event.getData().getIdentity().getUserId());
+        String userId = event.getData().getIdentity().getUserId();
+        Set<String> focusUsers = getFocusUsers();
+        if (focusUsers != null) {
+          if (focusUsers.contains(userId)) {
+            queueInMainLoop(userId);
+          }
+        } else {
+          queueInMainLoop(userId);
+        }
       }
     }
   }
@@ -515,8 +538,6 @@ public class SocialDataCollectorService implements Startable {
   protected final TrainingService                           trainingService;
 
   protected final SocialStorage                             socialStorage;
-
-  protected final Map<String, Set<String>>                  focusGroups         = new HashMap<>();
 
   // TODO clean this map time-from-time to do not consume the RAM
   protected final Map<String, SoftReference<UserIdentity>>  userIdentities      = new HashMap<>();
@@ -566,6 +587,12 @@ public class SocialDataCollectorService implements Startable {
 
   /** The is developing. */
   protected Boolean                                         isDeveloping;
+
+  protected final Map<String, Set<String>>                  focusGroups         = new ConcurrentHashMap<>();
+
+  protected Set<String>                                     admins;
+
+  protected Set<String>                                     employees;
 
   /**
    * Instantiates a new data collector service.
@@ -655,6 +682,25 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
+   * Adds the focus group plugin.
+   *
+   * @param plugin the plugin
+   */
+  public void addFocusGroupPlugin(ComponentPlugin plugin) {
+    if (FocusGroupPlugin.class.isAssignableFrom(plugin.getClass())) {
+      FocusGroupPlugin fgplugin = FocusGroupPlugin.class.cast(plugin);
+      if (fgplugin.getGroupId() != null && fgplugin.getGroupId().length() > 0) {
+        this.focusGroups.put(fgplugin.getGroupId(), Collections.emptySet());
+        LOG.info("Added focus group to main loop {}", fgplugin.getGroupId());
+      } else {
+        LOG.warn("Skipped empty focus group plugin");
+      }
+    } else {
+      LOG.error("The focus group plugin is not an instance of {}", FocusGroupPlugin.class.getName());
+    }
+  }
+
+  /**
    * {@inheritDoc}
    */
   @Override
@@ -663,20 +709,33 @@ public class SocialDataCollectorService implements Startable {
     RequestLifeCycle.begin(PortalContainer.getInstance());
     try {
       // Pre-read constant things
-      Set<String> admins = getGroupMemberIds(userACL.getAdminGroups(), "manager", "member");
-      this.focusGroups.put(userACL.getAdminGroups(), admins);
-      Set<String> employees = getGroupMemberIds(EMPLOYEES_GROUPID);
-      this.focusGroups.put(EMPLOYEES_GROUPID, employees);
+      this.admins = getGroupMemberIds(userACL.getAdminGroups(), "manager", "member");
+      // this.focusGroups.put(userACL.getAdminGroups(), admins);
+
+      this.employees = getGroupMemberIds(EMPLOYEES_GROUPID);
+      // this.focusGroups.put(EMPLOYEES_GROUPID, employees);
+
+      // Fill focus group members
+      for (Iterator<Map.Entry<String, Set<String>>> fgiter = this.focusGroups.entrySet().iterator(); fgiter.hasNext();) {
+        Map.Entry<String, Set<String>> fge = fgiter.next();
+        Set<String> members = getGroupMemberIds(fge.getKey());
+        if (members != null) {
+          fge.setValue(Collections.synchronizedSet(members));
+        } else {
+          fgiter.remove();
+          LOG.warn("Cannot find focus group members {}, the group will be skipped", fge.getKey());
+        }
+      }
 
       try {
-        organization.addListenerPlugin(new MembershipListener());
+        this.organization.addListenerPlugin(new MembershipListener());
       } catch (Exception e) {
         LOG.error("Cannot add the MembershipListener", e);
       }
 
-      listenerService.addListener(new LoginListener());
+      this.listenerService.addListener(new LoginListener());
 
-      if (configRunMainLoop) {
+      if (this.configRunMainLoop) {
         if (startMainLoop()) {
           LOG.info("Started " + this.getClass().getSimpleName() + " in automatic mode");
         } else {
@@ -1771,8 +1830,7 @@ public class SocialDataCollectorService implements Startable {
 
   protected boolean isEmployee(UserIdentity identity) {
     if (identity != null && identity.getId() != null) {
-      Set<String> employees = focusGroups.get(EMPLOYEES_GROUPID);
-      return employees != null ? employees.contains(identity.getId()) : false;
+      return employees.contains(identity.getId());
     } else {
       return false;
     }
@@ -1907,7 +1965,7 @@ public class SocialDataCollectorService implements Startable {
           } else {
             LOG.warn("Root user identity cannot be found in Social");
           }
-          Iterator<String> aiter = focusGroups.get(userACL.getAdminGroups()).iterator();
+          Iterator<String> aiter = admins.iterator();
           while (aiter.hasNext() && top.size() < topLength) {
             top.computeIfAbsent(aiter.next(), p -> new ActivityParticipant(p, false, false));
           }
@@ -2204,14 +2262,29 @@ public class SocialDataCollectorService implements Startable {
 
   @Deprecated // TODO not used
   protected Set<String> getActiveUsers() {
-    return focusGroups.compute(ACTIVE_USERS, (gid, current) -> {
-      final long now = System.currentTimeMillis();
-      if (current != null && currentUsersUpdated.get() > now - SocialInfluencers.ACTIVITY_EXPIRATION_L0) {
-        return current;
-      }
-      currentUsersUpdated.set(now);
-      return identityStorage.getActiveUsers(new ActiveIdentityFilter(SocialInfluencers.INFLUENCE_DAYS_RANGE));
-    });
+//    return focusGroups.compute(ACTIVE_USERS, (gid, current) -> {
+//      final long now = System.currentTimeMillis();
+//      if (current != null && currentUsersUpdated.get() > now - SocialInfluencers.ACTIVITY_EXPIRATION_L0) {
+//        return current;
+//      }
+//      currentUsersUpdated.set(now);
+//      return identityStorage.getActiveUsers(new ActiveIdentityFilter(SocialInfluencers.INFLUENCE_DAYS_RANGE));
+//    });
+    return null;
+  }
+
+  /**
+   * Gets all focus users if some were added via
+   * {@link #addFocusGroupPlugin(ComponentPlugin)}. Otherwise return
+   * <code>null</code>.
+   *
+   * @return the focus users or <code>null</code>
+   */
+  protected Set<String> getFocusUsers() {
+    if (focusGroups.size() > 0) {
+      return focusGroups.values().stream().collect(LinkedHashSet::new, Set::addAll, Set::addAll);
+    }
+    return null;
   }
 
   /**
