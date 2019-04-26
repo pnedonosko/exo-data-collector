@@ -18,6 +18,12 @@
  */
 package org.exoplatform.prediction;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.exoplatform.container.component.BaseComponentPlugin;
 import org.exoplatform.container.xml.InitParams;
 import org.exoplatform.container.xml.ValueParam;
@@ -25,6 +31,7 @@ import org.exoplatform.datacollector.storage.FileStorage;
 import org.exoplatform.datacollector.storage.FileStorage.ModelDir;
 import org.exoplatform.datacollector.storage.FileStorage.ModelFile;
 import org.exoplatform.datacollector.storage.FileStorage.ScriptFile;
+import org.exoplatform.services.log.Log;
 
 /**
  * Abstract FileStorageScriptsExecutor to executes scripts from
@@ -57,6 +64,33 @@ public abstract class FileStorageScriptsExecutor extends BaseComponentPlugin imp
       return null;
     } else {
       return val;
+    }
+  }
+
+  /**
+   * Logs the process output and error.
+   *
+   * @param process the process
+   * @param log the log
+   */
+  protected void logOutput(Process process, Log log) {
+    if (log.isDebugEnabled()) {
+      BufferedReader processOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
+      Collection<String> allOut = processOut.lines().collect(Collectors.toList());
+      if (allOut.size() > 0) {
+        log.debug("Standard output of process:\n");
+        for (String s : allOut) {
+          log.debug("> " + s);
+        }
+      }
+    }
+    BufferedReader processErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+    List<String> allErr = processErr.lines().collect(Collectors.toList());
+    if (allErr.size() > 0) {
+      log.info("Error output of process:\n");
+      for (String s : allErr) {
+        log.info("> " + s);
+      }
     }
   }
 

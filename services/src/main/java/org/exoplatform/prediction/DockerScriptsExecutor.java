@@ -18,11 +18,7 @@
  */
 package org.exoplatform.prediction;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
 import java.util.stream.Collectors;
 
 import org.exoplatform.container.xml.InitParams;
@@ -81,38 +77,12 @@ public class DockerScriptsExecutor extends FileStorageScriptsExecutor {
       }
       Process process = Runtime.getRuntime().exec(cmd);
       process.waitFor();
+      logOutput(process, LOG);
       if (LOG.isDebugEnabled()) {
         LOG.debug("<< Docker command complete: " + script.getName());
       }
-      logDockerOutput(process);
     } catch (Exception e) {
       LOG.error("Docker command {} failed for {}", script.getName(), dataset.getModelPath(), e);
-    }
-  }
-
-  /**
-   * Logs the docker container output
-   * 
-   * @param process docker process
-   */
-  protected void logDockerOutput(Process process) {
-    if (LOG.isDebugEnabled()) {
-      BufferedReader processOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
-      Collection<String> allOut = processOut.lines().collect(Collectors.toList());
-      if (allOut.size() > 0) {
-        LOG.debug("Standard output of Docker container:\n");
-        for (String s : allOut) {
-          LOG.debug("> " + s);
-        }
-      }
-    }
-    BufferedReader processErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-    List<String> allErr = processErr.lines().collect(Collectors.toList());
-    if (allErr.size() > 0) {
-      LOG.info("Error output of Docker container:\n");
-      for (String s : allErr) {
-        LOG.info("> " + s);
-      }
     }
   }
 }

@@ -294,7 +294,7 @@ public class TrainingService implements Startable {
   public void trainModel(ModelEntity model, ModelFile dataset, boolean incremental) {
     // We need last READY model to copy it for incremental training
     ModelEntity prevModel = lastModel(model.getName(), Status.READY); // getPreviousModel(model);
-    if (incremental && prevModel != null) {
+    if (incremental && prevModel != null && prevModel.getModelFile() != null && !prevModel.getModelFile().startsWith(dataset.getUserDir().getModelPath())) {
       // First copy existing model files for incremental training
       // TODO But ensure incremental is possible (scripts version doesn't
       // differ)

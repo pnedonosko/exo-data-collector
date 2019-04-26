@@ -41,7 +41,7 @@
         <value>${exo.datacollector.autostart:false}</value>
       </value-param>
       <value-param>
-        <name>train-period</name>
+        <name>training-period</name>
         <value>${exo.datacollector.trainingPeriod:180}</value>
       </value-param>
     </init-params>

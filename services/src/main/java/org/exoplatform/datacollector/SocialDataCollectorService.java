@@ -203,7 +203,7 @@ public class SocialDataCollectorService implements Startable {
 
   protected static final String  AUTOSTART_MODE_PARAM = "autostart";
 
-  protected static final String  TRAIN_PERIOD_PARAM   = "train-period";
+  protected static final String  TRAIN_PERIOD_PARAM   = "training-period";
 
   protected static final String  DEVELOPING_PARAM     = "developing";
 
@@ -463,7 +463,7 @@ public class SocialDataCollectorService implements Startable {
           employees.add(userId);
         }
         if (focusGroups.keySet().contains(m.getGroupId())) {
-          focusGroups.get(m.getGroupId()).add(userId);
+          focusGroups.get(m.getGroupId()).add(m.getUserName());
         }
       }
     }
@@ -477,7 +477,7 @@ public class SocialDataCollectorService implements Startable {
         employees.remove(userId);
       }
       if (focusGroups.keySet().contains(m.getGroupId())) {
-        focusGroups.get(m.getGroupId()).remove(userId);
+        focusGroups.get(m.getGroupId()).remove(m.getUserName());
       }
     }
   }
@@ -588,10 +588,13 @@ public class SocialDataCollectorService implements Startable {
   /** The is developing. */
   protected Boolean                                         isDeveloping;
 
+  /** The focus groups with its members' user names. */
   protected final Map<String, Set<String>>                  focusGroups         = new ConcurrentHashMap<>();
 
+  /** The admins IDs. */
   protected Set<String>                                     admins;
 
+  /** The employees IDs. */
   protected Set<String>                                     employees;
 
   /**
@@ -718,7 +721,7 @@ public class SocialDataCollectorService implements Startable {
       // Fill focus group members
       for (Iterator<Map.Entry<String, Set<String>>> fgiter = this.focusGroups.entrySet().iterator(); fgiter.hasNext();) {
         Map.Entry<String, Set<String>> fge = fgiter.next();
-        Set<String> members = getGroupMemberIds(fge.getKey());
+        Set<String> members = getGroupMemberNames(fge.getKey());
         if (members != null) {
           fge.setValue(Collections.synchronizedSet(members));
         } else {
@@ -1100,7 +1103,7 @@ public class SocialDataCollectorService implements Startable {
           throw new DatasetException("Cannot collect user activities for " + userName + ". Caused by: " + e.getMessage(), e);
         }
       } else if (LOG.isDebugEnabled()) {
-        LOG.debug("Has no enough activities to collect for {}", userName);
+        LOG.debug("Has no enough activities to collect for {}: {}", userName, feedSize);
       }
     } else {
       LOG.warn("User social identity not found for {}", userName);
@@ -1131,7 +1134,8 @@ public class SocialDataCollectorService implements Startable {
               // If we have a model to RETRY - use it with new sinceTime
             } else if (currentModel.getStatus() == Status.NEW || currentModel.getStatus() == Status.PROCESSING) {
               // XXX Delete any of it and add a NEW one.
-              // NEW can come from main loop (but it's unexpected),
+              // NEW can come from main loop (but it's unexpected, e.g. due to
+              // not found user activity),
               // manual startUser() also can bring it to here.
               // PROCESSING should not get to here from main loop,
               // see in modelNeedsProcessing(), but can from manual invocation
@@ -1172,7 +1176,10 @@ public class SocialDataCollectorService implements Startable {
               // activities will be lost or repeatedly taken in account by the
               // model and influencers?
               incrementally = true;
-              job.sinceTime.set(readyModel.getCreated().getTime());
+              // We re-train over a week before the previous model did, this way
+              // we take in account later user reactions on activities that
+              // already have been trained by previous READY model.
+              job.sinceTime.set(readyModel.getCreated().getTime() - SocialInfluencers.FEED_INCREMENTAL_MILLIS_RANGE);
             } else {
               job.sinceTime.set(System.currentTimeMillis() - SocialInfluencers.FEED_MILLIS_RANGE);
             }
@@ -1189,6 +1196,12 @@ public class SocialDataCollectorService implements Startable {
               // TODO as collecting may take time: do we need (re)new JPA
               // session/transaction or re-get the model object?
               trainingService.trainModel(currentModel, dataset, incrementally);
+            } else if (currentModel.getStatus() == Status.NEW) {
+              // Remove NEW model created above
+              if (LOG.isDebugEnabled()) {
+                LOG.debug("Deleting not used NEW model {}[{}]", currentModel.getName(), currentModel.getVersion());
+              }
+              trainingService.delete(currentModel);
             }
           } catch (DatasetException e) {
             if (currentModel.getStatus() == Status.RETRY) {
@@ -1707,6 +1720,8 @@ public class SocialDataCollectorService implements Startable {
     for (; added < ACTIVITY_PARTICIPANTS_TOP; added++) {
       // participantN_id
       aline.append(DUMMY_ID).append(',');
+      // participantN_name - for debug
+      aline.append("__dummy,");
       // participantN_conversed
       aline.append("0,");
       // participantN_favored
@@ -1722,7 +1737,7 @@ public class SocialDataCollectorService implements Startable {
       // participantN_focus_*: job position as team membership encoded
       encFocus(aline, null).append(',');
       // participantN_influence
-      aline.append("0.0,");
+      aline.append("0,");
     }
 
     if (forTraining) {
@@ -2065,6 +2080,49 @@ public class SocialDataCollectorService implements Startable {
           } else {
             LOG.warn("Group member identity cannot be found in Social: {}", userName);
           }
+        }
+        return members;
+      }
+    } catch (Exception e) {
+      LOG.warn("Error reading group members for " + groupId + " of types: " + membershipTypes, e);
+      return null;
+    }
+  }
+
+  /**
+   * Gets the group members user names filtered optionally by given type(s). If
+   * no types given then all members will be returned. If types are given, then
+   * returned set will contain members sorted in order of given memberships.
+   * E.g. if types given ["manager", "member"], then the result will contain
+   * managers first, then members.
+   *
+   * @param groupId the group ID
+   * @param membershipTypes the membership types or <code>null</code> if need
+   *          return all members
+   * @return the group members user names in a set
+   */
+  protected Set<String> getGroupMemberNames(String groupId, String... membershipTypes) {
+    // FYI: be careful with large groups, like /platform/users, this may work
+    // very slow as will read all the users.
+    try {
+      Iterator<User> uiter = ListAccessUtil.loadListIterator(organization.getUserHandler().findUsersByGroupId(groupId));
+      if (membershipTypes != null && membershipTypes.length > 0) {
+        Map<String, Set<String>> members = new LinkedHashMap<>();
+        while (uiter.hasNext()) {
+          String userName = uiter.next().getUserName();
+          for (Membership um : organization.getMembershipHandler().findMembershipsByUserAndGroup(userName, groupId)) {
+            for (String mt : membershipTypes) {
+              if (um.getMembershipType().equals(mt)) {
+                members.computeIfAbsent(mt, m -> new LinkedHashSet<>()).add(userName);
+              }
+            }
+          }
+        }
+        return members.values().stream().collect(LinkedHashSet::new, Set::addAll, Set::addAll);
+      } else {
+        Set<String> members = new LinkedHashSet<>();
+        while (uiter.hasNext()) {
+          members.add(uiter.next().getUserName());
         }
         return members;
       }

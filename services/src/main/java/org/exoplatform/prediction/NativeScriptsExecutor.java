@@ -48,7 +48,6 @@ public class NativeScriptsExecutor extends FileStorageScriptsExecutor {
     String scriptPath, datasetPath;
     if (execDir != null) {
       scriptPath = new StringBuilder(execDir).append(File.separatorChar).append(script.getStoragePath()).toString();
-
       datasetPath = new StringBuilder(execDir).append(File.separatorChar).append(dataset.getStoragePath()).toString();
     } else {
       scriptPath = script.getAbsolutePath();
@@ -67,6 +66,7 @@ public class NativeScriptsExecutor extends FileStorageScriptsExecutor {
       }
       Process process = Runtime.getRuntime().exec(cmd);
       process.waitFor();
+      logOutput(process, LOG);
       if (LOG.isDebugEnabled()) {
         LOG.debug("<< Command complete " + script.getName());
       }

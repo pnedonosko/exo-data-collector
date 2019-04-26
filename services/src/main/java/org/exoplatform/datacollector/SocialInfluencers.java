@@ -47,45 +47,43 @@ import org.exoplatform.services.log.Log;
 public class SocialInfluencers {
 
   /** The Logger. */
-  private static final Log      LOG                        = ExoLogger.getExoLogger(SocialInfluencers.class);
+  private static final Log      LOG                           = ExoLogger.getExoLogger(SocialInfluencers.class);
 
-  public static final long      DAY_LENGTH_MILLIS          = 86400000;
+  public static final long      DAY_LENGTH_MILLIS             = 86400000;
 
   /** Default or uncertain weight constant. */
-  public static final double    DEFAULT_WEIGHT             = 0.1;
+  public static final double    DEFAULT_WEIGHT                = 0.1;
 
   /**
    * The Constant WIDELY_LIKES_MAX - 30, number taken from observations at eXo
    * Tribe.
    */
-  public static final int       WIDELY_LIKES_MAX           = 30;
+  public static final int       WIDELY_LIKES_MAX              = 30;
 
-  public static final int       WEIGHT_PRECISION           = 100000;
+  public static final int       WEIGHT_PRECISION              = 100000;
 
-  public static final int       REACTIVITY_DAYS_RANGE      = 30;
+  public static final int       REACTIVITY_DAYS_RANGE         = 30;
 
-  public static final int       INFLUENCE_DAYS_RANGE       = 90;
+  public static final int       INFLUENCE_DAYS_RANGE          = 90;
 
   /** The Constant FEED_DAYS_RANGE = 2 years long. */
-  public static final int       FEED_DAYS_RANGE            = 731;
+  public static final int       FEED_DAYS_RANGE               = 731;
 
-  public static final long      FEED_MILLIS_RANGE          = FEED_DAYS_RANGE * DAY_LENGTH_MILLIS;
+  public static final long      FEED_MILLIS_RANGE             = FEED_DAYS_RANGE * DAY_LENGTH_MILLIS;
 
-  public static final double    REACTIVITY_DAY_WEIGHT_GROW = 0.7;
+  public static final long      FEED_INCREMENTAL_DAYS_RANGE   = 5;
 
-  public static final double    INFLUENCE_DAY_WEIGHT_GROW  = 0.2;
+  public static final long      FEED_INCREMENTAL_MILLIS_RANGE = FEED_INCREMENTAL_DAYS_RANGE * DAY_LENGTH_MILLIS;
 
-  public static final int       ACTIVITY_PARTICIPANTS_TOP  = 5;
+  public static final double    REACTIVITY_DAY_WEIGHT_GROW    = 0.7;
 
-  /** The Constant ACTIVITY_EXPIRATION_L0 (30 min). */
-  public static final long      ACTIVITY_EXPIRATION_L0     = 1000 * 60 * 30;
+  public static final double    INFLUENCE_DAY_WEIGHT_GROW     = 0.2;
 
-  /** The Constant ACTIVITY_EXPIRATION_L1 (2 hours). */
-  public static final long      ACTIVITY_EXPIRATION_L1     = 1000 * 60 * 60 * 2;
+  public static final int       ACTIVITY_PARTICIPANTS_TOP     = 5;
 
-  private static final double[] REACTIVITY_WEIGHTS         = new double[REACTIVITY_DAYS_RANGE];
+  private static final double[] REACTIVITY_WEIGHTS            = new double[REACTIVITY_DAYS_RANGE];
 
-  private static final double[] INFLUENCE_WEIGHTS          = new double[INFLUENCE_DAYS_RANGE];
+  private static final double[] INFLUENCE_WEIGHTS             = new double[INFLUENCE_DAYS_RANGE];
 
   static {
     // Index 0 is for first day and so on
