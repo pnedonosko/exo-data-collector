@@ -78,7 +78,7 @@ public abstract class FileStorageScriptsExecutor extends BaseComponentPlugin imp
       BufferedReader processOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
       Collection<String> allOut = processOut.lines().collect(Collectors.toList());
       if (allOut.size() > 0) {
-        log.debug("Standard output of process:\n");
+        log.debug("Standard output of process:");
         for (String s : allOut) {
           log.debug("> " + s);
         }
@@ -87,7 +87,7 @@ public abstract class FileStorageScriptsExecutor extends BaseComponentPlugin imp
     BufferedReader processErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
     List<String> allErr = processErr.lines().collect(Collectors.toList());
     if (allErr.size() > 0) {
-      log.info("Error output of process:\n");
+      log.info("Error output of process:");
       for (String s : allErr) {
         log.info("> " + s);
       }

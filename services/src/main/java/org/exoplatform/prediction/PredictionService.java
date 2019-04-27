@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -108,7 +109,10 @@ public class PredictionService implements Startable {
       } else {
         theList = Collections.emptyList();
       }
-      return Collections.unmodifiableList(theList); // should it be modifiable?
+      // Should it be modifiable - yes!, it will be cast to LinkedList in
+      // UIActivitiesContainer.addFirstActivityId() to insert just posted
+      // activity - thus we return a copy
+      return new LinkedList<String>(theList);
     }
 
     /**
