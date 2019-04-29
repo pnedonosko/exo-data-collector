@@ -18,7 +18,7 @@
  */
 package org.exoplatform.datacollector;
 
-import static org.exoplatform.datacollector.UserInfluencers.sigmoid;
+import static org.exoplatform.datacollector.SocialInfluencers.sigmoid;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2018 eXo Platform SAS.
+ * Copyright (C) 2003-2019 eXo Platform SAS.
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as
@@ -19,45 +19,36 @@
 package org.exoplatform.datacollector;
 
 /**
- * Created by The eXo Platform SAS.
- *
+ * Badly initialized or saved snapshot.<br>
+ * Created by The eXo Platform SAS
+ * 
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
- * @version $Id: ActivityDataException.java 00000 Dec 13, 2018 pnedonosko $
+ * @version $Id: SnapshotException.java 00000 Mar 5, 2019 pnedonosko $
  */
-public class ActivityDataException extends Exception {
-
-  /** The Constant serialVersionUID. */
-  private static final long serialVersionUID = -2120871397066227799L;
+public class SnapshotException extends DatasetException {
 
   /**
-   * Instantiates a new activity data exception.
+   * 
+   */
+  private static final long serialVersionUID = -2627878168262293704L;
+
+  /**
+   * Instantiates a new snapshot exception.
    *
    * @param message the message
    */
-  public ActivityDataException(String message) {
+  public SnapshotException(String message) {
     super(message);
   }
 
   /**
-   * Instantiates a new activity data exception.
+   * Instantiates a new snapshot exception.
    *
    * @param message the message
    * @param cause the cause
    */
-  public ActivityDataException(String message, Throwable cause) {
+  public SnapshotException(String message, Throwable cause) {
     super(message, cause);
-  }
-
-  /**
-   * Instantiates a new activity data exception.
-   *
-   * @param message the message
-   * @param cause the cause
-   * @param enableSuppression the enable suppression
-   * @param writableStackTrace the writable stack trace
-   */
-  public ActivityDataException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-    super(message, cause, enableSuppression, writableStackTrace);
   }
 
 }

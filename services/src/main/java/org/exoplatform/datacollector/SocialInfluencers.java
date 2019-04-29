@@ -19,11 +19,8 @@
 package org.exoplatform.datacollector;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -37,57 +34,56 @@ import org.exoplatform.datacollector.domain.ActivityMentionedEntity;
 import org.exoplatform.datacollector.domain.ActivityPostedEntity;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
-import org.exoplatform.social.core.identity.model.Identity;
-import org.exoplatform.social.core.space.model.Space;
 
 /**
+ * User influencers snapshot. Data calculated here should not be modified since
+ * once collected (by
+ * {@link SocialDataCollectorService#collectUserActivities(org.exoplatform.datacollector.identity.UserIdentity, java.io.PrintWriter)}).<br>
  * Created by The eXo Platform SAS
  * 
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
- * @version $Id: UserInfluencers.java 00000 Nov 19, 2018 pnedonosko $
+ * @version $Id: SocialInfluencers.java 00000 Nov 19, 2018 pnedonosko $
  */
-public class UserInfluencers {
+public class SocialInfluencers {
 
   /** The Logger. */
-  private static final Log      LOG                        = ExoLogger.getExoLogger(UserInfluencers.class);
+  private static final Log      LOG                           = ExoLogger.getExoLogger(SocialInfluencers.class);
 
-  public static final long      DAY_LENGTH_MILLIS          = 86400000;
+  public static final long      DAY_LENGTH_MILLIS             = 86400000;
 
   /** Default or uncertain weight constant. */
-  public static final double    DEFAULT_WEIGHT             = 0.1;
+  public static final double    DEFAULT_WEIGHT                = 0.1;
 
   /**
    * The Constant WIDELY_LIKES_MAX - 30, number taken from observations at eXo
    * Tribe.
    */
-  public static final int       WIDELY_LIKES_MAX           = 30;
+  public static final int       WIDELY_LIKES_MAX              = 30;
 
-  public static final int       WEIGHT_PRECISION           = 100000;
+  public static final int       WEIGHT_PRECISION              = 100000;
 
-  public static final int       REACTIVITY_DAYS_RANGE      = 30;
+  public static final int       REACTIVITY_DAYS_RANGE         = 30;
 
-  public static final int       INFLUENCE_DAYS_RANGE       = 90;
-  
+  public static final int       INFLUENCE_DAYS_RANGE          = 90;
+
   /** The Constant FEED_DAYS_RANGE = 2 years long. */
-  public static final int       FEED_DAYS_RANGE            = 731;
+  public static final int       FEED_DAYS_RANGE               = 731;
 
-  public static final long      FEED_MILLIS_RANGE          = FEED_DAYS_RANGE * DAY_LENGTH_MILLIS;
+  public static final long      FEED_MILLIS_RANGE             = FEED_DAYS_RANGE * DAY_LENGTH_MILLIS;
 
-  public static final double    REACTIVITY_DAY_WEIGHT_GROW = 0.7;
+  public static final long      FEED_INCREMENTAL_DAYS_RANGE   = 5;
 
-  public static final double    INFLUENCE_DAY_WEIGHT_GROW  = 0.2;
+  public static final long      FEED_INCREMENTAL_MILLIS_RANGE = FEED_INCREMENTAL_DAYS_RANGE * DAY_LENGTH_MILLIS;
 
-  public static final int       ACTIVITY_PARTICIPANTS_TOP  = 5;
+  public static final double    REACTIVITY_DAY_WEIGHT_GROW    = 0.7;
 
-  /** The Constant ACTIVITY_EXPIRATION_L0 (30 min). */
-  public static final long      ACTIVITY_EXPIRATION_L0     = 1000 * 60 * 30;
+  public static final double    INFLUENCE_DAY_WEIGHT_GROW     = 0.2;
 
-  /** The Constant ACTIVITY_EXPIRATION_L1 (2 hours). */
-  public static final long      ACTIVITY_EXPIRATION_L1     = 1000 * 60 * 60 * 2;
+  public static final int       ACTIVITY_PARTICIPANTS_TOP     = 5;
 
-  private static final double[] REACTIVITY_WEIGHTS         = new double[REACTIVITY_DAYS_RANGE];
+  private static final double[] REACTIVITY_WEIGHTS            = new double[REACTIVITY_DAYS_RANGE];
 
-  private static final double[] INFLUENCE_WEIGHTS          = new double[INFLUENCE_DAYS_RANGE];
+  private static final double[] INFLUENCE_WEIGHTS             = new double[INFLUENCE_DAYS_RANGE];
 
   static {
     // Index 0 is for first day and so on
@@ -107,21 +103,6 @@ public class UserInfluencers {
     }
   }
 
-  class SpaceInfo {
-    final Space       space;
-
-    final Set<String> members;
-
-    final Set<String> managers;
-
-    SpaceInfo(Space space) {
-      super();
-      this.space = space;
-      this.members = new HashSet<String>(Arrays.asList(space.getMembers()));
-      this.managers = new HashSet<String>(Arrays.asList(space.getManagers()));
-    }
-  }
-
   class ActivityInfo {
     final String id;
 
@@ -136,6 +117,14 @@ public class UserInfluencers {
     ActivityInfo(String id, Long created) {
       this.id = id;
       this.created = created;
+    }
+
+    ActivityInfo(String id, Long created, Long lastCommented, Long lastLiked, Boolean posted) {
+      this.id = id;
+      this.created = created;
+      this.lastCommented = lastCommented;
+      this.lastLiked = lastLiked;
+      this.posted = posted;
     }
 
     /**
@@ -158,56 +147,41 @@ public class UserInfluencers {
     }
 
     void liked(Long likedTime) {
-      if (lastLiked == null || lastLiked < likedTime) {
+      if (lastLiked == null || (likedTime != null && lastLiked.compareTo(likedTime) < 0)) {
         lastLiked = likedTime;
       }
     }
 
     void commented(Long commentTime) {
-      if (lastCommented == null || lastCommented < commentTime) {
+      if (lastCommented == null || (commentTime != null && lastCommented.compareTo(commentTime) < 0)) {
         lastCommented = commentTime;
       }
     }
   }
 
-  private Map<String, List<Double>>    streams      = new HashMap<>();
+  protected final Set<String>                connections;
 
-  private Map<String, List<Double>>    participants = new HashMap<>();
+  protected final Map<String, SpaceSnapshot> spaces;
 
-  private Map<String, ActivityInfo>    activities   = new HashMap<>();
+  protected Map<String, List<Double>>        streams;
 
-  private final Identity               userIdentity;
+  protected Map<String, List<Double>>        participants;
 
-  private final Map<String, Identity>  userConnections;
-
-  private final Map<String, SpaceInfo> userSpaces;
+  protected Map<String, ActivityInfo>        activities;
 
   /**
-   * Instantiates a new user influencers.
+   * Instantiates Social influencers from existing user's connections and spaces
+   * (for initialization from Social API).
    *
-   * @param userIdentity the user identity
-   * @param userConnections the user connections
-   * @param userSpaces the user spaces
+   * @param connections the user connections
+   * @param spaces the user spaces
    */
-  public UserInfluencers(Identity userIdentity, Collection<Identity> userConnections, Collection<Space> userSpaces) {
-    this.userIdentity = userIdentity;
-    // Preload some common info
-    // Collector with merge function to solve duplicates in source collections
-    // (may have place for connections)
-    this.userConnections = userConnections.stream().collect(Collectors.toMap(c -> c.getId(), c -> c, (c1, c2) -> c1));
-    this.userSpaces = userSpaces.stream().collect(Collectors.toMap(s -> s.getId(), s -> new SpaceInfo(s), (s1, s2) -> s1));
-  }
-
-  public Map<String, Identity> getUserConnections() {
-    return Collections.unmodifiableMap(userConnections);
-  }
-
-  public Map<String, SpaceInfo> getUserSpaces() {
-    return Collections.unmodifiableMap(userSpaces);
-  }
-
-  public Identity getUserIdentity() {
-    return userIdentity;
+  protected SocialInfluencers(Set<String> connections, Map<String, SpaceSnapshot> spaces) {
+    this.connections = connections;
+    this.spaces = spaces;
+    this.streams = new HashMap<>();
+    this.participants = new HashMap<>();
+    this.activities = new HashMap<>();
   }
 
   public boolean isWidelyLiked(int likes) {
@@ -257,7 +231,7 @@ public class UserInfluencers {
   public static double sigmoid(double value) {
     // 1/(1+EXP(-LN(value)*2)) TODO *1.5 may produce a bit smaller values
     if (value != 0) {
-      return round(1 / (1 + Math.exp(-2 * Math.log(value))), WEIGHT_PRECISION);
+      return round(1 / (1 + Math.exp(-1 * Math.log(value))), WEIGHT_PRECISION);
     }
     return 0d;
   }
@@ -266,7 +240,7 @@ public class UserInfluencers {
     streams.computeIfAbsent(id, k -> new ArrayList<Double>()).add(weight);
   }
 
-  private Map<String, Double> aggregateWeight(Map<String, List<Double>> mapOfWeights) {
+  protected Map<String, Double> aggregateWeight(Map<String, List<Double>> mapOfWeights) {
     return mapOfWeights.entrySet()
                        .stream()
                        .collect(Collectors.toMap(e -> e.getKey(),
@@ -275,7 +249,7 @@ public class UserInfluencers {
                                                                .collect(Collectors.summingDouble(w -> w.doubleValue())))));
   }
 
-  private Map<String, Double> orderWeights(Map<String, Double> weights) {
+  protected Map<String, Double> orderWeights(Map<String, Double> weights) {
     return weights.entrySet()
                   .stream()
                   .sorted((e1, e2) -> (int) Math.round((e2.getValue() - e1.getValue()) * WEIGHT_PRECISION))
@@ -300,7 +274,7 @@ public class UserInfluencers {
    *
    * @return the favorite streams ordered in descending order of user favor
    */
-  public Collection<String> getFavoriteStreams() {
+  public Set<String> getFavoriteStreams() {
     // TODO filter all the streams to only ones that have weight higher of some
     // trendy value (e.g. 0.75)
 
@@ -312,10 +286,10 @@ public class UserInfluencers {
     Map<String, Double> ordered = orderWeights(weights);
 
     // TODO test it to ensure order
-    return Collections.unmodifiableCollection(ordered.keySet());
+    return Collections.unmodifiableSet(ordered.keySet());
   }
 
-  public Collection<String> getFavoriteStreamsTop(int top) {
+  public Set<String> getFavoriteStreamsTop(int top) {
     // TODO test it to ensure order
     return getFavoriteStreams().stream().limit(top).collect(Collectors.toCollection(LinkedHashSet::new));
   }
@@ -328,7 +302,7 @@ public class UserInfluencers {
     return participants.containsKey(partId);
   }
 
-  public Collection<String> getAllParticipants() {
+  public Set<String> getAllParticipants() {
     return Collections.unmodifiableSet(participants.keySet());
   }
 
@@ -348,7 +322,7 @@ public class UserInfluencers {
     return weights;
   }
 
-  public Collection<String> getParticipants() {
+  public Set<String> getParticipants() {
     // TODO filter all the parts to only ones that have weight higher of some
     // trendy value (e.g. 0.75)
 
@@ -360,10 +334,10 @@ public class UserInfluencers {
     Map<String, Double> ordered = orderWeights(weights);
 
     // TODO test it to ensure order
-    return Collections.unmodifiableCollection(ordered.keySet());
+    return Collections.unmodifiableSet(ordered.keySet());
   }
 
-  public Collection<String> getParticipantsTop(int top) {
+  public Set<String> getParticipantsTop(int top) {
     // TODO test it to ensure order
     return getParticipants().stream().limit(top).collect(Collectors.toCollection(LinkedHashSet::new));
   }
@@ -388,13 +362,13 @@ public class UserInfluencers {
     // 3) find most "recent" user connections: those who more active last days
     // and possible have common interest with the user.
 
-    Identity conn = userConnections.get(id);
-    if (conn != null) {
+    boolean isConn = connections.contains(id);
+    if (isConn) {
       weights.add(0.3);
     }
-    SpaceInfo spaceInfo = null;
+    SpaceSnapshot spaceInfo = null;
     if (streamId != null) {
-      spaceInfo = userSpaces.get(streamId);
+      spaceInfo = spaces.get(streamId);
       if (spaceInfo != null) {
         if (spaceInfo.managers.contains(id)) {
           weights.add(0.5);
@@ -405,7 +379,7 @@ public class UserInfluencers {
         }
       }
     }
-    if (conn == null && spaceInfo == null) {
+    if (!isConn && spaceInfo == null) {
       weights.add(DEFAULT_WEIGHT);
     }
 
@@ -712,5 +686,4 @@ public class UserInfluencers {
       addLike(l);
     }
   }
-
 }

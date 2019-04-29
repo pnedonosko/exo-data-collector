@@ -47,12 +47,15 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
 @ExoEntity
 @IdClass(ModelId.class)
 @NamedQueries({
-    /* Get last named version */
-    @NamedQuery(name = "PredictionModel.findLastModelVersion", query = "SELECT MAX(m.version) FROM PredictionModel m"
-        + " WHERE m.name = :name GROUP BY m.name"),
     @NamedQuery(name = "PredictionModel.findStatusByNameAndVersion", query = "SELECT m.status FROM PredictionModel m"
         + " WHERE m.name = :name AND m.version = :version"),
-    @NamedQuery(name = "PredictionModel.findByName", query = "SELECT m FROM PredictionModel m" + " WHERE m.name = :name") })
+    @NamedQuery(name = "PredictionModel.findByName", query = "SELECT m FROM PredictionModel m WHERE m.name = :name"),
+    // TODO can we make a better query to do not SELECT all versions, then order
+    // them by DB engine, then fetch only first one?
+    @NamedQuery(name = "PredictionModel.findLastModel", query = "SELECT m FROM PredictionModel m"
+        + " WHERE m.name = :name ORDER BY m.version DESC"),
+    @NamedQuery(name = "PredictionModel.findLastModelWithStatus", query = "SELECT m FROM PredictionModel m"
+        + " WHERE m.name = :name AND m.status = :status ORDER BY m.version DESC") })
 public class ModelEntity implements Serializable {
 
   /**

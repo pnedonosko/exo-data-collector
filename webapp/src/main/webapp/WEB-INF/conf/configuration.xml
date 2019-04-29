@@ -1,39 +1,59 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Copyright (C) 2017 eXo Platform SAS. This is free software; you can
-  redistribute it and/or modify it under the terms of the GNU Lesser General
-  Public License as published by the Free Software Foundation; either version
-  2.1 of the License, or (at your option) any later version. This software
-  is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
-  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-  PURPOSE. See the GNU Lesser General Public License for more details. You
-  should have received a copy of the GNU Lesser General Public License along
-  with this software; if not, write to the Free Software Foundation, Inc.,
-  51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA, or see the FSF site:
-  http://www.fsf.org. -->
-
+<!--
+  Copyright (C) 2019 eXo Platform SAS.
+  
+  This is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as
+  published by the Free Software Foundation; either version 2.1 of
+  the License, or (at your option) any later version.
+  
+  This software is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with this software; if not, write to the Free
+  Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+  02110-1301 USA, or see the FSF site: http://www.fsf.org.
+-->
 <configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.exoplatform.org/xml/ns/kernel_1_3.xsd http://www.exoplatform.org/xml/ns/kernel_1_3.xsd"
   xmlns="http://www.exoplatform.org/xml/ns/kernel_1_3.xsd">
 
   <component>
-    <type>org.exoplatform.prediction.TrainingService</type>
-  </component>
-
-  <component>
-    <type>org.exoplatform.datacollector.SocialDataCollectorService</type>
+    <type>org.exoplatform.datacollector.storage.FileStorage</type>
     <init-params>
       <value-param>
-        <name>manual-mode</name>
-        <value>true</value>
+        <name>work-directory</name>
+        <value>${exo.datacollector.file.storage:}</value>
       </value-param>
     </init-params>
   </component>
   <component>
-    <type>org.exoplatform.datacollector.rest.RESTSocialDataCollectorService</type>
+    <type>org.exoplatform.datacollector.social.SocialStorage</type>
   </component>
-
   <component>
-    <type>org.exoplatform.commons.persistence.impl.EntityManagerService</type>
+    <type>org.exoplatform.datacollector.SocialDataCollectorService</type>
+    <init-params>
+      <value-param>
+        <name>autostart</name>
+        <value>${exo.datacollector.autostart:false}</value>
+      </value-param>
+      <value-param>
+        <name>training-period</name>
+        <value>${exo.datacollector.trainingPeriod:180}</value>
+      </value-param>
+    </init-params>
+  </component>
+  <component>
+    <type>org.exoplatform.prediction.TrainingService</type>
+  </component>
+  <component>
+    <type>org.exoplatform.prediction.PredictionService</type>
+  </component>
+  <component>
+    <type>org.exoplatform.datacollector.rest.RESTSocialDataCollectorService</type>
   </component>
   <component>
     <type>org.exoplatform.datacollector.dao.ActivityPostedDAO</type>
@@ -47,10 +67,15 @@
   <component>
     <type>org.exoplatform.datacollector.dao.ActivityMentionedDAO</type>
   </component>
-
   <component>
     <type>org.exoplatform.prediction.model.dao.ModelEntityDAO</type>
   </component>
+  <component>
+    <type>org.exoplatform.datacollector.dao.IdentityProfileDAO</type>
+  </component>
+  <!-- component> TODO it should be declared by Platform itself
+    <type>org.exoplatform.commons.persistence.impl.EntityManagerService</type>
+  </component -->
 
   <external-component-plugins>
     <target-component>org.exoplatform.commons.api.persistence.DataInitializer</target-component>
@@ -68,26 +93,91 @@
     </component-plugin>
   </external-component-plugins>
 
-  <!-- NativeTrainingExecutor provider plugin -->
-  <!--external-component-plugins>
-    <target-component>org.exoplatform.prediction.TrainingService</target-component>
+  <external-component-plugins>
+    <target-component>org.exoplatform.datacollector.SocialDataCollectorService</target-component>
     <component-plugin>
-    <name>set.nativeexecutor</name>
-    <set-method>addPlugin</set-method>
-    <type>org.exoplatform.prediction.NativeTrainingExecutor</type>
-    <description>Native training executor calls the training script natively on host machine using bash.</description>
+      <name>add.focusGroup</name>
+      <set-method>addFocusGroupPlugin</set-method>
+      <type>org.exoplatform.datacollector.FocusGroupPlugin</type>
+      <description>If at least one focus group registred then main loop training will be done only for members of all such groups.</description>
+      <init-params>
+        <value-param>
+          <name>focus-group</name>
+          <value>${exo.datacollector.focusGroup:}</value>
+        </value-param>
+      </init-params>
     </component-plugin>
-    </external-component-plugins -->
-
-  <!-- DockerTrainingExecutor provider plugin -->
+  </external-component-plugins>
+  <!-- NativeTrainingExecutor provider plugin -->
   <external-component-plugins>
     <target-component>org.exoplatform.prediction.TrainingService</target-component>
     <component-plugin>
-      <name>set.dockerexecutor</name>
+      <name>set.nativeexecutor.train</name>
       <set-method>addPlugin</set-method>
-      <type>org.exoplatform.prediction.DockerTrainingExecutor</type>
-      <description>Native training executor runs the training script in docker container.</description>
+      <type>org.exoplatform.prediction.NativeScriptsExecutor</type>
+      <description>Native training executor calls the scripts natively on host machine using bash.</description>
+      <init-params>
+        <value-param>
+          <name>exec-environment</name>
+          <value>${exo.prediction.script.trainEnv:}</value>
+        </value-param>
+        <value-param>
+          <name>exec-directory</name>
+          <value>${exo.prediction.script.trainDir:}</value>
+        </value-param>
+      </init-params>
     </component-plugin>
   </external-component-plugins>
+  <external-component-plugins>
+    <target-component>org.exoplatform.prediction.PredictionService</target-component>
+    <component-plugin>
+      <name>set.dockerexecutor.predict</name>
+      <set-method>addPlugin</set-method>
+      <type>org.exoplatform.prediction.NativeScriptsExecutor</type>
+      <description>Native training executor calls the scripts natively on host machine using bash.</description>
+      <init-params>
+        <value-param>
+          <name>exec-environment</name>
+          <value>${exo.prediction.script.predictEnv:}</value>
+        </value-param>
+        <value-param>
+          <name>exec-directory</name>
+          <value>${exo.prediction.script.predictDir:}</value>
+        </value-param>
+      </init-params>
+    </component-plugin>
+  </external-component-plugins>
+
+  <!-- DockerTrainingExecutor provider plugin -->
+  <!-- external-component-plugins>
+    <target-component>org.exoplatform.prediction.TrainingService</target-component>
+    <component-plugin>
+      <name>set.dockerexecutor.train</name>
+      <set-method>addPlugin</set-method>
+      <type>org.exoplatform.prediction.DockerScriptsExecutor</type>
+      <description>Native scripts executor runs the scripts in a docker container.</description>
+      <init-params>
+        <value-param>
+          <name>exec-container-name</name>
+          <value>${exo.prediction.docker.trainContainerName:}</value>
+        </value-param>
+      </init-params>
+    </component-plugin>
+  </external-component-plugins>
+  <external-component-plugins>
+    <target-component>org.exoplatform.prediction.PredictionService</target-component>
+    <component-plugin>
+      <name>set.dockerexecutor.predict</name>
+      <set-method>addPlugin</set-method>
+      <type>org.exoplatform.prediction.DockerScriptsExecutor</type>
+      <description>Native scripts executor runs the scripts in a docker container.</description>
+      <init-params>
+        <value-param>
+          <name>exec-container-name</name>
+          <value>${exo.prediction.docker.predictContainerName:}</value>
+        </value-param>
+      </init-params>
+    </component-plugin>
+  </external-component-plugins -->
 
 </configuration>

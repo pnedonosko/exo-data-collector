@@ -1,4 +1,4 @@
-package org.exoplatform.prediction.user.dao;
+package org.exoplatform.prediction.model.dao;
 
 import java.util.List;
 

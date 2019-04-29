@@ -20,9 +20,10 @@ public class ModelVersionGenerator implements IdentifierGenerator {
     EntityManager entityManager = EntityManagerHolder.get();
 
     try {
-      TypedQuery<Long> query = entityManager.createNamedQuery("PredictionModel.findLastModelVersion", Long.class)
-                                            .setParameter("name", name);
-      return query.getSingleResult() + 1;
+      TypedQuery<ModelEntity> query = entityManager.createNamedQuery("PredictionModel.findLastModel", ModelEntity.class)
+                                            .setParameter("name", name)
+                                            .setMaxResults(1);
+      return query.getSingleResult().getVersion() + 1;
     } catch (NoResultException e) {
       return 1L;
     }

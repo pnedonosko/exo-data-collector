@@ -1,5 +1,7 @@
 package org.exoplatform.datacollector;
 
+import static org.exoplatform.datacollector.ListAccessUtil.loadActivitiesListIterator;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -8,6 +10,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,6 +27,8 @@ import org.exoplatform.component.test.ConfiguredBy;
 import org.exoplatform.component.test.ContainerScope;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.social.core.activity.model.ExoSocialActivity;
+import org.exoplatform.social.core.identity.model.Identity;
 
 @ConfiguredBy({ @ConfigurationUnit(scope = ContainerScope.ROOT, path = "conf/test-configuration.xml"),
     @ConfigurationUnit(scope = ContainerScope.PORTAL, path = "conf/portal/configuration.xml"),
@@ -41,11 +46,11 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
   public static final String[]           INTEGER_COLUMNS = { "id", "owner_id", "poster_id", "participant1_id", "participant2_id",
       "participant3_id", "participant4_id", "participant5_id" };
 
-  private static final String[]          STRING_COLUMNS  = {"owner_title" };
+  private static final String[]          STRING_COLUMNS  = { "owner_title" };
 
   private static final String[]          FLOAT_COLUMNS   = { "owner_influence", "number_of_likes", "number_of_comments",
       "reactivity", "poster_influence", "participant1_influence", "participant2_influence", "participant3_influence",
-      "participant4_influence", "participant5_influence" };
+      "participant4_influence", "participant5_influence, rank" };
 
   private static AtomicReference<String> activitiesFile  = new AtomicReference<>();
 
@@ -73,11 +78,19 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
         PrintWriter writer = new PrintWriter(file);
 
         begin();
-        dataCollector.collectUserActivities(dataCollector.getUserIdentityById(jasonId), writer);
+        long sinceTime = System.currentTimeMillis() - SocialInfluencers.FEED_MILLIS_RANGE;
+        Identity id = dataCollector.getUserIdentityById(jasonId);
+        UserSnapshot user = dataCollector.createUserSnapshot(id);
+        user.initInfluencers();
+        dataCollector.initializeUserSnapshot(user, sinceTime);
+        Iterator<ExoSocialActivity> activities = loadActivitiesListIterator(activityManager.getActivityFeedWithListAccess(id),
+                                                                            sinceTime, true);
+        dataCollector.writeUserActivities(user, activities, writer, true);
         writer.close();
         activitiesFile.set(file.getAbsolutePath());
         LOG.info("PATH: " + file.getAbsolutePath());
       } catch (Exception e) {
+        LOG.error("Error during collecting user activities", e);
         fail("Error collecting activities", e);
       } finally {
         end();
@@ -102,7 +115,7 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
         + "participant2_id,participant2_conversed,participant2_favored,participant2_gender_male,participant2_gender_female,participant2_is_employee,participant2_is_lead,participant2_is_in_connections,participant2_focus_engineering,participant2_focus_sales,participant2_focus_marketing,participant2_focus_management,participant2_focus_financial,participant2_focus_other,participant2_influence,"
         + "participant3_id,participant3_conversed,participant3_favored,participant3_gender_male,participant3_gender_female,participant3_is_employee,participant3_is_lead,participant3_is_in_connections,participant3_focus_engineering,participant3_focus_sales,participant3_focus_marketing,participant3_focus_management,participant3_focus_financial,participant3_focus_other,participant3_influence,"
         + "participant4_id,participant4_conversed,participant4_favored,participant4_gender_male,participant4_gender_female,participant4_is_employee,participant4_is_lead,participant4_is_in_connections,participant4_focus_engineering,participant4_focus_sales,participant4_focus_marketing,participant4_focus_management,participant4_focus_financial,participant4_focus_other,participant4_influence,"
-        + "participant5_id,participant5_conversed,participant5_favored,participant5_gender_male,participant5_gender_female,participant5_is_employee,participant5_is_lead,participant5_is_in_connections,participant5_focus_engineering,participant5_focus_sales,participant5_focus_marketing,participant5_focus_management,participant5_focus_financial,participant5_focus_other,participant5_influence";
+        + "participant5_id,participant5_conversed,participant5_favored,participant5_gender_male,participant5_gender_female,participant5_is_employee,participant5_is_lead,participant5_is_in_connections,participant5_focus_engineering,participant5_focus_sales,participant5_focus_marketing,participant5_focus_management,participant5_focus_financial,participant5_focus_other,participant5_influence,rank";
     String header = activitiesReader.readLine();
     assertEquals(validHeader, header);
   }
@@ -111,7 +124,7 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
   public void testColumnsNumber() throws IOException {
     activitiesReader.lines().forEach(line -> {
       String[] array = line.split(",");
-      assertEquals(110, array.length);
+      assertEquals(111, array.length);
     });
   }
 

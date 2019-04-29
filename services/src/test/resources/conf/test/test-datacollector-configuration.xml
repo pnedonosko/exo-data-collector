@@ -5,7 +5,33 @@
   xmlns="http://www.exoplatform.org/xml/ns/kernel_1_2.xsd">
 
   <component>
+    <type>org.exoplatform.datacollector.storage.FileStorage</type>
+    <!-- init-params>
+      <value-param>
+        <name>work-directorty</name>
+        <value>${exo.data.dir}/data-collector</value>
+      </value-param>
+    </init-params -->
+  </component>
+  <component>
+    <type>org.exoplatform.datacollector.social.SocialStorage</type>
+  </component>
+  
+  <component>
     <type>org.exoplatform.datacollector.SocialDataCollectorService</type>
+    <init-params>
+      <value-param>
+        <name>autostart</name>
+        <value>${exo.datacollector.autostart:false}</value>
+      </value-param>
+      <value-param>
+        <name>train-period</name>
+        <value>${exo.datacollector.trainingPeriod:180}</value>
+      </value-param>
+    </init-params>
+  </component>
+  <component>
+    <type>org.exoplatform.prediction.TrainingService</type>
   </component>
 
   <component>
@@ -20,14 +46,44 @@
   <component>
     <type>org.exoplatform.datacollector.dao.ActivityLikedDAO</type>
   </component>
-
   <component>
     <type>org.exoplatform.prediction.model.dao.ModelEntityDAO</type>
   </component>
-
   <component>
-    <type>org.exoplatform.prediction.TrainingService</type>
+    <type>org.exoplatform.datacollector.dao.IdentityProfileDAO</type>
   </component>
-
+  
+  <external-component-plugins>
+    <target-component>org.exoplatform.commons.api.persistence.DataInitializer</target-component>
+    <component-plugin>
+      <name>DataCollectorChangeLogsPlugin</name>
+      <set-method>addChangeLogsPlugin</set-method>
+      <type>org.exoplatform.commons.persistence.impl.ChangeLogsPlugin</type>
+      <init-params>
+        <values-param>
+          <name>changelogs</name>
+          <description>Change logs of Data Collector</description>
+          <value>db/changelog/datacollector.db.changelog-1.0.0.xml</value>
+        </values-param>
+      </init-params>
+    </component-plugin>
+  </external-component-plugins>
+  
+  <!-- DockerTrainingExecutor provider plugin -->
+  <external-component-plugins>
+    <target-component>org.exoplatform.prediction.TrainingService</target-component>
+    <component-plugin>
+      <name>set.dockerexecutor.train</name>
+      <set-method>addPlugin</set-method>
+      <type>org.exoplatform.prediction.DockerScriptsExecutor</type>
+      <description>Native scripts executor runs the scripts in a docker container.</description>
+       <init-params>
+        <value-param>
+          <name>container-name</name>
+          <value>${exo.prediction.docker.containerName:exo-prediction-tensorflow}</value>
+        </value-param>
+      </init-params>
+    </component-plugin>
+  </external-component-plugins>
 
 </configuration>

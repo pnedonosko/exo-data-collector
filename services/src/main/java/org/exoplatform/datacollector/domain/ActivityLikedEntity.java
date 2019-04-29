@@ -92,7 +92,7 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
         + " ORDER BY post_id, parent_id, liker_id", resultClass = ActivityLikedEntity.class),
     /* Others like posts where user comments (find likers) */
     // TODO here will be duplicates from comments on the post and comments on
-    // comments - solve it in UserInfluencers.addConvoLiker().
+    // comments - solve it in SocialInfluencers.addConvoLiker().
     // XXX attempt to solve duplicated by SELECT DISTINCT a.* FROM
     @NamedNativeQuery(name = "ActivityLiked.findPartIsConvoLiker", query = "SELECT DISTINCT a.* FROM ("
         + "SELECT a.activity_id AS post_id,"
@@ -143,7 +143,7 @@ import org.exoplatform.datacollector.domain.id.ActivityLikedId;
         + " ORDER BY post_id, parent_id, liker_id", resultClass = ActivityLikedEntity.class),
     /* Others like posts where the user likes only others' comments (likers) */
     // TODO here will be duplicates from comments on the post and comments on
-    // comments - solve it in UserInfluencers.addLikedConvoPoster().
+    // comments - solve it in SocialInfluencers.addLikedConvoPoster().
     // XXX attempt to solve duplicated by SELECT DISTINCT a.* FROM
     @NamedNativeQuery(name = "ActivityLiked.findPartIsSameConvoLiker", query = "SELECT DISTINCT a.* FROM ("
         + "SELECT a.activity_id AS post_id,"

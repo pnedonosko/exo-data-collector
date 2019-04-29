@@ -4,7 +4,7 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow.python.data import Dataset
 
-def preprocess_features(feed_dataframe):
+def preprocess_features(feed_dataframe, withRank=True):
   """Prepares input features.
 
   Args:
@@ -115,11 +115,13 @@ def preprocess_features(feed_dataframe):
      #"participant5_focus_management",
      #"participant5_focus_financial",
      #"participant5_focus_other",
-     "participant5_influence",
-     "rank"
+     "participant5_influence"
      ]]
 
   processed_features = selected_features.copy()
+
+  if withRank:
+    processed_features["rank"] = feed_dataframe["rank"]
 
   # Arithmetic regression with single feature:
   # Make synthetic feature as a arithmetic mean of all influencers:

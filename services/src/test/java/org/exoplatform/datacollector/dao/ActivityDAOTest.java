@@ -9,7 +9,7 @@ import org.exoplatform.component.test.ConfigurationUnit;
 import org.exoplatform.component.test.ConfiguredBy;
 import org.exoplatform.component.test.ContainerScope;
 import org.exoplatform.datacollector.BaseActivityTestCase;
-import org.exoplatform.datacollector.UserInfluencers;
+import org.exoplatform.datacollector.SocialInfluencers;
 import org.exoplatform.datacollector.domain.ActivityCommentedEntity;
 import org.exoplatform.datacollector.domain.ActivityLikedEntity;
 import org.exoplatform.datacollector.domain.ActivityMentionedEntity;
@@ -40,7 +40,7 @@ public class ActivityDAOTest extends BaseActivityTestCase {
   protected void beforeClass() {
     super.beforeClass();
 
-    sinceTime = System.currentTimeMillis() - UserInfluencers.FEED_MILLIS_RANGE;
+    sinceTime = System.currentTimeMillis() - SocialInfluencers.FEED_MILLIS_RANGE;
 
     activityCommentDAO = getService(ActivityCommentedDAO.class);
     activityPostedDAO = getService(ActivityPostedDAO.class);

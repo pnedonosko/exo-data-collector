@@ -35,27 +35,30 @@ starttime = datetime.datetime.now()
 if len(sys.argv) == 2:
     my_data_file = sys.argv[1]
     my_model_dir = os.path.dirname(os.path.realpath(my_data_file)) + "/model"
+    my_predicted_file = os.path.dirname(os.path.realpath(my_data_file)) + "/predicted.csv"
 elif len(sys.argv) == 3:
     my_data_file = sys.argv[1]
     my_model_dir = sys.argv[2]
+    my_predicted_file = os.path.dirname(os.path.realpath(my_data_file)) + "/predicted.csv"
 else :
     # Only for developer mode, in prod it should return error
-    my_data_file = "./developer_data/user3.test.csv"
+    my_data_file = "./developer_data/predict.csv"
     my_model_dir = "./developer_data/model"
+    my_predicted_file = "./developer_data/predicted.csv"
 
 # Load data
 feed_dataframe = pd.read_csv(my_data_file, sep=",")
 loadtime = datetime.datetime.now()
 print("Loaded data in {}ms".format(deltatime_ms(loadtime, starttime)))
 
-feed_dataset = preprocess_features(feed_dataframe)
+feed_dataset = preprocess_features(feed_dataframe, withRank=False)
 print("Training data:")
 print(feed_dataset.describe(percentiles=[.10, .25, .5, .75, .90]))
 
 ##########################
 # Load the existing model
 def load_model(input_feature):
-  """Trains a linear regression model.
+  """Loads a linear regression model.
 
   Args:
     learning_rate: A `float`, the learning rate.
@@ -84,6 +87,7 @@ def load_model(input_feature):
   return linear_regressor
 
 # Infer a prediction:
+feed_dataset["rank"] = 1
 my_targets = feed_dataset["rank"]
 linear_regressor = load_model(input_feature="activity_influence")
 
@@ -103,8 +107,16 @@ predicted_dataframe = pd.DataFrame({'Predictions': my_predictions,'Targets': my_
 print(predicted_dataframe.describe(percentiles=[.10, .25, .5, .75, .90]))
 
 # Save the predictions into the original feed dataset file
-feed_dataframe["rank_predicted"] = my_predictions
+#feed_dataframe["rank_predicted"] = my_predictions
+predicted_dataframe = pd.DataFrame()
+predicted_dataframe["id"] = feed_dataframe["id"]
+predicted_dataframe["rank"] = my_predictions
+
 # TODO In some cases we may need to cut things to 1.0
 #feed_dataframe["rank_predicted"] = (
 #  feed_dataframe["rank_predicted"].apply(lambda x: min(x, 1.0)))
-feed_dataframe.to_csv(my_data_file, sep=",", index=False)
+#feed_dataframe.to_csv(my_data_file, sep=",", index=False)
+predicted_dataframe = predicted_dataframe.sort_values('rank')
+predicted_dataframe= predicted_dataframe.drop(columns="rank")
+predicted_dataframe.to_csv(my_predicted_file, sep=",", index=False)
+

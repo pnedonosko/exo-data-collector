@@ -153,7 +153,7 @@ elif len(sys.argv) == 3:
   my_model_dir = sys.argv[2]
 else :
   # Only for developer mode, in prod it should return error
-  my_dataset_file = "./developer_data/user3.csv"
+  my_dataset_file = "./developer_data/training.csv"
   my_model_dir = "./developer_data/model"
   # Try to remove model dir; if failed show an error using try...except on screen
   # TODO clean model folder only for development
@@ -213,13 +213,25 @@ try :
 
   # Display all graphs.
   plt.show()
-except (OSError, ValueError) as e:
-  print("Error: %s - %s." % (e.filename, e.strerror))
+except (ValueError) as e:
+  err = "ValueError: {}.".format(str(e))
+  print(err)
   metadata = {
     "status": "ERROR",
     "dataset": my_dataset_file,
     "model_dir": my_model_dir,
-    "training_time": my_model_dir
+    "training_time": my_model_dir,
+    "error" : err
+  }
+except (OSError) as e:
+  err = "OSError: {}.".format(str(e))
+  print(err)
+  metadata = {
+    "status": "ERROR",
+    "dataset": my_dataset_file,
+    "model_dir": my_model_dir,
+    "training_time": my_model_dir,
+    "error" : err
   }
 
 # Save the model metadata (JSON file)

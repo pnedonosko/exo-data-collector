@@ -37,39 +37,31 @@
     <dependency>
       <groupId>javax.jcr</groupId>
       <artifactId>jcr</artifactId>
+      <scope>provided</scope>
     </dependency>
     <dependency>
-      <groupId>javax.portlet</groupId>
-      <artifactId>portlet-api</artifactId>
+      <groupId>javax.ws.rs</groupId>
+      <artifactId>jsr311-api</artifactId>
+      <type>jar</type>
+      <scope>provided</scope>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.exoplatform.core</groupId>
+      <artifactId>exo.core.component.organization.api</artifactId>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.exoplatform.commons</groupId>
       <artifactId>commons-webui-component</artifactId>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.exoplatform.commons</groupId>
       <artifactId>commons-webui-ext</artifactId>
+      <scope>provided</scope>
     </dependency>
-    <dependency>
-      <groupId>org.exoplatform.ecms</groupId>
-      <artifactId>ecms-core-services</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.ecms</groupId>
-      <artifactId>ecms-core-webui</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.kernel</groupId>
-      <artifactId>exo.kernel.commons</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.kernel</groupId>
-      <artifactId>exo.kernel.container</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.gatein.portal</groupId>
-      <artifactId>exo.portal.webui.core</artifactId>
-    </dependency>
+    
     <dependency>
       <groupId>org.exoplatform.social</groupId>
       <artifactId>social-component-core</artifactId>
@@ -80,50 +72,25 @@
     </dependency>
     <dependency>
       <groupId>org.exoplatform.social</groupId>
-      <artifactId>social-component-webui</artifactId>
+      <artifactId>social-component-core-jpa</artifactId>
     </dependency>
-    <dependency>
-      <groupId>org.exoplatform.gatein.portal</groupId>
-      <artifactId>exo.portal.component.common</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.gatein.portal</groupId>
-      <artifactId>exo.portal.component.web.controller</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.gatein.portal</groupId>
-      <artifactId>exo.portal.component.web.resources</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.gatein.portal</groupId>
-      <artifactId>exo.portal.webui.framework</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.gatein.portal</groupId>
-      <artifactId>exo.portal.webui.portal</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.gatein.portal</groupId>
-      <artifactId>exo.portal.webui.portlet</artifactId>
-    </dependency>
-    <dependency>
+    
+    <dependency><!-- Required to use PLF's Login History -->
       <groupId>org.exoplatform.platform</groupId>
       <artifactId>platform-exo-gadget-pack-gadget-pack-services</artifactId>
     </dependency>
-    <!-- mvn analyze unused but build failed when remove -->
+    
+    <!-- Third parties -->
     <dependency>
       <groupId>org.apache.shindig</groupId>
       <artifactId>shindig-social-api</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.json</groupId>
-      <artifactId>json</artifactId>
-    </dependency>
-    <dependency>
       <groupId>org.exoplatform.gatein.portal</groupId>
       <artifactId>exo.portal.component.resources</artifactId>
     </dependency>
-    <!-- for tests -->
+    
+    <!-- For tests -->
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
@@ -159,11 +126,6 @@
     <dependency>
       <groupId>org.exoplatform.gatein.portal</groupId>
       <artifactId>exo.portal.component.test.jcr</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.exoplatform.social</groupId>
-      <artifactId>social-component-core-jpa</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -250,10 +212,10 @@
           <includes>
             <!-- include>**/**/ActivityDAOTest.java</include -->
             <!-- include>**/**/SocialDataCollectorServiceTest.java</include -->
-            <!-- include>**/**/*Test_.java</include -->
-            <!-- <include>**/**/ModelEntityDAOTest.java</include -->
+            <!-- include>**/**/ModelEntityDAOTest.java</include -->
             <!-- include>**/**/TrainingServiceTest.java</include -->
-            <include>**/**/_Test.java</include>
+            <!-- include>**/**/IdentityProfileDAOTest.java</include -->
+            <include>**/**/NO_Test.java</include>
           </includes>
           <forkCount>0</forkCount>
         </configuration>
