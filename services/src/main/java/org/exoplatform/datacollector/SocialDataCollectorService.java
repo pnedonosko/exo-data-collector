@@ -54,6 +54,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import javax.persistence.EntityExistsException;
 import javax.persistence.PersistenceException;
 
 import org.apache.commons.io.FileUtils;
@@ -1187,7 +1188,8 @@ public class SocialDataCollectorService implements Startable {
             if (dataset != null) {
               // Ensure the model folder has no previous ML trained files (case
               // of main loop IDs rotation between server starts)
-              // With an exception of RETRY. None: PROCESSING should not be here.
+              // With an exception of RETRY. None: PROCESSING should not be
+              // here.
               ModelDir modelDir = dataset.getUserDir().getModelDir();
               if (currentModel.getStatus() != Status.RETRY && modelDir.exists()) {
                 try {
@@ -1214,17 +1216,14 @@ public class SocialDataCollectorService implements Startable {
             }
           } catch (DatasetException e) {
             if (currentModel.getStatus() == Status.RETRY) {
-              currentModel.setStatus(Status.FAILED_DATASET);
-              trainingService.update(currentModel);
               LOG.error("Cannot collect dataset {} for model {}[{}].",
                         job.bucketName.get() + "/" + job.userName,
                         currentModel.getName(),
                         currentModel.getVersion(),
                         e);
-            } else {
-              currentModel.setStatus(Status.RETRY);
+              currentModel.setStatus(Status.FAILED_DATASET);
               trainingService.update(currentModel);
-              queueInMainLoop(job.userName);
+            } else {
               if (isDeveloping) {
                 LOG.warn("Dataset {} collecting failed and will be retried for model {}[{}]. Error:",
                          job.bucketName.get() + "/" + job.userName,
@@ -1238,6 +1237,9 @@ public class SocialDataCollectorService implements Startable {
                          currentModel.getVersion(),
                          e.getMessage());
               }
+              currentModel.setStatus(Status.RETRY);
+              trainingService.update(currentModel);
+              queueInMainLoop(job.userName);
             }
           }
         } finally {
@@ -2183,7 +2185,13 @@ public class SocialDataCollectorService implements Startable {
                                                                           uid.getRemoteId(),
                                                                           uid.getFocus(),
                                                                           context);
-        identityProfileStorage.create(identityProfile);
+        try {
+          identityProfileStorage.create(identityProfile);
+        } catch (EntityExistsException e) {
+          if (identityProfileStorage.findByName(userName) == null) {
+            throw new EntityExistsException("Identity profile creation failed, but identity Name not found: " + userName, e);
+          } // otherwise, it seems everything OK
+        }
         return uid;
       } else {
         LOG.warn("Cannot find user's social identity by name: " + name);
@@ -2210,7 +2218,13 @@ public class SocialDataCollectorService implements Startable {
                                                                           uid.getRemoteId(),
                                                                           uid.getFocus(),
                                                                           context);
-        identityProfileStorage.create(identityProfile);
+        try {
+          identityProfileStorage.create(identityProfile);
+        } catch (EntityExistsException e) {
+          if (identityProfileStorage.findById(identityId) == null) {
+            throw new EntityExistsException("Identity profile creation failed, but identity ID not found: " + identityId, e);
+          } // otherwise, it seems everything OK
+        }
         return uid;
       } else {
         LOG.warn("Cannot find user's social identity by ID: " + id);
