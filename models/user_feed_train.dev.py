@@ -74,7 +74,7 @@ def train_model(learning_rate, steps, batch_size, input_feature):
   plt.ylabel(my_label)
   plt.xlabel(my_feature)
   # TODO Change n to 1000 in prod mode
-  sample = feed_dataframe.sample(n=10)
+  sample = feed_dataframe.sample(n=1000)
   plt.scatter(sample[my_feature], sample[my_label])
   colors = [cm.coolwarm(x) for x in np.linspace(-1, 1, periods)]
 
@@ -196,8 +196,8 @@ try :
 
   # Train a model
   linear_regressor, calibration_data, rmse = train_model(
-      learning_rate=0.0003,
-      steps=600,
+      learning_rate=0.0002,
+      steps=1000,
       batch_size=20,
       input_feature="activity_influence")
 
