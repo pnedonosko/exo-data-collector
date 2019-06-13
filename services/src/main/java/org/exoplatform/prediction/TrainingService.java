@@ -34,9 +34,11 @@ import org.exoplatform.container.ExoContainerContext;
 import org.exoplatform.container.component.ComponentPlugin;
 import org.exoplatform.datacollector.SocialDataCollectorService;
 import org.exoplatform.datacollector.storage.FileStorage;
+import org.exoplatform.datacollector.storage.FileStorage.MetadataFile;
 import org.exoplatform.datacollector.storage.FileStorage.ModelDir;
 import org.exoplatform.datacollector.storage.FileStorage.ModelFile;
 import org.exoplatform.datacollector.storage.FileStorage.UserDir;
+import org.exoplatform.datacollector.storage.StorageException;
 import org.exoplatform.prediction.model.dao.ModelEntityDAO;
 import org.exoplatform.prediction.model.domain.ModelEntity;
 import org.exoplatform.prediction.model.domain.ModelEntity.Status;
@@ -225,16 +227,7 @@ public class TrainingService implements Startable {
       if (LOG.isDebugEnabled()) {
         LOG.debug("Delete model {}[{}]", model.getName(), model.getVersion());
       }
-      /*
-       * if (model.getDatasetFile() != null) { ModelFile dataset =
-       * fileStorage.getTrainingDataset(model.getDatasetFile()); // File dataset
-       * = new File(model.getDatasetFile()); if (!dataset.delete()) {
-       * LOG.warn("Unabled to delete training dataset {}",
-       * dataset.getStoragePath()); } }
-       */
       if (model.getModelFile() != null) {
-        // File modelFile = new File(model.getModelFile()); // TODO
-        // ModelDir modelFile = fileStorage.getModelDir(model.getModelFile());
         UserDir userDir = fileStorage.findUserModel(model.getModelFile());
         if (userDir != null && userDir.exists()) {
           try {
@@ -252,32 +245,32 @@ public class TrainingService implements Startable {
 
   /**
    * Copies model file to new destination. Only if model has status READY
-   * 
-   * @param model contains model file to be copied
-   * @param dest new folder
+   *
+   * @param src the source
+   * @param dest the destination
    */
-  protected void copyModelFile(ModelEntity model, UserDir dest) {
-    if (/* model.getStatus() == Status.READY && */ model.getModelFile() != null) {
-      try {
-        UserDir userDir = fileStorage.findUserModel(model.getModelFile());
-        if (userDir != null && userDir.exists()) {
-          ModelDir modelDir = userDir.getModelDir();
-          if (modelDir.exists()) {
-            FileUtils.copyDirectoryToDirectory(modelDir, dest);
-            if (LOG.isDebugEnabled()) {
-              LOG.debug("Previous model directory copied for {}", model.getName());
-            }
-          } else {
-            LOG.warn("Previous model directory not found {}", model.getName());
+  protected void copyModelFile(UserDir src, UserDir dest) {
+    try {
+      ModelDir modelDir = src.getModelDir();
+      if (modelDir.exists()) {
+        FileUtils.copyDirectoryToDirectory(src.getModelDir(), dest);
+        if (LOG.isDebugEnabled()) {
+          try {
+            LOG.debug("Previous model directory copied for {}, version: {}(v{})",
+                      dest.getStoragePath(),
+                      dest.getScriptsDir().getMetadata().getType(),
+                      dest.getScriptsDir().getMetadata().getVersion());
+          } catch (StorageException e) {
+            LOG.warn("Cannot read scripts version of just copied model directory {}", dest.getStoragePath(), e);
           }
-        } else {
-          LOG.warn("Previous user model directory not found {}", model.getName());
         }
-      } catch (Throwable e) {
-        // TODO throw ex upper, we need care about impossible incremental
-        // training - need run full training instead
-        LOG.error("Failed to copy previous model file for {}", model.getName(), e);
+      } else {
+        LOG.warn("Previous model directory not found {}", src.getStoragePath());
       }
+    } catch (Throwable e) {
+      // TODO throw ex upper, we need care about impossible incremental
+      // training - need run full training instead
+      LOG.error("Failed to copy previous model file for {}", dest.getStoragePath(), e);
     }
   }
 
@@ -296,10 +289,39 @@ public class TrainingService implements Startable {
     ModelEntity prevModel = lastModel(model.getName(), Status.READY); // getPreviousModel(model);
     if (incremental && prevModel != null && prevModel.getModelFile() != null) {
       if (!prevModel.getModelFile().startsWith(dataset.getUserDir().getModelPath())) {
-        // First copy existing model files for incremental training
-        // TODO But ensure incremental is possible (scripts version doesn't
-        // differ)
-        copyModelFile(prevModel, dataset.getUserDir());
+        // Compare version of existing READY model scripts and
+        // current work scripts - if they differ, we'll train from the
+        // scratch in a new model
+        UserDir prevUserDir = fileStorage.findUserModel(prevModel.getModelFile());
+        if (prevUserDir != null && prevUserDir.isValid()) {
+          try {
+            MetadataFile workMetadata = fileStorage.getWorkScriptsDir().getMetadata();
+            MetadataFile prevMetadata = prevUserDir.getScriptsDir().getMetadata();
+            String workVersion = workMetadata.getVersion();
+            String prevVersion = prevMetadata.getVersion();
+            if (workVersion.equals(prevVersion)) {
+              // Copy existing model files for incremental training
+              copyModelFile(prevUserDir, dataset.getUserDir());
+            } else if (LOG.isInfoEnabled()) {
+              LOG.info("Incremental training canceled for {}: "
+                  + "prefer work scripts version {}(v{}) over user version {}(v{}) and running training from the scratch.",
+                       model.getName(),
+                       workMetadata.getType(),
+                       workVersion,
+                       prevMetadata.getType(),
+                       prevVersion);
+            }
+          } catch (StorageException e) {
+            LOG.warn("Error reading scripts version: {}. Incremental training canceled - running it from the scratch.",
+                     e.getMessage());
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Error reading scripts version", e);
+            }
+          }
+        } else {
+          LOG.warn("Previous user dir not found or not valid {}. Incremental training canceled - running it from the scratch.",
+                   prevUserDir.getAbsolutePath());
+        }
       }
     }
 
@@ -318,15 +340,15 @@ public class TrainingService implements Startable {
       // TODO If the training fails, we try again, but does this is an efficient
       // attempt? Need make a rollback/restore before retrying?
       if (prevModel != null /* && prevModel.getStatus() == Status.READY */) {
-        LOG.warn("Retraining model for {}", model.getName());
+        LOG.warn("Retraining model for {}[{}]", model.getName(), model.getVersion());
         // Retrain model
         if (!(success = train(model, dataset))) {
-          LOG.warn("Model {} failed in retraining. Set status FAILED_TRAINING", model.getName());
+          LOG.warn("Model {}[{}] failed in retraining. Set status FAILED_TRAINING", model.getName(), model.getVersion());
           model.setStatus(Status.FAILED_TRAINING);
           modelEntityDAO.update(model);
         }
       } else {
-        LOG.warn("Model {} got status FAILED_TRAINING", model.getName());
+        LOG.warn("Model {}[{}] got status FAILED_TRAINING", model.getName(), model.getVersion());
         model.setStatus(Status.FAILED_TRAINING);
         modelEntityDAO.update(model);
       }
@@ -335,7 +357,7 @@ public class TrainingService implements Startable {
       // If training was successful we don't need the dataset anymore
       if (!isDeveloping) {
         if (!dataset.delete()) {
-          LOG.warn("Unabled to delete training dataset {}", dataset.getStoragePath());
+          LOG.warn("Unabled to delete {}[{}] training dataset {}", model.getName(), model.getVersion(), dataset.getStoragePath());
         }
       }
       // Archive previous READY version
@@ -517,20 +539,16 @@ public class TrainingService implements Startable {
    */
   public boolean valid(ModelEntity model) {
     if (model.getStatus() == Status.READY || model.getStatus() == Status.ARCHIEVED) {
-      String modelPath = model.getModelFile();
-      if (modelPath != null) {
-        UserDir userDir = fileStorage.findUserModel(modelPath);
-        if (userDir == null) {
-          deleteModel(model);
-          return false;
-        }
+      UserDir userDir = fileStorage.findUserModel(model.getModelFile());
+      if (userDir != null && userDir.isValid()) {
         return true;
+      } else {
+        deleteModel(model);
       }
     } else if (model.getStatus() == Status.PROCESSING) {
-      String datasetPath = model.getDatasetFile();
-      if (datasetPath != null) {
-        UserDir userDir = fileStorage.findUserModel(datasetPath);
-        return userDir != null && userDir.getTrainingDataset().exists();
+      UserDir userDir = fileStorage.findUserModel(model.getDatasetFile());
+      if (userDir != null && userDir.isValid()) {
+        return userDir.getTrainingDataset().exists();
       }
     } else {
       // else, it's NEW, RETRY or FAILED* - they valid as for the status

@@ -19,12 +19,17 @@
 package org.exoplatform.datacollector.storage;
 
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
+import java.io.Reader;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import org.apache.commons.io.FileUtils;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 import org.exoplatform.container.xml.InitParams;
 import org.exoplatform.container.xml.ValueParam;
@@ -68,12 +73,12 @@ public class FileStorage {
     }
 
     /**
-     * Return a regular directory, create it if not found.
+     * Return commons work scripts directory, create it if not found.
      *
      * @return the directory file
      */
-    protected ScriptsDir scriptsDir() {
-      return new ScriptsDir(this);
+    protected WorkScriptsDir scriptsDir() {
+      return new WorkScriptsDir(this);
     }
 
     /**
@@ -152,22 +157,19 @@ public class FileStorage {
     }
   }
 
-  public final class ScriptsDir extends StorageFile {
+  public abstract class ScriptsDir extends StorageFile {
 
     /**
      * 
      */
     private static final long serialVersionUID = -5329453369464173480L;
 
-    protected final WorkDir   parent;
-
     protected ScriptsDir(WorkDir parent) {
       super(parent, "scripts".intern());
-      this.parent = parent;
     }
 
-    public WorkDir getWorkDir() {
-      return parent;
+    protected ScriptsDir(UserDir parent) {
+      super(parent, "scripts".intern());
     }
 
     /**
@@ -178,6 +180,71 @@ public class FileStorage {
      */
     public ScriptFile getScript(String name) {
       return new ScriptFile(this, name);
+    }
+
+    public ScriptFile getTrainingScript() {
+      return new ScriptFile(this, "user_feed_train.py");
+    }
+
+    public ScriptFile getPredictionScript() {
+      return new ScriptFile(this, "user_feed_predict.py");
+    }
+
+    public MetadataFile getMetadata() {
+      return new MetadataFile(this, "metadata.json");
+    }
+
+    public boolean isValid() {
+      if (exists() && isDirectory()) {
+        try {
+          MetadataFile meta = getMetadata();
+          // User scripts valid if its metadata contains type and version
+          meta.getType();
+          meta.getVersion();
+          return true;
+        } catch (StorageException e) {
+          LOG.warn("Cannot read scripts type and version {}", getStoragePath(), e);
+        }
+      }
+      return false;
+    }
+  }
+
+  public final class WorkScriptsDir extends ScriptsDir {
+
+    /**
+     * 
+     */
+    private static final long serialVersionUID = -2467569739192704393L;
+
+    protected final WorkDir   parent;
+
+    protected WorkScriptsDir(WorkDir parent) {
+      super(parent);
+      this.parent = parent;
+    }
+
+    public WorkDir getWorkDir() {
+      return parent;
+    }
+  }
+
+  public final class ModelScriptsDir extends ScriptsDir {
+
+    /**
+     * 
+     */
+    private static final long serialVersionUID = -7733923664778439691L;
+
+    protected final UserDir   parent;
+
+    protected ModelScriptsDir(UserDir parent) {
+      super(parent);
+      this.parent = parent;
+    }
+
+    public UserDir getUserDir() {
+      return parent;
     }
   }
 
@@ -259,12 +326,13 @@ public class FileStorage {
       return parent;
     }
 
-    public UserDir getUserDir(String name) {
+    public UserDir getUserDir(String name) throws StorageException {
       UserDir userDir = userDir(name);
       userDir.mkdir();
       if (!userDir.exists()) {
-        LOG.warn("User directory cannot be found: {}", userDir.getAbsolutePath());
+        throw new StorageException("User directory cannot be found: " + userDir.getAbsolutePath());
       }
+      initScripts(userDir);
       return userDir;
     }
 
@@ -328,6 +396,61 @@ public class FileStorage {
     }
   }
 
+  public class MetadataFile extends StorageFile {
+
+    /**
+     * 
+     */
+    private static final long serialVersionUID = 7200362586881200721L;
+
+    private JSONObject        metadata;
+
+    MetadataFile(ScriptsDir parent, String name) {
+      super(parent, name);
+    }
+
+    private JSONObject metadata() throws StorageException {
+      if (metadata == null) {
+        JSONParser parser = new JSONParser();
+        try (Reader reader = new FileReader(this)) {
+          metadata = (JSONObject) parser.parse(reader);
+        } catch (ParseException e) {
+          throw new StorageException("Error parsing metadata.json of user directory " + this.getStoragePath(), e);
+        } catch (IOException e) {
+          throw new StorageException("Error reading metadata.json of user directory " + this.getStoragePath(), e);
+        }
+      }
+      return metadata;
+    }
+
+    public String getVersion() throws StorageException {
+      String version = (String) metadata().get("version");
+      if (version == null) {
+        throw new StorageException("Value of 'version' cannot be found in metadata.json of scripts directory: "
+            + this.getStoragePath());
+      }
+      return version;
+    }
+
+    public String getDescription() throws StorageException {
+      String description = (String) metadata().get("description");
+      if (description == null) {
+        throw new StorageException("Value of 'description' cannot be found in metadata.json of scripts directory: "
+            + this.getStoragePath());
+      }
+      return description;
+    }
+
+    public String getType() throws StorageException {
+      String type = (String) metadata().get("type");
+      if (type == null) {
+        throw new StorageException("Value of 'type' cannot be found in metadata.json of scripts directory: "
+            + this.getStoragePath());
+      }
+      return type;
+    }
+  }
+
   public class UserDir extends DataFile {
 
     /**
@@ -369,8 +492,6 @@ public class FileStorage {
      * @return the processing directory
      */
     public ModelDir getModelDir() {
-      // TODO need another method/class name, like TFModelDir, or TrainingDir,
-      // or ProcessingDir
       ModelDir modelDir = childDir("model");
       return modelDir;
     }
@@ -378,9 +499,17 @@ public class FileStorage {
     public ModelFile getModelDescriptor() {
       return childFile("model.json");
     }
-    
+
     public ModelFile getUserSnapshot() {
       return childFile("user_snapshot.json");
+    }
+
+    public ModelScriptsDir getScriptsDir() {
+      return new ModelScriptsDir(this);
+    }
+
+    public boolean isValid() {
+      return getScriptsDir().isValid();
     }
 
     public ModelFile childFile(String name) {
@@ -409,12 +538,6 @@ public class FileStorage {
 
   protected WorkDir    workDir;
 
-  protected ScriptFile trainingScript;
-
-  protected ScriptFile predictionScript;
-
-  protected ScriptFile datasetutilsScript;
-
   protected ScriptFile dockerRunScript;
 
   protected ScriptFile dockerExecScript;
@@ -425,8 +548,9 @@ public class FileStorage {
    * Instantiates a new file storage.
    *
    * @param initParams the init params
+   * @throws StorageException the storage exception
    */
-  public FileStorage(InitParams initParams) {
+  public FileStorage(InitParams initParams) throws StorageException {
     this.initParams = initParams;
     unpackScripts();
   }
@@ -455,19 +579,20 @@ public class FileStorage {
   }
 
   /**
-   * Gets the scripts directory
+   * Gets work scripts directory. Work scripts will be used to initialize user
+   * directories on first access to them.
    * 
-   * @return the scripts directory
+   * @return the work scripts directory
    */
-  public ScriptsDir getScriptsDir() {
+  public WorkScriptsDir getWorkScriptsDir() {
     // TODO It would be reasonable to keep (at least) prediction scripts
     // together with models, as between versions script(s) may change and newer
     // versions may be incompatible. Indeed this also actual for a datasets
     // (format, feature names, targets).
-    ScriptsDir scriptsDir = getWorkDir().scriptsDir();
+    WorkScriptsDir scriptsDir = getWorkDir().scriptsDir();
     scriptsDir.mkdir();
     if (!scriptsDir.exists()) {
-      LOG.warn("Scripts directory cannot be found: {}", scriptsDir.getAbsolutePath());
+      LOG.warn("Work scripts directory cannot be found: {}", scriptsDir.getAbsolutePath());
     }
     return scriptsDir;
   }
@@ -485,36 +610,6 @@ public class FileStorage {
     }
     BucketDir bucketDir = getDataDir().getBucketDir(bucketName);
     return bucketDir;
-  }
-
-  /**
-   * Gets the training script
-   * 
-   * @return the training script
-   */
-  @Deprecated
-  public ScriptFile getTrainingScript() {
-    return trainingScript;
-  }
-
-  /**
-   * Gets the prediction script
-   * 
-   * @return the prediction script
-   */
-  @Deprecated
-  public ScriptFile getPredictionScript() {
-    return predictionScript;
-  }
-
-  /**
-   * Gets the datasetutils script
-   * 
-   * @return the datasetutils script
-   */
-  @Deprecated
-  public ScriptFile getDatasetutilsScript() {
-    return datasetutilsScript;
   }
 
   /**
@@ -539,28 +634,31 @@ public class FileStorage {
 
   /**
    * Finds the model directory by model path relative to data directory, e.g.
-   * /bucket001/john. If such directory not found, then <code>null</code> will
-   * be returned.
+   * /bucket001/john. If such directory not found or given <code>null</code>,
+   * then <code>null</code> will be returned.
    *
-   * @param modelPath the model path
+   * @param modelPath the model path, can be <code>null</code>, then it will
+   *          return <code>null</code>
    * @return the model directory or <code>null</code> if nothing found in the
    *         storage
    */
   public UserDir findUserModel(String modelPath) {
-    String[] path = modelPath.split(UserDir.separator);
-    if (path.length == 2 && path[0].length() > 0 && path[1].length() > 0) {
-      WorkDir workDir = workDir(false);
-      if (workDir.exists()) {
-        DataDir dataDir = workDir.dataDir();
-        if (dataDir.exists()) {
-          UserDir userDir = getBucketDir(path[0]).userDir(path[1]);
-          if (userDir.exists()) {
-            return userDir;
+    if (modelPath != null) {
+      String[] path = modelPath.split(UserDir.separator);
+      if (path.length == 2 && path[0].length() > 0 && path[1].length() > 0) {
+        WorkDir workDir = workDir(false);
+        if (workDir.exists()) {
+          DataDir dataDir = workDir.dataDir();
+          if (dataDir.exists()) {
+            UserDir userDir = getBucketDir(path[0]).userDir(path[1]);
+            if (userDir.exists()) {
+              return userDir;
+            }
           }
         }
+      } else {
+        LOG.warn("User directory storage path not correct: {}", modelPath);
       }
-    } else {
-      LOG.warn("User directory storage path not correct: {}", modelPath);
     }
     return null;
   }
@@ -617,18 +715,20 @@ public class FileStorage {
 
   /**
    * Unpacks scripts from JAR to scripts directory.
+   *
+   * @throws StorageException the storage exception
    */
-  protected void unpackScripts() {
+  protected void unpackScripts() throws StorageException {
     URL trainingScriptURL = this.getClass().getClassLoader().getResource("scripts/user_feed_train.py");
     URL predictScriptURL = this.getClass().getClassLoader().getResource("scripts/user_feed_predict.py");
     URL datasetutilsURL = this.getClass().getClassLoader().getResource("scripts/datasetutils.py");
     URL dockerRunScriptURL = this.getClass().getClassLoader().getResource("scripts/docker_run.sh");
     URL dockerExecScriptURL = this.getClass().getClassLoader().getResource("scripts/docker_exec.sh");
+    WorkScriptsDir scriptsDir = getWorkScriptsDir();
     try {
-      ScriptsDir scriptsDir = getScriptsDir();
-      trainingScript = scriptsDir.getScript("user_feed_train.py");
-      predictionScript = scriptsDir.getScript("user_feed_predict.py");
-      datasetutilsScript = scriptsDir.getScript("datasetutils.py");
+      ScriptFile trainingScript = scriptsDir.getScript("user_feed_train.py");
+      ScriptFile predictionScript = scriptsDir.getScript("user_feed_predict.py");
+      ScriptFile datasetutilsScript = scriptsDir.getScript("datasetutils.py");
       dockerRunScript = scriptsDir.getScript("docker_run.sh");
       dockerExecScript = scriptsDir.getScript("docker_exec.sh");
       FileUtils.copyURLToFile(trainingScriptURL, trainingScript);
@@ -643,10 +743,28 @@ public class FileStorage {
       dockerExecScript.deleteOnExit();
       scriptsDir.deleteOnExit();
     } catch (IOException e) {
-      LOG.error("Couldn't unpack training and prediction scripts", e);
+      throw new StorageException("Couldn't unpack training and prediction scripts to work directory "
+          + scriptsDir.getAbsolutePath(), e);
     }
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Unpacked training and prediction scripts to: " + getScriptsDir().getAbsolutePath());
+      LOG.debug("Unpacked work scripts to " + scriptsDir.getAbsolutePath());
+    }
+  }
+
+  protected void initScripts(UserDir userDir) throws StorageException {
+    if (userDir.isValid()) {
+      return;
+    }
+    WorkScriptsDir workScripts = getWorkScriptsDir();
+    if (workScripts.exists() && workScripts.isDirectory()) {
+      try {
+        FileUtils.copyDirectory(workScripts, userDir.getScriptsDir());
+      } catch (IOException e) {
+        throw new StorageException("Cannot init user scripts for " + userDir.getStoragePath()
+            + ": error copying work scripts to the user directory", e);
+      }
+    } else {
+      throw new StorageException("Cannot init user scripts " + userDir.getStoragePath() + ": work scripts not found");
     }
   }
 }

@@ -287,7 +287,7 @@ public class SocialDataCollectorService implements Startable {
 
     @Override
     protected void execute(ExoContainer exoContainer) {
-      if (runMainLoop.get() && runWorker.get()) {
+      if (runMainLoop.get() && runWorker.get() && !mainQueue.isEmpty()) {
         final String bucketName = nextMainBucketName();
         if (LOG.isDebugEnabled()) {
           LOG.debug("Bucket processing time: {}", bucketName);
@@ -850,32 +850,36 @@ public class SocialDataCollectorService implements Startable {
       }
       UserDir userDir = fileStorage.findUserModel(modelPath);
       if (userDir != null) {
-        ModelFile predictDataset = userDir.getPredictDataset();
-        try {
-          // TODO care about concurrent prediction by the same user (file lock)
-          // touch to have a new predict file
-          if (predictDataset.exists()) {
+        if (userDir.isValid()) {
+          ModelFile predictDataset = userDir.getPredictDataset();
+          try {
+            // TODO care about concurrent prediction by the same user (file
+            // lock) touch to have a new predict file
+            if (predictDataset.exists()) {
+              predictDataset.delete();
+            }
+            predictDataset.createNewFile();
+            try (PrintWriter writer = new PrintWriter(predictDataset)) {
+              UserSnapshot user = getUserSnapshot(predictDataset.getUserDir(), id);
+              if (user != null) {
+                writeUserActivities(user, activities.iterator(), writer, false);
+                if (LOG.isDebugEnabled()) {
+                  LOG.debug("Saved predicting dataset for model {}[{}] into {}",
+                            model.getName(),
+                            model.getVersion(),
+                            predictDataset.getModelPath());
+                }
+                return predictDataset;
+              } else {
+                LOG.warn("User snapshot not found for model {}[{}]", model.getName(), model.getVersion());
+              }
+            }
+          } catch (Exception e) {
+            LOG.error("Cannot collect predicting dataset for model {}[{}]", model.getName(), model.getVersion(), e);
             predictDataset.delete();
           }
-          predictDataset.createNewFile();
-          try (PrintWriter writer = new PrintWriter(predictDataset)) {
-            UserSnapshot user = getUserSnapshot(predictDataset.getUserDir(), id);
-            if (user != null) {
-              writeUserActivities(user, activities.iterator(), writer, false);
-              if (LOG.isDebugEnabled()) {
-                LOG.debug("Saved predicting dataset for model {}[{}] into {}",
-                          model.getName(),
-                          model.getVersion(),
-                          predictDataset.getModelPath());
-              }
-              return predictDataset;
-            } else {
-              LOG.warn("User snapshot not found for model {}[{}]", model.getName(), model.getVersion());
-            }
-          }
-        } catch (Exception e) {
-          LOG.error("Cannot collect predicting dataset for model {}[{}]", model.getName(), model.getVersion(), e);
-          predictDataset.delete();
+        } else {
+          LOG.warn("User model not valid {}[{}]", model.getName(), model.getVersion());
         }
       } else {
         LOG.warn("User model storage not found for model {}[{}]", model.getName(), model.getVersion());
@@ -1044,8 +1048,10 @@ public class SocialDataCollectorService implements Startable {
    * @param sinceTime the since time
    * @return the dataset file
    * @throws DatasetException the dataset exception
+   * @throws StorageException the storage exception
    */
-  protected ModelFile collectUserFeed(String userName, String bucketName, long sinceTime) throws DatasetException {
+  protected ModelFile collectUserFeed(String userName, String bucketName, long sinceTime) throws DatasetException,
+                                                                                          StorageException {
     if (LOG.isDebugEnabled()) {
       LOG.debug("Saving user dataset into: {}/{}", bucketName, userName);
     }
@@ -1113,8 +1119,6 @@ public class SocialDataCollectorService implements Startable {
       @Override
       protected void execute(ExoContainer exoContainer) {
         try {
-          // TODO Also take in account model (scripts) updates, in this case we
-          // need train from scratch, not incrementally.
           ModelEntity readyModel = null;
           ModelEntity currentModel = lastModel(job.userName/* , Status.RETRY */);
           if (currentModel != null) {
@@ -1169,6 +1173,9 @@ public class SocialDataCollectorService implements Startable {
               // In general case it's question of how critical if some
               // activities will be lost or repeatedly taken in account by the
               // model and influencers?
+              // FYI even if we'll tell to do incrementally, this can be ignored
+              // by TrainingService if more fresh version of scripts will be
+              // found in work dir.
               incrementally = true;
               // We re-train over a week before the previous model did, this way
               // we take in account later user reactions on activities that
@@ -1188,8 +1195,8 @@ public class SocialDataCollectorService implements Startable {
             if (dataset != null) {
               // Ensure the model folder has no previous ML trained files (case
               // of main loop IDs rotation between server starts)
-              // With an exception of RETRY. None: PROCESSING should not be
-              // here.
+              // With an exception of RETRY.
+              // Note: PROCESSING should not be here.
               ModelDir modelDir = dataset.getUserDir().getModelDir();
               if (currentModel.getStatus() != Status.RETRY && modelDir.exists()) {
                 try {
@@ -1241,6 +1248,14 @@ public class SocialDataCollectorService implements Startable {
               trainingService.update(currentModel);
               queueInMainLoop(job.userName);
             }
+          } catch (StorageException e) {
+            LOG.error("Dataset {} collecting failed. User model not initialized {}[{}]",
+                      job.bucketName.get() + "/" + job.userName,
+                      currentModel.getName(),
+                      currentModel.getVersion(),
+                      e);
+            currentModel.setStatus(Status.FAILED_TRAINING);
+            trainingService.update(currentModel);
           }
         } finally {
           // Clean main loop from this job, but not same user processing by
@@ -1266,6 +1281,8 @@ public class SocialDataCollectorService implements Startable {
           collectUserFeed(userName, bucket, sinceTime);
         } catch (DatasetException e) {
           LOG.error("User activities collector failed for {}", bucket + "/" + userName, e);
+        } catch (StorageException e) {
+          LOG.error("User model not initialized for {}", bucket + "/" + userName, e);
         }
       }
     });
@@ -2453,6 +2470,7 @@ public class SocialDataCollectorService implements Startable {
     // TODO at some point in time the index will reach its maximum, we'll need
     // to deal with it: we could start count from 0, but ensure old models
     // cleaned fully (no incremental training here).
+    // TODO check if bucket name not consumed (by main loop etc) - return it
     return new StringBuilder(MAIN_BUCKET_PREFIX).append(currentBucketIndex.incrementAndGet()).toString();
   }
 }

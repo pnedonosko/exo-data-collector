@@ -189,6 +189,7 @@
           <include>**/*.jpg</include>
           <include>**/*.png</include>
           <include>**/*.py</include>
+          <include>**/*.json</include>
           <include>**/*.sh</include>
         </includes>
       </resource>

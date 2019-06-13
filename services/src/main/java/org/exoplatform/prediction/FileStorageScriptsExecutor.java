@@ -47,13 +47,13 @@ public abstract class FileStorageScriptsExecutor extends BaseComponentPlugin imp
 
   @Override
   public ModelDir train(ModelFile dataset) {
-    execute(dataset, fileStorage.getTrainingScript());
+    execute(dataset, dataset.getUserDir().getScriptsDir().getTrainingScript()); // fileStorage.getTrainingScript()
     return dataset.getUserDir().getModelDir();
   }
 
   @Override
   public ModelFile predict(ModelFile dataset) {
-    execute(dataset, fileStorage.getPredictionScript());
+    execute(dataset, dataset.getUserDir().getScriptsDir().getPredictionScript()); // fileStorage.getPredictionScript());
     return dataset.getUserDir().getPredictedDataset();
   }
 
