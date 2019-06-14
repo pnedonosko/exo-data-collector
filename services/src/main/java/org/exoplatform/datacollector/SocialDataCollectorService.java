@@ -1068,6 +1068,7 @@ public class SocialDataCollectorService implements Startable {
       final int feedSize = feed.getNumberOfNewer(sinceTime);
       if (feedSize >= MIN_FEED_SIZE) {
         UserDir userDir = fileStorage.getBucketDir(bucketName).getUserDir(id.getRemoteId());
+        userDir.init(); // init scripts etc
         ModelFile datasetFile = userDir.getTrainingDataset();
         // The feed activities (for DEBUG).
         try {

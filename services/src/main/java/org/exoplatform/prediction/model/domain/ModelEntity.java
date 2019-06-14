@@ -54,8 +54,13 @@ import org.exoplatform.commons.api.persistence.ExoEntity;
     // them by DB engine, then fetch only first one?
     @NamedQuery(name = "PredictionModel.findLastModel", query = "SELECT m FROM PredictionModel m"
         + " WHERE m.name = :name ORDER BY m.version DESC"),
+    @NamedQuery(name = "PredictionModel.findFirstModel", query = "SELECT m FROM PredictionModel m"
+        + " WHERE m.name = :name ORDER BY m.version ASC"),
     @NamedQuery(name = "PredictionModel.findLastModelWithStatus", query = "SELECT m FROM PredictionModel m"
-        + " WHERE m.name = :name AND m.status = :status ORDER BY m.version DESC") })
+        + " WHERE m.name = :name AND m.status = :status ORDER BY m.version DESC"),
+    @NamedQuery(name = "PredictionModel.findFirstModelWithStatus", query = "SELECT m FROM PredictionModel m"
+        + " WHERE m.name = :name AND m.status = :status ORDER BY m.version ASC")})
+
 public class ModelEntity implements Serializable {
 
   /**

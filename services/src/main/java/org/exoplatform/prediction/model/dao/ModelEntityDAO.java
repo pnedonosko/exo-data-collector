@@ -5,8 +5,8 @@ import javax.persistence.TypedQuery;
 
 import org.exoplatform.commons.persistence.impl.GenericDAOJPAImpl;
 import org.exoplatform.prediction.model.domain.ModelEntity;
-import org.exoplatform.prediction.model.domain.ModelId;
 import org.exoplatform.prediction.model.domain.ModelEntity.Status;
+import org.exoplatform.prediction.model.domain.ModelId;
 
 public class ModelEntityDAO extends GenericDAOJPAImpl<ModelEntity, ModelId> {
 
@@ -33,9 +33,36 @@ public class ModelEntityDAO extends GenericDAOJPAImpl<ModelEntity, ModelId> {
     }
   }
 
+  public ModelEntity findFirstModel(String name) {
+    TypedQuery<ModelEntity> query = getEntityManager().createNamedQuery("PredictionModel.findFirstModel", ModelEntity.class)
+                                                      .setParameter("name", name)
+                                                      .setMaxResults(1);
+
+    try {
+      return query.getSingleResult();
+    } catch (NoResultException e) {
+      return null;
+    }
+  }
+
   public ModelEntity findLastModelWithStatus(String name, Status status) {
     TypedQuery<ModelEntity> query = getEntityManager()
                                                       .createNamedQuery("PredictionModel.findLastModelWithStatus",
+                                                                        ModelEntity.class)
+                                                      .setParameter("name", name)
+                                                      .setParameter("status", status)
+                                                      .setMaxResults(1);
+
+    try {
+      return query.getSingleResult();
+    } catch (NoResultException e) {
+      return null;
+    }
+  }
+
+  public ModelEntity findFirstModelWithStatus(String name, Status status) {
+    TypedQuery<ModelEntity> query = getEntityManager()
+                                                      .createNamedQuery("PredictionModel.findFirstModelWithStatus",
                                                                         ModelEntity.class)
                                                       .setParameter("name", name)
                                                       .setParameter("status", status)

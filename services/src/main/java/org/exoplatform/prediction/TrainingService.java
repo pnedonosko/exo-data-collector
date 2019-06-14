@@ -150,12 +150,16 @@ public class TrainingService implements Startable {
       logDebugStatus(model);
     }
     // Delete old models (version = current version - MAX_STORED_MODELS to be
-    // deleted)
-    // TODO we may want delete first failed, then READY in the history
-    ModelEntity oldModel = getModel(model.getName(), model.getVersion() - MAX_STORED_MODELS);
-    if (oldModel != null) {
-      deleteModel(oldModel);
-    }
+    // deleted). TODO indeed this will not work fine when we had FAILED and then
+    // removed them.
+    // TODO we may want delete first failed, then ARCHIEVED in the history
+    removeFailed(model);
+    removeOlderArchived(model);
+    // ModelEntity oldModel = getModel(model.getName(), model.getVersion() -
+    // MAX_STORED_MODELS);
+    // if (oldModel != null) {
+    // deleteModel(oldModel);
+    // }
   }
 
   /**
@@ -182,6 +186,17 @@ public class TrainingService implements Startable {
   }
 
   /**
+   * Gets the model with its first version.
+   *
+   * @param userName the user name
+   * @return the first model
+   */
+  public ModelEntity getFirstModel(String userName) {
+    ModelEntity model = modelEntityDAO.findFirstModel(userName);
+    return model != null && valid(model) ? model : null;
+  }
+
+  /**
    * Gets the last model with given status.
    *
    * @param userName the user name
@@ -190,6 +205,18 @@ public class TrainingService implements Startable {
    */
   public ModelEntity getLastModel(String userName, Status status) {
     ModelEntity model = modelEntityDAO.findLastModelWithStatus(userName, status);
+    return model != null && valid(model) ? model : null;
+  }
+
+  /**
+   * Gets the first model with given status.
+   *
+   * @param userName the user name
+   * @param status the status
+   * @return the model or <code>null</code> if model not found or not valid
+   */
+  public ModelEntity getFirstModel(String userName, Status status) {
+    ModelEntity model = modelEntityDAO.findFirstModelWithStatus(userName, status);
     return model != null && valid(model) ? model : null;
   }
 
@@ -253,13 +280,13 @@ public class TrainingService implements Startable {
     try {
       ModelDir modelDir = src.getModelDir();
       if (modelDir.exists()) {
-        FileUtils.copyDirectoryToDirectory(src.getModelDir(), dest);
+        FileUtils.copyDirectoryToDirectory(modelDir, dest);
         if (LOG.isDebugEnabled()) {
           try {
-            LOG.debug("Previous model directory copied for {}, version: {}(v{})",
+            LOG.debug("Previous model directory copied for {}, version: v{}({})",
                       dest.getStoragePath(),
-                      dest.getScriptsDir().getMetadata().getType(),
-                      dest.getScriptsDir().getMetadata().getVersion());
+                      dest.getScriptsDir().getMetadata().getVersion(),
+                      dest.getScriptsDir().getMetadata().getType());
           } catch (StorageException e) {
             LOG.warn("Cannot read scripts version of just copied model directory {}", dest.getStoragePath(), e);
           }
@@ -322,6 +349,14 @@ public class TrainingService implements Startable {
           LOG.warn("Previous user dir not found or not valid {}. Incremental training canceled - running it from the scratch.",
                    prevUserDir.getAbsolutePath());
         }
+      } else {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Incremental training canceled for {}[{}]: it's the same file as for previous {}[{}] model",
+                    model.getName(),
+                    model.getVersion(),
+                    prevModel.getName(),
+                    prevModel.getVersion());
+        }
       }
     }
 
@@ -365,9 +400,7 @@ public class TrainingService implements Startable {
         if (prevModel != null) {
           archiveModel(prevModel);
         } else {
-          // TODO we still could roll the history and remove failed models, see
-          // also in archiveModel()
-          LOG.warn("Cannot archive model {}[{}] - the model not found or not READY", model.getName(), model.getVersion() - 1);
+          removeFailed(model);
         }
       }
     }
@@ -573,6 +606,25 @@ public class TrainingService implements Startable {
       LOG.error("Error reading last model for {}:{}", userName, status, e);
     }
     return null;
+  }
+
+  protected void removeOlderArchived(ModelEntity model) {
+    // ModelEntity oldModel = getModel(model.getName(), model.getVersion() -
+    // MAX_STORED_MODELS);
+    ModelEntity archivedModel = getFirstModel(model.getName(), Status.ARCHIEVED);
+    if (archivedModel != null && archivedModel.getVersion() <= model.getVersion() - MAX_STORED_MODELS) {
+      deleteModel(archivedModel);
+    } // otherwise, archive still not full to rotate it
+  }
+
+  protected void removeFailed(ModelEntity model) {
+    ModelEntity failedModel = getFirstModel(model.getName(), Status.FAILED_TRAINING);
+    if (failedModel == null) {
+      failedModel = getFirstModel(model.getName(), Status.FAILED_DATASET);
+    }
+    if (failedModel != null) {
+      deleteModel(failedModel);
+    }
   }
 
   protected void logDebugStatus(ModelEntity model) {

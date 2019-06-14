@@ -332,10 +332,10 @@ public class FileStorage {
       if (!userDir.exists()) {
         throw new StorageException("User directory cannot be found: " + userDir.getAbsolutePath());
       }
-      initScripts(userDir);
+      //initScripts(userDir);
       return userDir;
     }
-
+    
     protected UserDir userDir(String name) {
       return new UserDir(this, name);
     }
@@ -506,6 +506,10 @@ public class FileStorage {
 
     public ModelScriptsDir getScriptsDir() {
       return new ModelScriptsDir(this);
+    }
+    
+    public void init() throws StorageException {
+      initScripts(this);      
     }
 
     public boolean isValid() {
@@ -719,26 +723,31 @@ public class FileStorage {
    * @throws StorageException the storage exception
    */
   protected void unpackScripts() throws StorageException {
-    URL trainingScriptURL = this.getClass().getClassLoader().getResource("scripts/user_feed_train.py");
-    URL predictScriptURL = this.getClass().getClassLoader().getResource("scripts/user_feed_predict.py");
-    URL datasetutilsURL = this.getClass().getClassLoader().getResource("scripts/datasetutils.py");
-    URL dockerRunScriptURL = this.getClass().getClassLoader().getResource("scripts/docker_run.sh");
-    URL dockerExecScriptURL = this.getClass().getClassLoader().getResource("scripts/docker_exec.sh");
+    ClassLoader myClassloader = this.getClass().getClassLoader();
+    URL trainingScriptURL = myClassloader.getResource("scripts/user_feed_train.py");
+    URL predictScriptURL = myClassloader.getResource("scripts/user_feed_predict.py");
+    URL datasetutilsURL = myClassloader.getResource("scripts/datasetutils.py");
+    URL dockerRunScriptURL = myClassloader.getResource("scripts/docker_run.sh");
+    URL dockerExecScriptURL = myClassloader.getResource("scripts/docker_exec.sh");
+    URL metadataURL = myClassloader.getResource("scripts/metadata.json");
     WorkScriptsDir scriptsDir = getWorkScriptsDir();
     try {
       ScriptFile trainingScript = scriptsDir.getScript("user_feed_train.py");
       ScriptFile predictionScript = scriptsDir.getScript("user_feed_predict.py");
       ScriptFile datasetutilsScript = scriptsDir.getScript("datasetutils.py");
+      MetadataFile metadata = scriptsDir.getMetadata();
       dockerRunScript = scriptsDir.getScript("docker_run.sh");
       dockerExecScript = scriptsDir.getScript("docker_exec.sh");
       FileUtils.copyURLToFile(trainingScriptURL, trainingScript);
       FileUtils.copyURLToFile(predictScriptURL, predictionScript);
       FileUtils.copyURLToFile(datasetutilsURL, datasetutilsScript);
+      FileUtils.copyURLToFile(metadataURL, metadata);
       FileUtils.copyURLToFile(dockerRunScriptURL, dockerRunScript);
       FileUtils.copyURLToFile(dockerExecScriptURL, dockerExecScript);
       trainingScript.deleteOnExit();
       predictionScript.deleteOnExit();
       datasetutilsScript.deleteOnExit();
+      metadata.deleteOnExit();
       dockerRunScript.deleteOnExit();
       dockerExecScript.deleteOnExit();
       scriptsDir.deleteOnExit();
