@@ -136,8 +136,8 @@ try :
 
   # Train a model
   linear_regressor, calibration_data, rmse = train_model(
-      learning_rate=0.0003,
-      steps=600,
+      learning_rate=0.0002,
+      steps=1000,
       batch_size=20,
       input_feature="activity_influence")
 

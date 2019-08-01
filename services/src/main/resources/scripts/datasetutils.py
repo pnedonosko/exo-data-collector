@@ -25,8 +25,8 @@ def preprocess_features(feed_dataframe, withRank=True):
      #"owner_type_organization",
      #"owner_type_space",
      "owner_influence",
-     #"number_of_likes",
-     #"number_of_comments",
+     "number_of_likes",
+     "number_of_comments",
      "reactivity", # TODO don't use it - it's part of the target
      #"is_mentions_me",
      #"is_mentions_connections",
@@ -39,12 +39,12 @@ def preprocess_features(feed_dataframe, withRank=True):
      #"poster_is_employee",
      #"poster_is_lead",
      #"poster_is_in_connections",
-     #"poster_focus_engineering",
-     #"poster_focus_sales",
-     #"poster_focus_marketing",
-     #"poster_focus_management",
-     #"poster_focus_financial",
-     #"poster_focus_other",
+     "poster_focus_engineering",
+     "poster_focus_sales",
+     "poster_focus_marketing",
+     "poster_focus_management",
+     "poster_focus_financial",
+     "poster_focus_other",
      "poster_influence",
      #"participant1_conversed",
      #"participant1_favored",
@@ -130,7 +130,7 @@ def preprocess_features(feed_dataframe, withRank=True):
        + processed_features["participant1_influence"] + processed_features["participant2_influence"]
        + processed_features["participant3_influence"] + processed_features["participant4_influence"]
        + processed_features["participant5_influence"]
-       + processed_features["reactivity"] * 0.9) / 8) #
+       + processed_features["reactivity"] * 0.9) / 8)
   # Clip outliers: lesser of 0.2 become equal 0.2
   processed_features["activity_influence"] = (
     processed_features["activity_influence"]).apply(lambda x: max(x, 0.2))
