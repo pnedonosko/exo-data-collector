@@ -20,7 +20,10 @@ package org.exoplatform.prediction;
 
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.persistence.PersistenceException;
 
@@ -47,8 +50,7 @@ import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 
 /**
- * Train ML models using users data and save them in the storage. Created by The
- * eXo Platform SAS.
+ * Train ML models using users data and save them in the storage. Created by The eXo Platform SAS.
  *
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
  * @version $Id: TrainingService.java 00000 Dec 14, 2018 pnedonosko $
@@ -83,9 +85,8 @@ public class TrainingService implements Startable {
   }
 
   /**
-   * Submits a new model to train in the training service. Respects current
-   * model status: if RETRY that model will be returned instead of creation of a
-   * new, If NEW or PROCESSING - cleans up it, if READY - creates a NEW version.
+   * Submits a new model to train in the training service. Respects current model status: if RETRY that model will be returned
+   * instead of creation of a new, If NEW or PROCESSING - cleans up it, if READY - creates a NEW version.
    *
    * @param userName the user name
    * @param dataset the dataset, can be <code>null</code>
@@ -120,8 +121,8 @@ public class TrainingService implements Startable {
   }
 
   /**
-   * Activates model by setting the modelFile, activatedDate, READY status
-   * Archives the old version of model, if exists. Deletes the dataset file.
+   * Activates model by setting the modelFile, activatedDate, READY status Archives the old version of model, if exists. Deletes
+   * the dataset file.
    *
    * @param model the model
    * @param modelFile to be set up
@@ -221,6 +222,66 @@ public class TrainingService implements Startable {
   }
 
   /**
+   * Gets the all models for given user, optionally filter them by specified type(s).
+   *
+   * @param userName the user name
+   * @param status the statuses to filter, if <code>null</code> or empty then no filtering will be applied
+   * @return the models
+   */
+  public List<ModelEntity> getModels(String userName, Status... status) {
+    List<ModelEntity> models = modelEntityDAO.findByName(userName);
+    if (status == null || status.length == 0) {
+      return models;
+    }
+    return models.stream().filter(m -> {
+      for (Status s : status) {
+        if (m.getStatus() == s) {
+          return true;
+        }
+      }
+      return false;
+    }).sorted(new Comparator<ModelEntity>() {
+      /**
+       * {@inheritDoc}
+       */
+      @Override
+      public int compare(ModelEntity m1, ModelEntity m2) {
+        // TODO Should we take in account a status? 
+        // READY seemed to be the last, but if not READY then need find latest ACHIEVED.
+        // return m1.getStatus().compareTo(m2.getStatus());
+        return m1.getVersion().compareTo(m2.getVersion());
+      }
+    }).collect(Collectors.toList());
+  }
+
+  /**
+   * Gets the available model for given user and, optionally, filter them by specified type(s). Under available model we assume
+   * READY and ARCHIEVED statuses.
+   *
+   * @param userName the user name
+   * @param modelType the model type to filter with, if <code>null</code> or empty then no filtering will be applied
+   * @return the available models
+   */
+  public ModelEntity getAvailableModel(String userName, String modelType) {
+    List<ModelEntity> availableModels = getModels(userName, Status.READY, Status.ARCHIEVED);
+    for (ModelEntity m : availableModels) {
+      UserDir userDir = fileStorage.findUserModel(m.getModelFile());
+      if (userDir != null) {
+        try {
+          if (modelType.equals(userDir.getScriptsDir().getMetadata().getType())) {
+            return m;
+          }
+        } catch (StorageException e) {
+          LOG.warn("Failed to read user dir metadata {}", userDir.getStoragePath(), e);
+        }
+      } else if (LOG.isDebugEnabled()) {
+        LOG.debug("User dir not found for {}[{}] model file {}", m.getName(), m.getVersion(), m.getModelFile());
+      }
+    }
+    return null;
+  }
+
+  /**
    * {@inheritDoc}
    */
   @Override
@@ -302,14 +363,12 @@ public class TrainingService implements Startable {
   }
 
   /**
-   * Submits model for training. If the training fails, it will attempt to train
-   * one more time. If will fail again, the model will get FAILED_TRAINING
-   * status.
+   * Submits model for training. If the training fails, it will attempt to train one more time. If will fail again, the model will
+   * get FAILED_TRAINING status.
    *
    * @param model the model
    * @param dataset the dataset file
-   * @param incremental if <code>true</code> an incremental training over
-   *          previous model will be attempted
+   * @param incremental if <code>true</code> an incremental training over previous model will be attempted
    */
   public void trainModel(ModelEntity model, ModelFile dataset, boolean incremental) {
     // We need last READY model to copy it for incremental training
@@ -462,9 +521,8 @@ public class TrainingService implements Startable {
   }
 
   /**
-   * Adds a scriptsExecutor plugin. This method is safe in runtime: if
-   * configured scriptsExecutor is not an instance of {@link ModelExecutor} then
-   * it will log a warning and let server continue the start.
+   * Adds a scriptsExecutor plugin. This method is safe in runtime: if configured scriptsExecutor is not an instance of
+   * {@link ModelExecutor} then it will log a warning and let server continue the start.
    *
    * @param plugin the plugin
    */
@@ -556,16 +614,14 @@ public class TrainingService implements Startable {
    * Gets the previous model of given model.
    *
    * @param model the model
-   * @return the previous model or <code>null</code> if model not found or not
-   *         valid
+   * @return the previous model or <code>null</code> if model not found or not valid
    */
   public ModelEntity getPreviousModel(ModelEntity model) {
     return getModel(model.getName(), model.getVersion() - 1L);
   }
 
   /**
-   * Checks if is model valid (has model file). If it is not, the model will be
-   * deleted by this method.
+   * Checks if is model valid (has model file). If it is not, the model will be deleted by this method.
    *
    * @param model the model
    * @return <code>true</code>, if is model valid

@@ -192,8 +192,7 @@ public class SocialDataCollectorService implements Startable {
   protected static final Pattern FINANCIAL_PATTERN    = Pattern.compile("^.*accountant|financial|investment|account manager.*$");
 
   /**
-   * The Constant EMPLOYEES_GROUPID - TODO better make it configurable. For
-   * /Groups/spaces/exo_employees.
+   * The Constant EMPLOYEES_GROUPID - TODO better make it configurable. For /Groups/spaces/exo_employees.
    */
   protected static final String  EMPLOYEES_GROUPID    = "/spaces/exo_employees";
 
@@ -211,8 +210,8 @@ public class SocialDataCollectorService implements Startable {
   protected static final String  DEVELOPING_PARAM     = "developing";
 
   /**
-   * Sneaky throw given exception. An idea grabbed from <a href=
-   * "https://www.baeldung.com/java-sneaky-throws">https://www.baeldung.com/java-sneaky-throws</a><br>
+   * Sneaky throw given exception. An idea grabbed from
+   * <a href= "https://www.baeldung.com/java-sneaky-throws">https://www.baeldung.com/java-sneaky-throws</a><br>
    *
    * @param <E> the element type
    * @param e the e
@@ -224,10 +223,8 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * The BucketWorker gets target users from login history or bucketRecords and
-   * processes them in mainQueue order. Collects a new dataset and sends it to
-   * TrainingService, if the user's model needs training. Schedules next
-   * execution in TRAIN_PERIOD ms.
+   * The BucketWorker gets target users from login history or bucketRecords and processes them in mainQueue order. Collects a new
+   * dataset and sends it to TrainingService, if the user's model needs training. Schedules next execution in TRAIN_PERIOD ms.
    */
   public class BucketWorker extends ContainerCommand {
     private AtomicBoolean runWorker = new AtomicBoolean(true);
@@ -319,9 +316,8 @@ public class SocialDataCollectorService implements Startable {
      * Checks if the model needs (re)training.
      * 
      * @param model to be checked
-     * @param checkpoint checkpoint date, a difference between this date and
-     *          given model activation will be tested to decide for training if
-     *          the model has new or ready status.
+     * @param checkpoint checkpoint date, a difference between this date and given model activation will be tested to decide for
+     *          training if the model has new or ready status.
      * @return true, if model needs (re)training, otherwise - false
      */
     boolean modelNeedsProcessing(ModelEntity model, Date checkpoint) {
@@ -413,8 +409,7 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * The StartWorker is used to perform first processing based on login history.
-   * Registers loginListener
+   * The StartWorker is used to perform first processing based on login history. Registers loginListener
    */
   public class StartWorker extends BucketWorker {
 
@@ -589,14 +584,12 @@ public class SocialDataCollectorService implements Startable {
   protected AtomicBoolean                                   runMainLoop         = new AtomicBoolean(false);
 
   /**
-   * The training period. It's the delay between processing buckets. It's 180min
-   * by default.
+   * The training period. It's the delay between processing buckets. It's 180min by default.
    */
   protected Long                                            trainingPeriod      = 180 * 60000L;
 
   /**
-   * The current worker that executes or is going to execute the main loop of
-   * collecting/training.
+   * The current worker that executes or is going to execute the main loop of collecting/training.
    */
   protected AtomicReference<BucketWorker>                   currentWorker       = new AtomicReference<>();
 
@@ -778,23 +771,19 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Start immediate collecting of training dataset and optionally invoke the
-   * user model training whit it.<br>
-   * Take in account: bucket name cannot starts with
-   * {@value #MAIN_BUCKET_PREFIX} if train=<code>false</code>, and if
-   * train=<code>true</code> and it starts with or <code>null</code>, then a
-   * next available bucket name will be used with this prefix.<br>
+   * Start immediate collecting of training dataset and optionally invoke the user model training whit it.<br>
+   * Take in account: bucket name cannot starts with {@value #MAIN_BUCKET_PREFIX} if train=<code>false</code>, and if
+   * train=<code>true</code> and it starts with or <code>null</code>, then a next available bucket name will be used with this
+   * prefix.<br>
    * Value of sinceTime may be ignored in case if train=<code>true</code>
    *
    * @param userName userName
    * @param bucketName bucket name
    * @param sinceTime the since time to collector a dataset
    * @param train will train the model if <code>true</code>
-   * @return the string with actually assigned bucket name for resulting dataset
-   *         and model (if train=<code>true</code>)
-   * @throws StorageException the storage exception if bucket name is not
-   *           acceptable, it cannot starts with {@value #MAIN_BUCKET_PREFIX} if
-   *           train=<code>false</code>
+   * @return the string with actually assigned bucket name for resulting dataset and model (if train=<code>true</code>)
+   * @throws StorageException the storage exception if bucket name is not acceptable, it cannot starts with
+   *           {@value #MAIN_BUCKET_PREFIX} if train=<code>false</code>
    */
   public String startUser(String userName, String bucketName, long sinceTime, boolean train) throws StorageException {
     // It should be possible to start training for an user immediately (but
@@ -841,51 +830,46 @@ public class SocialDataCollectorService implements Startable {
    * @param activities the activities to collect into dataset
    * @return the dataset for prediction
    */
-  public ModelFile collectActivities(Identity id, Collection<ExoSocialActivity> activities) {
-    ModelEntity model = lastModel(id.getRemoteId());
-    if (model != null && model.getStatus() == Status.READY) {
-      String modelPath = model.getModelFile();
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Collecting predicting dataset for model {}[{}] into {}", model.getName(), model.getVersion(), modelPath);
-      }
-      UserDir userDir = fileStorage.findUserModel(modelPath);
-      if (userDir != null) {
-        if (userDir.isValid()) {
-          ModelFile predictDataset = userDir.getPredictDataset();
-          try {
-            // TODO care about concurrent prediction by the same user (file
-            // lock) touch to have a new predict file
-            if (predictDataset.exists()) {
-              predictDataset.delete();
-            }
-            predictDataset.createNewFile();
-            try (PrintWriter writer = new PrintWriter(predictDataset)) {
-              UserSnapshot user = getUserSnapshot(predictDataset.getUserDir(), id);
-              if (user != null) {
-                writeUserActivities(user, activities.iterator(), writer, false);
-                if (LOG.isDebugEnabled()) {
-                  LOG.debug("Saved predicting dataset for model {}[{}] into {}",
-                            model.getName(),
-                            model.getVersion(),
-                            predictDataset.getModelPath());
-                }
-                return predictDataset;
-              } else {
-                LOG.warn("User snapshot not found for model {}[{}]", model.getName(), model.getVersion());
-              }
-            }
-          } catch (Exception e) {
-            LOG.error("Cannot collect predicting dataset for model {}[{}]", model.getName(), model.getVersion(), e);
+  public ModelFile collectActivities(Identity id, ModelEntity model, Collection<ExoSocialActivity> activities) {
+    String modelPath = model.getModelFile();
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Collecting predicting dataset for model {}[{}] into {}", model.getName(), model.getVersion(), modelPath);
+    }
+    UserDir userDir = fileStorage.findUserModel(modelPath);
+    if (userDir != null) {
+      if (userDir.isValid()) {
+        ModelFile predictDataset = userDir.getPredictDataset();
+        try {
+          // TODO care about concurrent prediction by the same user (file
+          // lock) touch to have a new predict file
+          if (predictDataset.exists()) {
             predictDataset.delete();
           }
-        } else {
-          LOG.warn("User model not valid {}[{}]", model.getName(), model.getVersion());
+          predictDataset.createNewFile();
+          try (PrintWriter writer = new PrintWriter(predictDataset)) {
+            UserSnapshot user = getUserSnapshot(predictDataset.getUserDir(), id);
+            if (user != null) {
+              writeUserActivities(user, activities.iterator(), writer, false);
+              if (LOG.isDebugEnabled()) {
+                LOG.debug("Saved predicting dataset for model {}[{}] into {}",
+                          model.getName(),
+                          model.getVersion(),
+                          predictDataset.getModelPath());
+              }
+              return predictDataset;
+            } else {
+              LOG.warn("User snapshot not found for model {}[{}]", model.getName(), model.getVersion());
+            }
+          }
+        } catch (Exception e) {
+          LOG.error("Cannot collect predicting dataset for model {}[{}]", model.getName(), model.getVersion(), e);
+          predictDataset.delete();
         }
       } else {
-        LOG.warn("User model storage not found for model {}[{}]", model.getName(), model.getVersion());
+        LOG.warn("User model not valid {}[{}]", model.getName(), model.getVersion());
       }
     } else {
-      LOG.warn("User model not found or not ready for {}", id.getRemoteId());
+      LOG.warn("User model storage not found for model {}[{}]", model.getName(), model.getVersion());
     }
     return null;
   }
@@ -895,18 +879,44 @@ public class SocialDataCollectorService implements Startable {
    *
    * @param id the social identity
    * @param activityIds the activity IDs
-   * @return the dataset for prediction
+   * @return the dataset for prediction or <code>null</code>
    */
   public ModelFile collectActivitiesByIds(Identity id, List<String> activityIds) {
     List<ExoSocialActivity> activities = activityManager.getActivities(activityIds);
-    return collectActivities(id, activities);
+    ModelEntity model = lastModel(id.getRemoteId(), Status.READY);
+    if (model != null) {
+      return collectActivities(id, model, activities);
+    } else {
+      LOG.warn("User model cannot be found for {}", id.getRemoteId());
+      return null;
+    }
+  }
+
+  /**
+   * Collect user activities into an inferring dataset (for prediction) of given model type.
+   *
+   * @param id the id
+   * @param activityIds the activity ids
+   * @param modelType the model type to use for inferring a prediction
+   * @return the model file or <code>null</code>
+   */
+  public ModelFile collectActivitiesByIds(Identity id, List<String> activityIds, String modelType) {
+    try {
+      ModelEntity model = trainingService.getAvailableModel(id.getRemoteId(), modelType);
+      if (model != null) {
+        List<ExoSocialActivity> activities = activityManager.getActivities(activityIds);
+        return collectActivities(id, model, activities); 
+      }
+    } catch (PersistenceException e) {
+      LOG.error("Error reading available model for {}", id.getRemoteId(), e);
+    }
+    return null;
   }
 
   /**
    * Stops the main loop (collecting and training).
    *
-   * @return <code>true</code>, if successfully stopped, <code>false</code> if
-   *         already stopped
+   * @return <code>true</code>, if successfully stopped, <code>false</code> if already stopped
    */
   public boolean stopMainLoop() {
     if (runMainLoop.getAndSet(false)) {
@@ -925,8 +935,7 @@ public class SocialDataCollectorService implements Startable {
   /**
    * Start the main loop (collecting and training).
    *
-   * @return <code>true</code>, if successfully started, <code>false</code> if
-   *         already started
+   * @return <code>true</code>, if successfully started, <code>false</code> if already started
    */
   public boolean startMainLoop() {
     if (runMainLoop.getAndSet(true)) {
@@ -948,9 +957,8 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Adds user to the training queue (main loop) for processing in the next
-   * bucket processing time. This methods produces the same effect as user login
-   * into the portal.
+   * Adds user to the training queue (main loop) for processing in the next bucket processing time. This methods produces the same
+   * effect as user login into the portal.
    *
    * @param userName the user to add
    */
@@ -964,13 +972,11 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Collect all users activities into files bucket, each file will have name of
-   * an user with <code>.csv</code> extension. If such folder already exists, it
-   * will overwrite the files that match found users. In case of error during
-   * the work, all partial results will be deleted.
+   * Collect all users activities into files bucket, each file will have name of an user with <code>.csv</code> extension. If such
+   * folder already exists, it will overwrite the files that match found users. In case of error during the work, all partial
+   * results will be deleted.
    *
-   * @param bucketName the bucketRecords name, can be <code>null</code> then a
-   *          timestamped name will be created
+   * @param bucketName the bucketRecords name, can be <code>null</code> then a timestamped name will be created
    * @return the saved bucket folder path
    * @throws Exception the exception
    */
@@ -1110,8 +1116,7 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Collects user's all activities in separate worker and train a model using
-   * it.
+   * Collects user's all activities in separate worker and train a model using it.
    *
    * @param job the internal process object describing the training
    */
@@ -2065,15 +2070,12 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Gets the group members Social IDs filtered optionally by given type(s). If
-   * no types given then all members will be returned. If types are given, then
-   * returned set will contain members sorted in order of given memberships.
-   * E.g. if types given ["manager", "member"], then the result will contain
-   * managers first, then members.
+   * Gets the group members Social IDs filtered optionally by given type(s). If no types given then all members will be returned.
+   * If types are given, then returned set will contain members sorted in order of given memberships. E.g. if types given
+   * ["manager", "member"], then the result will contain managers first, then members.
    *
    * @param groupId the group ID
-   * @param membershipTypes the membership types or <code>null</code> if need
-   *          return all members
+   * @param membershipTypes the membership types or <code>null</code> if need return all members
    * @return the group members IDs in a set
    */
   protected Set<String> getGroupMemberIds(String groupId, String... membershipTypes) {
@@ -2119,15 +2121,12 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Gets the group members user names filtered optionally by given type(s). If
-   * no types given then all members will be returned. If types are given, then
-   * returned set will contain members sorted in order of given memberships.
-   * E.g. if types given ["manager", "member"], then the result will contain
-   * managers first, then members.
+   * Gets the group members user names filtered optionally by given type(s). If no types given then all members will be returned.
+   * If types are given, then returned set will contain members sorted in order of given memberships. E.g. if types given
+   * ["manager", "member"], then the result will contain managers first, then members.
    *
    * @param groupId the group ID
-   * @param membershipTypes the membership types or <code>null</code> if need
-   *          return all members
+   * @param membershipTypes the membership types or <code>null</code> if need return all members
    * @return the group members user names in a set
    */
   protected Set<String> getGroupMemberNames(String groupId, String... membershipTypes) {
@@ -2373,8 +2372,7 @@ public class SocialDataCollectorService implements Startable {
   }
 
   /**
-   * Gets all focus users if some were added via
-   * {@link #addFocusGroupPlugin(ComponentPlugin)}. Otherwise return
+   * Gets all focus users if some were added via {@link #addFocusGroupPlugin(ComponentPlugin)}. Otherwise return
    * <code>null</code>.
    *
    * @return the focus users or <code>null</code>

@@ -1,5 +1,8 @@
 package org.exoplatform.prediction.model.dao;
 
+import java.util.Collections;
+import java.util.List;
+
 import javax.persistence.NoResultException;
 import javax.persistence.TypedQuery;
 
@@ -9,6 +12,16 @@ import org.exoplatform.prediction.model.domain.ModelEntity.Status;
 import org.exoplatform.prediction.model.domain.ModelId;
 
 public class ModelEntityDAO extends GenericDAOJPAImpl<ModelEntity, ModelId> {
+
+  public List<ModelEntity> findByName(String name) {
+    TypedQuery<ModelEntity> query = getEntityManager().createNamedQuery("PredictionModel.findByName", ModelEntity.class)
+                                                      .setParameter("name", name);
+    try {
+      return query.getResultList();
+    } catch (NoResultException e) {
+      return Collections.emptyList();
+    }
+  }
 
   public Status findStatusByNameAndVersion(String name, Long version) {
     TypedQuery<Status> query = getEntityManager().createNamedQuery("PredictionModel.findStatusByNameAndVersion", Status.class)

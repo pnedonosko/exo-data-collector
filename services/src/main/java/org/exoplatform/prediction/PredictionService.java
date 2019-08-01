@@ -45,8 +45,7 @@ import org.exoplatform.social.core.identity.model.Identity;
 import org.exoplatform.social.core.storage.api.ActivityStorage;
 
 /**
- * Service to predict predefined targets on already trained models (see
- * {@link TrainingService}).<br>
+ * Service to predict predefined targets on already trained models (see {@link TrainingService}).<br>
  * Created by The eXo Platform SAS
  * 
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
@@ -65,6 +64,8 @@ public class PredictionService implements Startable {
 
     protected final Identity     userIdentity;
 
+    protected final String       modelType;
+
     protected final List<String> idsOrdered = new ArrayList<>();
 
     /**
@@ -72,9 +73,10 @@ public class PredictionService implements Startable {
      *
      * @param userIdentity the user identity
      */
-    protected LazyPredictFileListAccess(Identity userIdentity) {
+    protected LazyPredictFileListAccess(Identity userIdentity, String modelType) {
       super(activityStorage, ActivityType.ACTIVITY_FEED, userIdentity);
       this.userIdentity = userIdentity;
+      this.modelType = modelType;
     }
 
     /**
@@ -170,33 +172,42 @@ public class PredictionService implements Startable {
       if (LOG.isDebugEnabled()) {
         LOG.debug("Activities order before prediction: {}", origin.stream().collect(Collectors.joining(" ")));
       }
-      List<String> ordered = new ArrayList<>();
-      ModelFile dataset = collector.collectActivitiesByIds(userIdentity, origin);
-      try {
-        ModelFile predicted = scriptsExecutor.predict(dataset);
+      ModelFile dataset;
+      if (modelType != null) {
+        dataset = collector.collectActivitiesByIds(userIdentity, origin, modelType);
+      } else {
+        dataset = collector.collectActivitiesByIds(userIdentity, origin);
+      }
+      if (dataset != null) {
+        List<String> ordered = new ArrayList<>();
         try {
-          // We skip a header at first line
-          Files.lines(predicted.toPath()).skip(1).forEach(ordered::add);
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("Activities order after prediction: {}", ordered.stream().collect(Collectors.joining(" ")));
+          ModelFile predicted = scriptsExecutor.predict(dataset);
+          try {
+            // We skip a header at first line
+            Files.lines(predicted.toPath()).skip(1).forEach(ordered::add);
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Activities order after prediction: {}", ordered.stream().collect(Collectors.joining(" ")));
+            }
+          } catch (IOException e) {
+            LOG.error("Cannot read the dataset after prediction", e);
+          } finally {
+            if (!collector.isDeveloping()) {
+              if (!predicted.delete()) {
+                LOG.warn("Unabled to delete predicted dataset {}", dataset.getAbsolutePath());
+              }
+            }
           }
-        } catch (IOException e) {
-          LOG.error("Cannot read the dataset after prediction", e);
         } finally {
           if (!collector.isDeveloping()) {
-            if (!predicted.delete()) {
-              LOG.warn("Unabled to delete predicted dataset {}", dataset.getAbsolutePath());
+            if (!dataset.delete()) {
+              LOG.warn("Unabled to delete prediction dataset {}", dataset.getAbsolutePath());
             }
           }
         }
-      } finally {
-        if (!collector.isDeveloping()) {
-          if (!dataset.delete()) {
-            LOG.warn("Unabled to delete prediction dataset {}", dataset.getAbsolutePath());
-          }
-        }
+        return ordered;
+      } else {
+        return Collections.emptyList();
       }
-      return ordered;
     }
   }
 
@@ -227,7 +238,18 @@ public class PredictionService implements Startable {
    * @return the user stream feed
    */
   public ActivitiesRealtimeListAccess getUserActivityFeed(Identity userIdentity) {
-    return new LazyPredictFileListAccess(userIdentity);
+    return new LazyPredictFileListAccess(userIdentity, null);
+  }
+
+  /**
+   * Gets the user activity stream feed predictions using given model type.
+   *
+   * @param userIdentity the user identity
+   * @param modelType the model type
+   * @return the user activity feed
+   */
+  public ActivitiesRealtimeListAccess getUserActivityFeed(Identity userIdentity, String modelType) {
+    return new LazyPredictFileListAccess(userIdentity, modelType);
   }
 
   /**
@@ -251,18 +273,25 @@ public class PredictionService implements Startable {
    * Checks if the model exists and has READY status
    * 
    * @param userName of model
-   * @return <code>true</code> if the model exists, with READY status and valid
-   *         files, <code>false</code> otherwise
+   * @return <code>true</code> if the model exists, with READY status and valid files, <code>false</code> otherwise
    */
   public boolean canPredict(String userName) {
     ModelEntity lastModel = lastModel(userName);
     return lastModel != null && lastModel.getStatus() == Status.READY;
   }
 
+  public boolean canPredictBy(String userName, String modelType) {
+    try {
+      return training.getAvailableModel(userName, modelType) != null;
+    } catch (PersistenceException e) {
+      LOG.error("Error reading available model of type {} for {}", modelType, userName, e);
+    }
+    return false;
+  }
+
   /**
-   * Adds a scriptsExecutor plugin. This method is safe in runtime: if
-   * configured scriptsExecutor is not an instance of {@link ModelExecutor} then
-   * it will log a warning and let server continue the start.
+   * Adds a scriptsExecutor plugin. This method is safe in runtime: if configured scriptsExecutor is not an instance of
+   * {@link ModelExecutor} then it will log a warning and let server continue the start.
    *
    * @param plugin the plugin
    */
