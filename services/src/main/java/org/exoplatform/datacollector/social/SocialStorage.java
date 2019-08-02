@@ -42,6 +42,11 @@ import org.exoplatform.social.core.storage.api.SpaceStorage;
  */
 public class SocialStorage implements Startable {
 
+  /**
+   * Same is in RDBMSRelationshipStorageImpl.
+   */
+  private static final char NULL_CHARACTER = '\u0000';
+
   @Deprecated
   protected class RDMBSActivitiesFeedListAccess extends ActivitiesRealtimeListAccess {
 
@@ -106,7 +111,13 @@ public class SocialStorage implements Startable {
    */
   public Set<String> getConnections(Identity id) {
     // Usage grabbed from RDBMSRelationshipStorageImpl.getConnections(id)
-    List<ConnectionEntity> conns = this.connsStorage.getConnections(id, Relationship.Type.CONFIRMED, 0, -1);
+    List<ConnectionEntity> conns = this.connsStorage.getConnections(id,
+                                                                    Relationship.Type.CONFIRMED,
+                                                                    null,
+                                                                    NULL_CHARACTER,
+                                                                    0,
+                                                                    -1,
+                                                                    null);
     Set<String> connIds = conns.stream().map(ce -> {
       String cid;
       if (id.getId().equals(cid = ce.getSender().getStringId())) {
