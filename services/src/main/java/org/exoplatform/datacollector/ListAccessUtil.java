@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
+import javax.enterprise.context.Dependent;
+
 import org.exoplatform.commons.api.persistence.ExoTransactional;
 import org.exoplatform.commons.utils.ListAccess;
 import org.exoplatform.services.log.ExoLogger;
@@ -293,6 +295,7 @@ public class ListAccessUtil {
    * @return the iterator
    * @throws Exception the exception
    */
+  @Dependent // TODO not used
   public static Iterator<ExoSocialActivity> loadActivitiesListIterator(RealtimeListAccess<ExoSocialActivity> list,
                                                                        int limit,
                                                                        boolean skipSame) throws Exception {
@@ -435,7 +438,7 @@ public class ListAccessUtil {
             next = iter.next();
             if (LOG.isDebugEnabled()) {
               if (next != null) {
-                LOG.debug(">> Load next activity from the iterator: {}, updated: {} ", next.getId(), next.getUpdated());
+                //LOG.debug(">> Load next activity from the iterator: {}, updated: {} ", next.getId(), next.getUpdated());
                 if (fetchedIds != null && fetchedIds.contains(next.getId())) {
                   LOG.debug(">>> Activity repeats in the iterator: {} and it will be skipped", next.getId());
                 }
