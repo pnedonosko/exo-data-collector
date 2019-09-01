@@ -230,6 +230,7 @@ public class SocialInfluencers {
 
   public static double sigmoid(double value) {
     // 1/(1+EXP(-LN(value)*2)) TODO *1.5 may produce a bit smaller values
+    // 1/(1+EXP(-LN(value)*1)) --   *1 produces even more smaller (< 0.9 max as for Aug 26, 2019)
     if (value != 0) {
       return round(1 / (1 + Math.exp(-1 * Math.log(value))), WEIGHT_PRECISION);
     }
@@ -257,8 +258,7 @@ public class SocialInfluencers {
   }
 
   public Map<String, Double> getFavoriteStreamsWeight() {
-    // TODO consider for caching of the calculated below until a new stream,
-    // will be added
+    // TODO consider for caching of the calculated below until a new stream, will be added
 
     // First get calculated stream weight
     Map<String, Double> weights = aggregateWeight(streams);
