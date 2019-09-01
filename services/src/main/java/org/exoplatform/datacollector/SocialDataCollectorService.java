@@ -176,6 +176,8 @@ public class SocialDataCollectorService implements Startable {
   public static final String     FINANCIAL_FOCUS      = "financial".intern();
 
   public static final String     OTHER_FOCUS          = "other".intern();
+  
+  public static final String     NO_FOCUS          = "".intern();
 
   protected static final Pattern ENGINEERING_PATTERN  =
                                                      Pattern.compile("^.*developer|architect|r&d|mobile|qa|fqa|tqa|test|quality|qualité|expert|integrator|designer|cwi|technical advisor|services delivery|software engineer.*$");
@@ -1522,13 +1524,13 @@ public class SocialDataCollectorService implements Startable {
          .append("is_liked_by_connections,")
          // Poster features
          .append("poster_id,")
-         //.append("poster_gender_male,")
-         //.append("poster_gender_female,")
-         .append("poster_gender,")
-         //.append("poster_is_employee,")
-         //.append("poster_is_lead,")
-         //.append("poster_is_in_connections,")
-         .append("poster_is,")
+         .append("poster_gender_male,")
+         .append("poster_gender_female,")
+         //.append("poster_gender,")
+         .append("poster_is_employee,")
+         .append("poster_is_lead,")
+         .append("poster_is_in_connections,")
+         //.append("poster_is,")
          //.append("poster_focus_engineering,")
          //.append("poster_focus_sales,")
          //.append("poster_focus_marketing,")
@@ -1536,6 +1538,7 @@ public class SocialDataCollectorService implements Startable {
          //.append("poster_focus_financial,")
          //.append("poster_focus_other,")
          .append("poster_focus,")
+         .append("poster_order,") // constant, highest scale here is 1
          .append("poster_influence,");
     for (int i = 1; i <= ACTIVITY_PARTICIPANTS_TOP; i++) {
       // Participant #N features
@@ -1556,18 +1559,22 @@ public class SocialDataCollectorService implements Startable {
            .append("is_lead,")
            .append(prefix)
            .append("is_in_connections,")
+           //.append(prefix)
+           //.append("focus_engineering,")
+           //.append(prefix)
+           //.append("focus_sales,")
+           //.append(prefix)
+           //.append("focus_marketing,")
+           //.append(prefix)
+           //.append("focus_management,")
+           //.append(prefix)
+           //.append("focus_financial,")
+           //.append(prefix)
+           //.append("focus_other,")
            .append(prefix)
-           .append("focus_engineering,")
+           .append("focus,")
            .append(prefix)
-           .append("focus_sales,")
-           .append(prefix)
-           .append("focus_marketing,")
-           .append(prefix)
-           .append("focus_management,")
-           .append(prefix)
-           .append("focus_financial,")
-           .append(prefix)
-           .append("focus_other,")
+           .append("order,")
            .append(prefix)
            .append("influence,");
     }
@@ -1691,7 +1698,8 @@ public class SocialDataCollectorService implements Startable {
       aline.append('1').append(',');
       // poster_focus_*: poster job position as team membership encoded
       // TODO may be we would provide a focus of this space regarding the user?
-      encFocus(aline, null).append(',');
+      //encFocus(aline, null).append(',');
+      aline.append(NO_FOCUS).append(',');
     } else {
       UserIdentity poster = getUserIdentityById(posterId);
       // TODO poster full name?
@@ -1705,8 +1713,11 @@ public class SocialDataCollectorService implements Startable {
       // poster_is_in_connections
       aline.append(myConns.contains(posterId) ? '1' : '0').append(',');
       // poster_focus_*: poster job position as team membership encoded
-      encFocus(aline, poster).append(',');
+      //encFocus(aline, poster).append(',');
+      aline.append(poster.getFocus()).append(',');
     }
+    // poster_order
+    aline.append(ACTIVITY_PARTICIPANTS_TOP + 1).append(',');
     // poster_influence
     double posterWeight = user.getInfluencers().getParticipantWeight(posterId, ownerId);
     aline.append(posterWeight).append(',');
@@ -1738,7 +1749,10 @@ public class SocialDataCollectorService implements Startable {
       // participantN_is_in_connections
       aline.append(myConns.contains(p.id) ? '1' : '0').append(',');
       // participantN_focus_*: job position as team membership encoded
-      encFocus(aline, part).append(',');
+      //encFocus(aline, part).append(',');
+      aline.append(part.getFocus()).append(',');
+      // participantN_order
+      aline.append(ACTIVITY_PARTICIPANTS_TOP - added).append(',');
       // participantN_influence
       double pweight = user.getInfluencers().getParticipantWeight(p.id, ownerId);
       aline.append(pweight).append(',');
@@ -1772,7 +1786,10 @@ public class SocialDataCollectorService implements Startable {
       // participantN_is_in_connections
       aline.append("0,");
       // participantN_focus_*: job position as team membership encoded
-      encFocus(aline, null).append(',');
+      //encFocus(aline, null).append(',');
+      aline.append(NO_FOCUS).append(',');
+      // participantN_order
+      aline.append("0,");
       // participantN_influence
       aline.append("0,");
     }
