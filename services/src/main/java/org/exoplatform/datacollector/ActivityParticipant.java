@@ -9,6 +9,8 @@ public class ActivityParticipant {
   final Integer isConversed;
 
   final Integer isFavored;
+  
+  final String action;
 
   ActivityParticipant(String id, Boolean isConversed, Boolean isFavored) {
     super();
@@ -24,6 +26,14 @@ public class ActivityParticipant {
       throw new NullPointerException("isFavored should be not null");
     }
     this.isFavored = isFavored ? 1 : 0;
+    // Sep 2, 2019: categorical feature 'action':
+    if (this.isConversed == 1) {
+      this.action = "commented";
+    } else if (this.isFavored == 1) {
+      this.action = "liked";
+    } else {
+      this.action = "viewed";
+    }
   }
 
   @Override

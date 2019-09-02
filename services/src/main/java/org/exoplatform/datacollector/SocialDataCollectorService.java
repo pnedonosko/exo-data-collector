@@ -1550,6 +1550,8 @@ public class SocialDataCollectorService implements Startable {
            .append(prefix)
            .append("favored,")
            .append(prefix)
+           .append("action,")
+           .append(prefix)
            .append("gender_male,")
            .append(prefix)
            .append("gender_female,")
@@ -1737,6 +1739,8 @@ public class SocialDataCollectorService implements Startable {
       aline.append(p.isConversed).append(',');
       // participantN_favored
       aline.append(p.isFavored).append(',');
+      // participantN_action
+      aline.append(p.action).append(',');
       //
       UserIdentity part = getUserIdentityById(p.id);
       // participantN_gender: encoded
