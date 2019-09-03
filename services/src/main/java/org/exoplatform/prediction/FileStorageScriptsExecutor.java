@@ -96,7 +96,7 @@ public abstract class FileStorageScriptsExecutor extends BaseComponentPlugin imp
         }
         log.info("> " + s);
       }
-      if (errors.size() >= 0) {
+      if (errors.size() > 0) {
         throw new ModelExecutorException("Executor error: " + errors.stream().collect(Collectors.joining(". ")));
       }
     }
