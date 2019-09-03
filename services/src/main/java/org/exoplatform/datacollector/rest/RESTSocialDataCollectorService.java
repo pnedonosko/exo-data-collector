@@ -103,7 +103,7 @@ public class RESTSocialDataCollectorService implements ResourceContainer {
     // TODO add @QueryParam("sinceTime") and use it to collect custom
     // datasets/models for experiments
     try {
-      long sinceTime = System.currentTimeMillis() - SocialInfluencers.FEED_MILLIS_RANGE;
+      long sinceTime = System.currentTimeMillis() - SocialInfluencers.FEED_RANGE_MILLIS;
       dataCollector.startUser(userName, bucketName, sinceTime, isTrain != null ? Boolean.valueOf(isTrain) : false);
       return Response.ok().entity("{ \"status\": \"ACCEPTED\", \"userDir\": " + bucketName + "/" + userName + "}").build();
     } catch (Exception e) {

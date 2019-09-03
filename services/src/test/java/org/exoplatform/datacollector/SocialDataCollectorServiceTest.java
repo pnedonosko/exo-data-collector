@@ -78,7 +78,7 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
         PrintWriter writer = new PrintWriter(file);
 
         begin();
-        long sinceTime = System.currentTimeMillis() - SocialInfluencers.FEED_MILLIS_RANGE;
+        long sinceTime = System.currentTimeMillis() - SocialInfluencers.FEED_RANGE_MILLIS;
         Identity id = dataCollector.getUserIdentityById(jasonId);
         UserSnapshot user = dataCollector.createUserSnapshot(id);
         user.initInfluencers();

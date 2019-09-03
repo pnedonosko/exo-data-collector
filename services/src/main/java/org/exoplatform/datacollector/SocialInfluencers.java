@@ -69,11 +69,15 @@ public class SocialInfluencers {
   /** The Constant FEED_DAYS_RANGE = 2 years long. */
   public static final int       FEED_DAYS_RANGE               = 731;
 
-  public static final long      FEED_MILLIS_RANGE             = FEED_DAYS_RANGE * DAY_LENGTH_MILLIS;
+  public static final long      FEED_RANGE_MILLIS             = FEED_DAYS_RANGE * DAY_LENGTH_MILLIS;
 
-  public static final long      FEED_INCREMENTAL_DAYS_RANGE   = 5;
+  public static final long      FEED_INCREMENTAL_GAP_DAYS_RANGE   = 2;
+  
+  public static final long      FEED_INCREMENTAL_GAP_MILLIS       = FEED_INCREMENTAL_GAP_DAYS_RANGE * DAY_LENGTH_MILLIS;
+  
+  public static final long      FEED_TRANING_GAP_DAYS_RANGE   = 1;
 
-  public static final long      FEED_INCREMENTAL_MILLIS_RANGE = FEED_INCREMENTAL_DAYS_RANGE * DAY_LENGTH_MILLIS;
+  public static final long      FEED_TRANING_GAP_MILLIS       = FEED_TRANING_GAP_DAYS_RANGE * DAY_LENGTH_MILLIS;
 
   public static final double    REACTIVITY_DAY_WEIGHT_GROW    = 0.7;
 

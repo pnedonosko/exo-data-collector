@@ -40,7 +40,7 @@ public class ActivityDAOTest extends BaseActivityTestCase {
   protected void beforeClass() {
     super.beforeClass();
 
-    sinceTime = System.currentTimeMillis() - SocialInfluencers.FEED_MILLIS_RANGE;
+    sinceTime = System.currentTimeMillis() - SocialInfluencers.FEED_RANGE_MILLIS;
 
     activityCommentDAO = getService(ActivityCommentedDAO.class);
     activityPostedDAO = getService(ActivityPostedDAO.class);

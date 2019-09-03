@@ -177,7 +177,7 @@ public class SocialDataCollectorService implements Startable {
 
   public static final String     OTHER_FOCUS          = "other".intern();
   
-  public static final String     NO_FOCUS          = "".intern();
+  public static final String     NO_FOCUS          = "none".intern();
 
   protected static final Pattern ENGINEERING_PATTERN  =
                                                      Pattern.compile("^.*developer|architect|r&d|mobile|qa|fqa|tqa|test|quality|qualité|expert|integrator|designer|cwi|technical advisor|services delivery|software engineer.*$");
@@ -988,7 +988,7 @@ public class SocialDataCollectorService implements Startable {
     // Go through all users in the organization and swap their datasets
     // into separate data stream, then feed them to the Training Service
 
-    long sinceTime = System.currentTimeMillis() - SocialInfluencers.FEED_MILLIS_RANGE;
+    long sinceTime = System.currentTimeMillis() - SocialInfluencers.FEED_RANGE_MILLIS;
 
     Iterator<Identity> idIter = loadListIterator(identityManager.getIdentitiesByProfileFilter(OrganizationIdentityProvider.NAME,
                                                                                               new ProfileFilter(),
@@ -1185,12 +1185,13 @@ public class SocialDataCollectorService implements Startable {
               // by TrainingService if more fresh version of scripts will be
               // found in work dir.
               incrementally = true;
-              // We re-train over a week before the previous model did, this way
-              // we take in account later user reactions on activities that
-              // already have been trained by previous READY model.
-              job.sinceTime.set(readyModel.getCreated().getTime() - SocialInfluencers.FEED_INCREMENTAL_MILLIS_RANGE);
+              // XXX We re-train over a gap in time before the previous model dataset end, 
+              // plus extra gap to take in account later user reactions on activities that 
+              // have be trained by previous READY model.
+              job.sinceTime.set(readyModel.getCreated().getTime() - SocialInfluencers.FEED_TRANING_GAP_MILLIS
+                  - SocialInfluencers.FEED_INCREMENTAL_GAP_DAYS_RANGE);
             } else {
-              job.sinceTime.set(System.currentTimeMillis() - SocialInfluencers.FEED_MILLIS_RANGE);
+              job.sinceTime.set(System.currentTimeMillis() - SocialInfluencers.FEED_RANGE_MILLIS);
             }
           }
           if (currentModel == null) {
@@ -1314,9 +1315,14 @@ public class SocialDataCollectorService implements Startable {
     out.println(activityHeader(forTraining));
 
     // load identity's activities and collect its data
+    long nowTime = System.currentTimeMillis();
     while (activities.hasNext() && !Thread.currentThread().isInterrupted()) {
       ExoSocialActivity activity = activities.next();
-      out.println(activityLine(user, activity, forTraining));
+      if (!forTraining || nowTime - activity.getUpdated().getTime() >= SocialInfluencers.FEED_TRANING_GAP_MILLIS) {
+        // in case of training dataset we write only activities older of a gap period, we don't want train on 
+        // fresh activities as they not fully done in sense of possible conversations (comments, likes) 
+        out.println(activityLine(user, activity, forTraining));
+      }
     }
 
     if (Thread.currentThread().isInterrupted()) {
@@ -1380,7 +1386,7 @@ public class SocialDataCollectorService implements Startable {
       // XXX sinceTime here may not be the same as for activities until
       // we'll make UserInfluecners incrementally maintained and load them
       // from DB
-      initializeUserSnapshot(user, System.currentTimeMillis() - SocialInfluencers.FEED_MILLIS_RANGE);
+      initializeUserSnapshot(user, System.currentTimeMillis() - SocialInfluencers.FEED_RANGE_MILLIS);
       // Save the snapshot in user dir
       Files.write(userFile.toPath(), user.toJson().getBytes());
     }
@@ -1501,6 +1507,10 @@ public class SocialDataCollectorService implements Startable {
     StringBuilder aline = new StringBuilder();
     aline.append("id,")
          // .append("title,")
+         .append("posted_time,")
+         .append("updated_time,")
+         .append("age,")
+         .append("updated_age,")
          .append("type_content,")
          .append("type_social,")
          .append("type_calendar,")
@@ -1519,24 +1529,24 @@ public class SocialDataCollectorService implements Startable {
          .append("is_mentions_me,")
          .append("is_mentions_connections,")
          .append("is_commented_by_me,")
-         .append("is_commented_by_connetions,")
+         .append("is_commented_by_connections,")
          .append("is_liked_by_me,")
          .append("is_liked_by_connections,")
          // Poster features
          .append("poster_id,")
          .append("poster_gender_male,")
          .append("poster_gender_female,")
-         //.append("poster_gender,")
+         // .append("poster_gender,")
          .append("poster_is_employee,")
          .append("poster_is_lead,")
          .append("poster_is_in_connections,")
-         //.append("poster_is,")
-         //.append("poster_focus_engineering,")
-         //.append("poster_focus_sales,")
-         //.append("poster_focus_marketing,")
-         //.append("poster_focus_management,")
-         //.append("poster_focus_financial,")
-         //.append("poster_focus_other,")
+         // .append("poster_is,")
+         // .append("poster_focus_engineering,")
+         // .append("poster_focus_sales,")
+         // .append("poster_focus_marketing,")
+         // .append("poster_focus_management,")
+         // .append("poster_focus_financial,")
+         // .append("poster_focus_other,")
          .append("poster_focus,")
          .append("poster_order,") // constant, highest scale here is 1
          .append("poster_influence,");
@@ -1561,18 +1571,18 @@ public class SocialDataCollectorService implements Startable {
            .append("is_lead,")
            .append(prefix)
            .append("is_in_connections,")
-           //.append(prefix)
-           //.append("focus_engineering,")
-           //.append(prefix)
-           //.append("focus_sales,")
-           //.append(prefix)
-           //.append("focus_marketing,")
-           //.append(prefix)
-           //.append("focus_management,")
-           //.append(prefix)
-           //.append("focus_financial,")
-           //.append(prefix)
-           //.append("focus_other,")
+           // .append(prefix)
+           // .append("focus_engineering,")
+           // .append(prefix)
+           // .append("focus_sales,")
+           // .append(prefix)
+           // .append("focus_marketing,")
+           // .append(prefix)
+           // .append("focus_management,")
+           // .append(prefix)
+           // .append("focus_financial,")
+           // .append(prefix)
+           // .append("focus_other,")
            .append(prefix)
            .append("focus,")
            .append(prefix)
@@ -1598,6 +1608,16 @@ public class SocialDataCollectorService implements Startable {
     aline.append(activity.getId()).append(',');
     // title: escape comma in the text to avoid problems with separator
     // aline.append(activity.getTitle().replace(',', '_')).append(',');
+    // posted_time
+    aline.append(activity.getPostedTime()).append(',');
+    // updated_time
+    Date updated = activity.getUpdated();
+    aline.append(updated.getTime()).append(',');
+    long now = System.currentTimeMillis();
+    // age
+    aline.append(now - activity.getPostedTime()).append(',');
+    // updated_age
+    aline.append(now - updated.getTime()).append(',');
     // type: encoded
     encActivityType(aline, activity.getType()).append(',');
     // app ID: TODO need it?
@@ -1643,8 +1663,9 @@ public class SocialDataCollectorService implements Startable {
     // login and the reaction? Indeed this may be not accurate.
     // Reactivity has different logic for training and prediction:
     // * when training, we want know actual user reaction on the post;
-    // * when predicting, a reaction is unknown and reactivity is full (1).
-    double reactivity = forTraining ? reactivity = user.getInfluencers().getPostReactivity(activity.getId()) : 1;
+    // * when predicting, a reaction is unknown and reactivity is full (1) or undefined (0)?
+    // TODO Reactivity should not be used by training/prediction directly, it's part of the label (rank)
+    double reactivity = forTraining ? reactivity = user.getInfluencers().getPostReactivity(activity.getId()) : 0;
     aline.append(reactivity).append(',');
 
     final String myId = user.getIdentity().getId();
