@@ -20,6 +20,7 @@ package org.exoplatform.prediction;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -34,8 +35,7 @@ import org.exoplatform.datacollector.storage.FileStorage.ScriptFile;
 import org.exoplatform.services.log.Log;
 
 /**
- * Abstract FileStorageScriptsExecutor to executes scripts from
- * {@link FileStorage}.
+ * Abstract FileStorageScriptsExecutor to executes scripts from {@link FileStorage}.
  */
 public abstract class FileStorageScriptsExecutor extends BaseComponentPlugin implements ModelExecutor {
 
@@ -46,13 +46,13 @@ public abstract class FileStorageScriptsExecutor extends BaseComponentPlugin imp
   }
 
   @Override
-  public ModelDir train(ModelFile dataset) {
+  public ModelDir train(ModelFile dataset) throws ModelExecutorException {
     execute(dataset, dataset.getUserDir().getScriptsDir().getTrainingScript()); // fileStorage.getTrainingScript()
     return dataset.getUserDir().getModelDir();
   }
 
   @Override
-  public ModelFile predict(ModelFile dataset) {
+  public ModelFile predict(ModelFile dataset) throws ModelExecutorException {
     execute(dataset, dataset.getUserDir().getScriptsDir().getPredictionScript()); // fileStorage.getPredictionScript());
     return dataset.getUserDir().getPredictedDataset();
   }
@@ -73,7 +73,7 @@ public abstract class FileStorageScriptsExecutor extends BaseComponentPlugin imp
    * @param process the process
    * @param log the log
    */
-  protected void logOutput(Process process, Log log) {
+  protected void logOutput(Process process, Log log) throws ModelExecutorException {
     if (log.isDebugEnabled()) {
       BufferedReader processOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
       Collection<String> allOut = processOut.lines().collect(Collectors.toList());
@@ -88,17 +88,26 @@ public abstract class FileStorageScriptsExecutor extends BaseComponentPlugin imp
     List<String> allErr = processErr.lines().collect(Collectors.toList());
     if (allErr.size() > 0) {
       log.info("Error output of process:");
+      List<String> errors = new ArrayList<>();
       for (String s : allErr) {
+        if (s != null && s.indexOf("Error response from daemon") >= 0 && s.indexOf("Container") >= 0) {
+          // Docker error: cannot find a container
+          errors.add(s);
+        }
         log.info("> " + s);
+      }
+      if (errors.size() >= 0) {
+        throw new ModelExecutorException("Executor error: " + errors.stream().collect(Collectors.joining(". ")));
       }
     }
   }
 
   /**
    * Executes the script and passes the dataset as an argument.
-   * 
+   *
    * @param dataset to be processed
    * @param script to be executed
+   * @throws ModelExecutorException the model executor exception
    */
-  protected abstract void execute(ModelFile dataset, ScriptFile script);
+  protected abstract void execute(ModelFile dataset, ScriptFile script) throws ModelExecutorException;
 }

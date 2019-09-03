@@ -197,6 +197,9 @@ public class PredictionService implements Startable {
               }
             }
           }
+        } catch(ModelExecutorException e) {
+          LOG.error("Unabled to predict using dataset {}", dataset.getAbsolutePath(), e);
+          return Collections.emptyList();
         } finally {
           if (!collector.isDeveloping()) {
             if (!dataset.delete()) {

@@ -40,7 +40,7 @@ public class NativeScriptsExecutor extends FileStorageScriptsExecutor {
    * @param dataset to be processed
    * @param script to be executed
    */
-  protected void execute(ModelFile dataset, ScriptFile script) {
+  protected void execute(ModelFile dataset, ScriptFile script) throws ModelExecutorException {
     if (LOG.isDebugEnabled()) {
       LOG.debug("> Executing command " + script.getName() + " for " + dataset.getModelPath());
     }

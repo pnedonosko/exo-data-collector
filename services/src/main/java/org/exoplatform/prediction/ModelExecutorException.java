@@ -18,29 +18,36 @@
  */
 package org.exoplatform.prediction;
 
-import org.exoplatform.datacollector.storage.FileStorage.ModelDir;
-import org.exoplatform.datacollector.storage.FileStorage.ModelFile;
-
 /**
- * Machine learning model executor.
+ * Created by The eXo Platform SAS
+ * 
+ * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
+ * @version $Id: ModelExecutorException.java 00000 Sep 3, 2019 pnedonosko $
  */
-public interface ModelExecutor {
+public class ModelExecutorException extends Exception {
 
   /**
-   * Train a model using given dataset.
-   *
-   * @param dataset the dataset
-   * @return the model folder
-   * @throws ModelExecutorException the model executor exception
+   * 
    */
-  ModelDir train(ModelFile dataset) throws ModelExecutorException;
+  private static final long serialVersionUID = -6970857740758036417L;
 
   /**
-   * Predict by a model associated with given dataset.
+   * Instantiates a new model executor exception.
    *
-   * @param dataset the inferring dataset
-   * @return the predicted dataset
-   * @throws ModelExecutorException the model executor exception
+   * @param message the message
    */
-  ModelFile predict(ModelFile dataset) throws ModelExecutorException;
+  public ModelExecutorException(String message) {
+    super(message);
+  }
+
+  /**
+   * Instantiates a new model executor exception.
+   *
+   * @param message the message
+   * @param cause the cause
+   */
+  public ModelExecutorException(String message, Throwable cause) {
+    super(message, cause);
+  }
+
 }
