@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,7 +20,7 @@ import java.util.stream.Collectors;
 
 import org.junit.Test;
 
-import com.google.caja.util.Sets;
+//import com.google.caja.util.Sets; // TODO see below
 import com.google.common.primitives.Doubles;
 
 import org.exoplatform.component.test.ConfigurationUnit;
@@ -175,7 +176,8 @@ public class SocialDataCollectorServiceTest extends BaseActivityTestCase {
 
     // There are a lot of bit columns. Consider all columns that are not STRING,
     // INTEGER or FLOAT columns as BIT columns.
-    Set<String> bitColumns = Sets.newHashSet(columnTitles);
+    Set<String> bitColumns = new LinkedHashSet<>(); // TODO was .Sets.newHashSet(columnTitles);
+    bitColumns.addAll(Arrays.asList(columnTitles));
     bitColumns.removeAll(Arrays.asList(INTEGER_COLUMNS));
     bitColumns.removeAll(Arrays.asList(FLOAT_COLUMNS));
     bitColumns.removeAll(Arrays.asList(STRING_COLUMNS));
