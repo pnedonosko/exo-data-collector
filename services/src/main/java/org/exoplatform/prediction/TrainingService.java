@@ -247,9 +247,9 @@ public class TrainingService implements Startable {
       @Override
       public int compare(ModelEntity m1, ModelEntity m2) {
         // TODO Should we take in account a status? 
-        // READY seemed to be the last, but if not READY then need find latest ACHIEVED.
+        // READY seemed to be the first, but if no READY then need find latest ACHIEVED.
         // return m1.getStatus().compareTo(m2.getStatus());
-        return m1.getVersion().compareTo(m2.getVersion());
+        return m2.getVersion().compareTo(m1.getVersion());
       }
     }).collect(Collectors.toList());
   }
